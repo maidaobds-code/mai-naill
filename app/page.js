@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Sidebar from "../components/SidebarEnhanced";
 import Dashboard from "../components/DashboardEnhanced";
-import CalendarEnhanced from "../components/CalendarPlanner";
+import CalendarEnhanced from "../components/CalendarResourceTimeline";
 import Customers from "../components/CustomersEnhanced";
 import Products from "../components/Products";
 import Inventory from "../components/Inventory";

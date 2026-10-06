@@ -10,6 +10,9 @@ const slots = [
 ];
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthDays = Array.from({ length: 31 }, (_, index) => index + 1);
+const intervalSlots = slots.slice(0, -1);
+const timelineStart = 9 * 60;
+const timelineEnd = 21 * 60;
 
 function platformFor(id) {
   return platforms.find((platform) => platform.id === id) || platforms[0];
@@ -21,6 +24,21 @@ function staffFor(name) {
 
 function bookingDay(booking) {
   return booking.day || 6;
+}
+
+function toMinutes(time) {
+  const [hour, minute] = time.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function bookingStyle(booking) {
+  const start = Math.max(timelineStart, toMinutes(booking.start));
+  const end = Math.min(timelineEnd, toMinutes(booking.end));
+  const total = timelineEnd - timelineStart;
+  return {
+    left: `${((start - timelineStart) / total) * 100}%`,
+    width: `${Math.max(5, ((end - start) / total) * 100)}%`,
+  };
 }
 
 function blankBooking(day, hour, member) {
