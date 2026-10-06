@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { bookings as seedBookings, platforms, staff } from "../lib/salonData";
 
 const slots = [
@@ -62,6 +62,7 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
   const [selected, setSelected] = useState({ ...seedBookings[0], day: 6 });
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
+  const pressRef = useRef(null);
   const bookings = useMemo(() => seedBookings.map((booking, index) => ({ ...booking, day: [6, 6, 7, 8, 10, 12][index] || 6 })), []);
   const selectedDayBookings = bookings.filter((booking) => bookingDay(booking) === selectedDay);
   const weekTotal = bookings.filter((booking) => bookingDay(booking) >= 6 && bookingDay(booking) <= 12).length;
@@ -75,10 +76,10 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
   }
 
   function beginSelect(hour, member) {
-    setDragStart({ hour, member });
+    setDragStart({ hour, member, startedAt: Date.now() });
   }
 
-  function finishSelect(hour, member) {
+  function openSelection(hour, member) {
     if (!dragStart || dragStart.member.id !== member.id) {
       setSelected(blankBooking(selectedDay, hour, member));
       setModalOpen(true);
@@ -92,6 +93,27 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
     setSelected({ ...blankBooking(selectedDay, slots[firstIndex], member), end: slots[Math.min(lastIndex + 1, slots.length - 1)] });
     setModalOpen(true);
     setDragStart(null);
+  }
+
+  function finishSelect(hour, member) {
+    if (!dragStart) return;
+    if (Date.now() - dragStart.startedAt < 850) {
+      setDragStart(null);
+      return;
+    }
+    openSelection(hour, member);
+  }
+
+  function openBookingAfterHold(booking) {
+    clearTimeout(pressRef.current);
+    pressRef.current = setTimeout(() => {
+      setSelected(booking);
+      setModalOpen(true);
+    }, 900);
+  }
+
+  function cancelHold() {
+    clearTimeout(pressRef.current);
   }
 
   return (
@@ -146,6 +168,7 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
                           onMouseUp={() => finishSelect(hour, member)}
                           onTouchStart={() => beginSelect(hour, member)}
                           onTouchEnd={() => finishSelect(hour, member)}
+                          onDoubleClick={() => { setSelected(blankBooking(selectedDay, hour, member)); setModalOpen(true); }}
                         />
                       ))}
                     </div>
@@ -156,7 +179,12 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
                           className={selected.id === booking.id ? "timelineBooking selectedBar" : "timelineBooking"}
                           key={booking.id}
                           style={{ ...bookingStyle(booking), borderColor: member.color, background: `${member.color}2b` }}
-                          onClick={() => { setSelected(booking); setModalOpen(true); }}
+                          onMouseDown={() => openBookingAfterHold(booking)}
+                          onMouseUp={cancelHold}
+                          onMouseLeave={cancelHold}
+                          onTouchStart={() => openBookingAfterHold(booking)}
+                          onTouchEnd={cancelHold}
+                          onDoubleClick={() => { setSelected(booking); setModalOpen(true); }}
                         >
                           <strong>{booking.start} - {booking.end}</strong>
                           <span>{booking.customer}</span>
@@ -205,7 +233,11 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
               <label>Start<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
               <label>End<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
             </div>
-            <div className="modalActions"><button className="ghost" onClick={() => setModalOpen(false)}>Cancel</button><button className="primary" onClick={() => setModalOpen(false)}>Save and sync blocks</button></div>
+            <div className="modalActions">
+              <button className="ghost dangerButton" onClick={() => setModalOpen(false)}>Delete booking</button>
+              <button className="ghost" onClick={() => setModalOpen(false)}>Cancel</button>
+              <button className="primary" onClick={() => setModalOpen(false)}>Save and sync blocks</button>
+            </div>
           </div>
         </div>
       )}
