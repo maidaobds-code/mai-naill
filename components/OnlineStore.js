@@ -1,5 +1,6 @@
 "use client";
 import { getProductSummary } from "../lib/ecommerce/data";
+import { staff } from "../lib/salonData";
 
 function money(value) {
   return `¥${value.toLocaleString("ja-JP")}`;
@@ -37,6 +38,18 @@ export default function OnlineStore() {
           </article>
         ))}
       </div>
+      <section className="card storeBooking">
+        <div className="sectionTitle"><div><h2>Đặt lịch hẹn nail</h2><p>Khách chọn dịch vụ, chi nhánh, ngày giờ; chỉ hiển thị nhân viên phù hợp còn trống đủ thời lượng.</p></div><button className="primary">Xác nhận đặt lịch</button></div>
+        <div className="staffForm">
+          <label>Dịch vụ<select><option>Gel One Color - 75 phút</option><option>Magnet + Art - 90 phút</option></select></label>
+          <label>Chi nhánh<select><option>Glass Nail Shinjuku</option><option>Glass Nail Ikebukuro</option></select></label>
+          <label>Ngày<input type="date" defaultValue="2026-10-06" /></label>
+          <label>Giờ<select><option>10:00</option><option>11:30</option><option>14:00</option></select></label>
+          <label>Chỉ định nhân viên<select><option>Không chỉ định</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label>
+          <label>Khách hàng<input placeholder="Tên và số điện thoại" /></label>
+        </div>
+        <p className="storeNote">Production sẽ kiểm tra trùng lịch bằng transaction Supabase rồi tạo appointment và realtime về lịch quản lý.</p>
+      </section>
     </>
   );
 }

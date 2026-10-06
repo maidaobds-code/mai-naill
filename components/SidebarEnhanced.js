@@ -1,17 +1,17 @@
 "use client";
-import { languages, t } from "../lib/i18n";
+import { languages, t } from "../lib/i18nClean";
 
 const items = [
   ["C", "Calendar", "calendar"],
   ["D", "Dashboard", "dashboard"],
   ["U", "Customers", "customers"],
   ["S", "Staff", "staff"],
+  ["M", "Services", "services"],
   ["P", "POS / Checkout", "checkout"],
   ["Y", "Payroll", "payroll"],
   ["X", "Integrations", "integrations"],
   ["R", "Reports", "reports"],
-  ["B", "Products", "products"],
-  ["I", "Inventory", "inventory"],
+  ["B", "ProductsInventory", "productsInventory"],
   ["O", "Online Store", "onlineStore"],
   ["N", "Orders", "orders"],
   ["T", "Settings", "settings"],

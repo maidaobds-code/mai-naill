@@ -5,26 +5,26 @@ import Dashboard from "../components/DashboardEnhanced";
 import CalendarEnhanced from "../components/CalendarResourceTimeline";
 import Customers from "../components/CustomersEnhanced";
 import StaffManagement from "../components/StaffManagement";
-import Products from "../components/Products";
-import Inventory from "../components/Inventory";
+import ProductInventory from "../components/ProductInventory";
+import ServiceMenu from "../components/ServiceMenu";
 import OnlineStore from "../components/OnlineStore";
 import Orders from "../components/Orders";
 import Integrations from "../components/Integrations";
 import Payroll from "../components/Payroll";
 import Checkout from "../components/Checkout";
 import GenericModule from "../components/GenericModule";
-import { t } from "../lib/i18n";
+import { t } from "../lib/i18nClean";
 
 export default function Home() {
   const [active, setActive] = useState("Calendar");
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState("vi");
   let content = <Dashboard />;
 
-  if (active === "Calendar") content = <CalendarEnhanced label={t(language, "calendar")} />;
+  if (active === "Calendar") content = <CalendarEnhanced label={t(language, "calendar")} onCheckout={() => setActive("POS / Checkout")} />;
   else if (active === "Customers") content = <Customers label={t(language, "customers")} />;
   else if (active === "Staff") content = <StaffManagement label={t(language, "staff")} />;
-  else if (active === "Products") content = <Products />;
-  else if (active === "Inventory") content = <Inventory />;
+  else if (active === "Services") content = <ServiceMenu label={t(language, "services")} />;
+  else if (active === "ProductsInventory") content = <ProductInventory label={t(language, "productsInventory")} />;
   else if (active === "Online Store") content = <OnlineStore />;
   else if (active === "Orders") content = <Orders />;
   else if (active === "Integrations") content = <Integrations label={t(language, "integrations")} />;

@@ -56,7 +56,7 @@ function blankBooking(day, hour, member) {
   };
 }
 
-export default function CalendarResourceTimeline({ label = "Calendar" }) {
+export default function CalendarResourceTimeline({ label = "Calendar", onCheckout }) {
   const [view, setView] = useState("day");
   const [selectedDay, setSelectedDay] = useState(6);
   const [selected, setSelected] = useState(blankBooking(6, "10:00", staff[0]));
@@ -259,6 +259,7 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
             <div className="modalActions">
               <button className="ghost dangerButton" onClick={deleteBooking}>Delete booking</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>Cancel</button>
+              <button className="ghost" onClick={() => { setModalOpen(false); onCheckout?.(selected); }}>Tính tiền</button>
               <button className="primary" onClick={saveBooking}>Save and sync blocks</button>
             </div>
           </div>
