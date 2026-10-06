@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { platforms, staff } from "../lib/salonData";
 
 const slots = [
@@ -62,8 +62,8 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
   const [selected, setSelected] = useState(blankBooking(6, "10:00", staff[0]));
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
+  const [bookings, setBookings] = useState([]);
   const pressRef = useRef(null);
-  const bookings = useMemo(() => [], []);
   const selectedDayBookings = bookings.filter((booking) => bookingDay(booking) === selectedDay);
   const weekTotal = bookings.filter((booking) => bookingDay(booking) >= 6 && bookingDay(booking) <= 12).length;
   const monthTotal = bookings.length;
@@ -113,6 +113,30 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
 
   function cancelHold() {
     clearTimeout(pressRef.current);
+  }
+
+  function saveBooking() {
+    const bookingToSave = {
+      ...selected,
+      id: selected.draft ? `booking-${Date.now()}` : selected.id,
+      day: selectedDay,
+      customer: selected.customer || "New customer",
+      phone: selected.phone || "090-0000-0000",
+      draft: false,
+    };
+    setBookings((current) => {
+      const exists = current.some((booking) => booking.id === selected.id);
+      if (exists) return current.map((booking) => booking.id === selected.id ? bookingToSave : booking);
+      return [...current, bookingToSave];
+    });
+    setSelected(bookingToSave);
+    setModalOpen(false);
+  }
+
+  function deleteBooking() {
+    setBookings((current) => current.filter((booking) => booking.id !== selected.id));
+    setSelected(blankBooking(selectedDay, "10:00", staff[0]));
+    setModalOpen(false);
   }
 
   return (
@@ -233,9 +257,9 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
               <label>End<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
             </div>
             <div className="modalActions">
-              <button className="ghost dangerButton" onClick={() => setModalOpen(false)}>Delete booking</button>
+              <button className="ghost dangerButton" onClick={deleteBooking}>Delete booking</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button className="primary" onClick={() => setModalOpen(false)}>Save and sync blocks</button>
+              <button className="primary" onClick={saveBooking}>Save and sync blocks</button>
             </div>
           </div>
         </div>
