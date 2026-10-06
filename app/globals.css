@@ -36,3 +36,4 @@ body{background:radial-gradient(circle at top left,#fde7f3,transparent 30%),radi
 @media(max-width:900px){.staffForm{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.staffForm{grid-template-columns:1fr}}
 .productTools{margin:12px 0}.searchInput{border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:rgba(255,255,255,.82);font:inherit;color:var(--ink);min-width:240px}.staffPicker{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.storeBooking{padding:22px;margin-top:24px}.storeNote{color:var(--muted);font-size:13px;margin:14px 0 0}
+.manualNotice{color:#92400e;background:#fef3c7;border-radius:10px;padding:10px;font-size:12px;margin:0}
