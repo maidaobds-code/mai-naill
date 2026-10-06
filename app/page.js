@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Sidebar from "../components/SidebarEnhanced";
 import Dashboard from "../components/DashboardEnhanced";
-import CalendarEnhanced from "../components/CalendarEnhanced";
+import CalendarEnhanced from "../components/CalendarPlanner";
 import Customers from "../components/CustomersEnhanced";
 import Products from "../components/Products";
 import Inventory from "../components/Inventory";
@@ -15,7 +15,7 @@ import GenericModule from "../components/GenericModule";
 import { t } from "../lib/i18n";
 
 export default function Home() {
-  const [active, setActive] = useState("Dashboard");
+  const [active, setActive] = useState("Calendar");
   const [language, setLanguage] = useState("en");
   let content = <Dashboard />;
 
