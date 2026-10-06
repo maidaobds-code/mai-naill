@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
-import { bookings as seedBookings, platforms, staff } from "../lib/salonData";
+import { platforms, staff } from "../lib/salonData";
 
 const slots = [
   "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -59,11 +59,11 @@ function blankBooking(day, hour, member) {
 export default function CalendarResourceTimeline({ label = "Calendar" }) {
   const [view, setView] = useState("day");
   const [selectedDay, setSelectedDay] = useState(6);
-  const [selected, setSelected] = useState({ ...seedBookings[0], day: 6 });
+  const [selected, setSelected] = useState(blankBooking(6, "10:00", staff[0]));
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const pressRef = useRef(null);
-  const bookings = useMemo(() => seedBookings.map((booking, index) => ({ ...booking, day: [6, 6, 7, 8, 10, 12][index] || 6 })), []);
+  const bookings = useMemo(() => [], []);
   const selectedDayBookings = bookings.filter((booking) => bookingDay(booking) === selectedDay);
   const weekTotal = bookings.filter((booking) => bookingDay(booking) >= 6 && bookingDay(booking) <= 12).length;
   const monthTotal = bookings.length;
@@ -71,8 +71,7 @@ export default function CalendarResourceTimeline({ label = "Calendar" }) {
   function openDay(day) {
     setSelectedDay(day);
     setView("day");
-    const nextBooking = bookings.find((booking) => bookingDay(booking) === day);
-    if (nextBooking) setSelected(nextBooking);
+    setSelected(blankBooking(day, "10:00", staff[0]));
   }
 
   function beginSelect(hour, member) {
