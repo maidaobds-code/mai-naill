@@ -2,8 +2,8 @@
 import { languages, t } from "../lib/i18n";
 
 const items = [
-  ["D", "Dashboard", "dashboard"],
   ["C", "Calendar", "calendar"],
+  ["D", "Dashboard", "dashboard"],
   ["U", "Customers", "customers"],
   ["S", "Staff", "staff"],
   ["P", "POS / Checkout", "checkout"],

@@ -2,7 +2,12 @@
 import { useMemo, useState } from "react";
 import { bookings as seedBookings, platforms, staff } from "../lib/salonData";
 
-const hours = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+const slots = [
+  "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+  "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
+  "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
+  "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00"
+];
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthDays = Array.from({ length: 31 }, (_, index) => index + 1);
 
@@ -23,7 +28,7 @@ function blankBooking(day, hour, member) {
     id: `draft-${day}-${hour}-${member.id}`,
     day,
     start: hour,
-    end: `${String(Number(hour.slice(0, 2)) + 1).padStart(2, "0")}:00`,
+    end: slots[slots.indexOf(hour) + 2] || "21:00",
     customer: "",
     phone: "",
     service: "Gel One Color",
@@ -45,6 +50,11 @@ export default function CalendarPlanner({ label = "Calendar" }) {
   const selectedDayBookings = bookings.filter((booking) => bookingDay(booking) === selectedDay);
   const weekTotal = bookings.filter((booking) => bookingDay(booking) >= 6 && bookingDay(booking) <= 12).length;
   const monthTotal = bookings.length;
+  const dateTitle = view === "day"
+    ? `2026/10/${String(selectedDay).padStart(2, "0")}`
+    : view === "week"
+      ? "2026/10/06 - 2026/10/12"
+      : "October 2026";
 
   function openDay(day) {
     setSelectedDay(day);
@@ -54,8 +64,13 @@ export default function CalendarPlanner({ label = "Calendar" }) {
   }
 
   function openSlot(hour, member) {
-    const existing = selectedDayBookings.find((booking) => booking.staff === member.name && booking.start.slice(0, 2) === hour.slice(0, 2));
+    const existing = selectedDayBookings.find((booking) => booking.staff === member.name && booking.start === hour);
     setSelected(existing || blankBooking(selectedDay, hour, member));
+  }
+
+  function movePeriod(direction) {
+    if (view === "day") setSelectedDay(Math.min(31, Math.max(1, selectedDay + direction)));
+    if (view === "week") setSelectedDay(Math.min(25, Math.max(1, selectedDay + direction * 7)));
   }
 
   return (
@@ -67,6 +82,9 @@ export default function CalendarPlanner({ label = "Calendar" }) {
           <p>Default screen. Select Day, Week, or Month; click a week/month day to open that day schedule.</p>
         </div>
         <div className="toolbar">
+          <button className="ghost" onClick={() => movePeriod(-1)}>Previous</button>
+          <button className="ghost" onClick={() => setSelectedDay(6)}>Today</button>
+          <button className="ghost" onClick={() => movePeriod(1)}>Next</button>
           <button className={view === "day" ? "ghost activeSoft" : "ghost"} onClick={() => setView("day")}>Day</button>
           <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>Week</button>
           <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>Month</button>
@@ -76,6 +94,7 @@ export default function CalendarPlanner({ label = "Calendar" }) {
 
       <div className="calendarSummary">
         <div className="card summaryPill"><span>Selected day</span><strong>2026/10/{String(selectedDay).padStart(2, "0")}</strong></div>
+        <div className="card summaryPill"><span>Visible range</span><strong>{dateTitle}</strong></div>
         <div className="card summaryPill"><span>Day bookings</span><strong>{selectedDayBookings.length}</strong></div>
         <div className="card summaryPill"><span>Week total</span><strong>{weekTotal}</strong></div>
         <div className="card summaryPill"><span>Month total</span><strong>{monthTotal}</strong></div>
@@ -92,11 +111,11 @@ export default function CalendarPlanner({ label = "Calendar" }) {
             <div className="calendarGrid paintCalendar">
               <div className="calCorner"></div>
               {staff.map((member) => <div className="calStaff" key={member.id}><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>{member.name}</div>)}
-              {hours.map((hour) => (
+              {slots.map((hour) => (
                 <div className="calRow" key={hour}>
                   <div className="calTime">{hour}</div>
                   {staff.map((member) => {
-                    const booking = selectedDayBookings.find((item) => item.staff === member.name && item.start.slice(0, 2) === hour.slice(0, 2));
+                    const booking = selectedDayBookings.find((item) => item.staff === member.name && item.start === hour);
                     const platform = booking ? platformFor(booking.source) : null;
                     const memberColor = staffFor(member.name).color;
                     const selectedClass = selected.id === booking?.id ? " selectedEvent" : "";
@@ -109,7 +128,7 @@ export default function CalendarPlanner({ label = "Calendar" }) {
                             <small>{booking.service} · {booking.staff} · {platform.name}</small>
                           </span>
                         ) : (
-                          <span className="emptySlot">Click or drag area to add</span>
+                          <span className="emptySlot">Drag/select to add</span>
                         )}
                       </button>
                     );
@@ -124,10 +143,13 @@ export default function CalendarPlanner({ label = "Calendar" }) {
             <div className="formGrid">
               <label>Customer<input value={selected.customer} onChange={(event) => setSelected({ ...selected, customer: event.target.value })} placeholder="Customer name" /></label>
               <label>Phone<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
-              <label>Start<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{hours.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
-              <label>End<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{hours.concat("19:00").map((hour) => <option key={hour}>{hour}</option>)}</select></label>
+              <label>Date<input value={`2026/10/${String(selectedDay).padStart(2, "0")}`} readOnly /></label>
+              <label>Start<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
+              <label>End<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
               <label>Staff<select value={selected.staff} onChange={(event) => setSelected({ ...selected, staff: event.target.value })}>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label>
               <label>Source<select value={selected.source} onChange={(event) => setSelected({ ...selected, source: event.target.value })}>{platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}</select></label>
+              <label>Service<input value={selected.service || ""} onChange={(event) => setSelected({ ...selected, service: event.target.value })} /></label>
+              <label>Note<input value={selected.note || ""} onChange={(event) => setSelected({ ...selected, note: event.target.value })} placeholder="Customer note" /></label>
             </div>
             <div className="drawerActions">
               <button className="ghost">Cancel booking</button>
@@ -162,13 +184,16 @@ export default function CalendarPlanner({ label = "Calendar" }) {
 
       {view === "month" && (
         <section className="card monthGrid">
+          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((dayName) => <div className="monthHead" key={dayName}>{dayName}</div>)}
           {monthDays.map((day) => {
-            const count = bookings.filter((booking) => bookingDay(booking) === day).length;
+            const dayBookings = bookings.filter((booking) => bookingDay(booking) === day);
+            const count = dayBookings.length;
             return (
               <button className={day === selectedDay ? "monthDay selectedMonthDay" : "monthDay"} key={day} onClick={() => openDay(day)}>
                 <strong>{day}</strong>
                 <span>{count} bookings</span>
-                {count > 0 && <small>{bookings.filter((booking) => bookingDay(booking) === day).map((booking) => booking.staff).join(", ")}</small>}
+                {count > 0 && <small>{dayBookings.map((booking) => booking.staff).join(", ")}</small>}
+                <em>{dayBookings.slice(0, 4).map((booking) => <i key={booking.id} style={{ background: staffFor(booking.staff).color }} />)}</em>
               </button>
             );
           })}
