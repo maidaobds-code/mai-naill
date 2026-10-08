@@ -1,10 +1,13 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useBookingStore } from "../lib/bookingStore";
 import { useStoreOrders } from "../lib/orderStore";
 import { tx } from "../lib/i18nClean";
 import { customers as seedCustomers } from "../lib/salonData";
+import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
+
+const CAMPAIGN_KEY = "nail-japan-campaigns";
 
 function yen(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
@@ -32,8 +35,33 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
   const { bookings } = useBookingStore();
   const { orders } = useStoreOrders();
   const [campaigns, setCampaigns] = useState([]);
+  const [hydrated, setHydrated] = useState(false);
   const [draft, setDraft] = useState({ title: "Giảm giá mùa lễ", type: "promotion", target: "old", message: "Cảm ơn bạn đã ủng hộ Mai Beauty Salon. Tuần này salon có ưu đãi đặc biệt cho khách cũ." });
   const customerList = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders), [bookings, orders]);
+
+  useEffect(() => {
+    const raw = window.localStorage.getItem(CAMPAIGN_KEY);
+    if (raw) {
+      try { setCampaigns(JSON.parse(raw)); } catch {}
+    }
+    if (supabaseReady()) {
+      getKv(CAMPAIGN_KEY).then((remote) => {
+        if (Array.isArray(remote)) {
+          setCampaigns(remote);
+          window.localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(remote));
+        }
+        setHydrated(true);
+      }).catch(() => {});
+    } else {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    window.localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(campaigns));
+    if (supabaseReady()) saveKv(CAMPAIGN_KEY, campaigns).catch(() => {});
+  }, [campaigns, hydrated]);
 
   function targetCustomers() {
     if (draft.target === "buyers") return customerList.filter((customer) => customer.orderCount > 0);

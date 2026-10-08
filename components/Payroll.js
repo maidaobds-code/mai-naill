@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useBookingStore } from "../lib/bookingStore";
 import { tx } from "../lib/i18nClean";
-import { platforms, staff } from "../lib/salonData";
+import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
+import { platforms, staff as seedStaff } from "../lib/salonData";
+import { useStaffStore } from "../lib/staffStore";
 
 const PAYROLL_KEY = "payroll-staff-settings-v2";
 
@@ -12,7 +14,7 @@ function yen(value) {
 }
 
 function defaultStaffSettings() {
-  return staff.reduce((acc, member) => {
+  return seedStaff.reduce((acc, member) => {
     acc[member.name] = {
       appRates: platforms.reduce((rates, platform) => ({ ...rates, [platform.id]: platform.id === "direct" ? 55 : 45 }), {}),
       additions: [{ id: "bonus", label: "Thưởng", amount: 0 }],
@@ -30,16 +32,26 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
   const tr = (key, vars) => tx(language, "payrollPage", key, vars);
   const tc = (key) => tx(language, "common", key);
   const { bookings } = useBookingStore();
+  const { staff } = useStaffStore();
   const [selectedStaff, setSelectedStaff] = useState(staff[0]?.name || "");
   const [settings, setSettings] = useState(defaultStaffSettings);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(PAYROLL_KEY);
     if (raw) setSettings({ ...defaultStaffSettings(), ...JSON.parse(raw) });
+    if (supabaseReady()) {
+      getKv(PAYROLL_KEY).then((remote) => {
+        if (remote) {
+          setSettings({ ...defaultStaffSettings(), ...remote });
+          window.localStorage.setItem(PAYROLL_KEY, JSON.stringify(remote));
+        }
+      }).catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
     window.localStorage.setItem(PAYROLL_KEY, JSON.stringify(settings));
+    if (supabaseReady()) saveKv(PAYROLL_KEY, settings).catch(() => {});
   }, [settings]);
 
   const selectedMember = staff.find((member) => member.name === selectedStaff) || staff[0];
@@ -151,4 +163,6 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
     </>
   );
 }
+
+
 

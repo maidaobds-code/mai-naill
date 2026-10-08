@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import { platforms, staff as seedStaff } from "../lib/salonData";
+import { useStaffStore } from "../lib/staffStore";
 
 const staffColors = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444"];
 
@@ -17,7 +18,7 @@ function newStaff(nextId) {
 }
 
 export default function StaffManagement({ label = "Staff" }) {
-  const [staff, setStaff] = useState(seedStaff.map((member) => ({ ...member, credentialStatus: "Encrypted in Supabase" })));
+  const { staff, setStaff } = useStaffStore();
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
 
   function updateDraft(field, value) {
@@ -86,3 +87,4 @@ export default function StaffManagement({ label = "Staff" }) {
     </>
   );
 }
+

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { tx } from "../lib/i18nClean";
+import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
 
 export const defaultSettings = {
   salonName: "Mai Beauty Salon",
@@ -38,7 +39,7 @@ export default function Settings({ language = "vi" }) {
   const [saved, setSaved] = useState(false);
   const tr = (key) => tx(language, "settingsPage", key);
 
-  useEffect(() => { setSettings(getAppSettings()); }, []);
+  useEffect(() => { let mounted = true; async function load() { setSettings(getAppSettings()); if (supabaseReady()) { try { const remote = await getKv("nail-japan-settings"); if (mounted && remote) { setSettings({ ...defaultSettings, ...remote }); window.localStorage.setItem("nail-japan-settings", JSON.stringify({ ...defaultSettings, ...remote })); } } catch {} } } load(); return () => { mounted = false; }; }, []);
 
   function update(field, value) {
     setSaved(false);
@@ -48,6 +49,7 @@ export default function Settings({ language = "vi" }) {
   function saveSettings(event) {
     event.preventDefault();
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(settings));
+    if (supabaseReady()) saveKv("nail-japan-settings", settings).catch(() => {});
     setSaved(true);
   }
 
@@ -63,3 +65,4 @@ export default function Settings({ language = "vi" }) {
     </>
   );
 }
+
