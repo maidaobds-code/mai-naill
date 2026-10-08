@@ -105,11 +105,32 @@ body{background:radial-gradient(circle at top left,#fde7f3,transparent 30%),radi
 
 .sidebar {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.07));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0.14));
   border-right: 1px solid rgba(255, 255, 255, 0.26);
   box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18), inset 1px 0 0 rgba(255, 255, 255, 0.18);
   backdrop-filter: blur(22px) saturate(145%);
   -webkit-backdrop-filter: blur(22px) saturate(145%);
+}
+
+.sidebar,
+.sidebar select,
+.navItem {
+  color: #33263f;
+}
+
+.brand strong,
+.sidebarFoot strong,
+.navItem {
+  color: #2a2035;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.72), 0 8px 18px rgba(34, 22, 48, 0.18);
+}
+
+.brand span,
+.sidebarFoot span,
+.languageBox,
+.languageBox span {
+  color: #6d6078;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .sidebar .brand,
@@ -126,11 +147,26 @@ body{background:radial-gradient(circle at top left,#fde7f3,transparent 30%),radi
 }
 
 .navItem.active {
-  background: rgba(255, 255, 255, 0.20);
-  border-color: rgba(255, 255, 255, 0.30);
+  background: rgba(47, 37, 63, 0.90);
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #fff;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+.navItem.active,
+.navItem.active strong,
+.navItem.active span:not(.navIcon) {
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.30), 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.languageBox select {
+  background: rgba(47, 37, 63, 0.94);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.26);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.24);
 }
 
 .navItem.active .navIcon {

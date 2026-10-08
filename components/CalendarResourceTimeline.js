@@ -178,7 +178,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
       {view === "day" && (
         <section className="card resourceTimelineShell">
           <div className="calendarHeader">
-            <strong>2026/10/{String(selectedDay).padStart(2, "0")} ﾂｷ Day View</strong>
+              <strong>2026/10/{String(selectedDay).padStart(2, "0")} · Xem theo ngày</strong>
           </div>
           <div className="resourceTimeline">
             <div className="resourceHeader">Nhân viên</div>
@@ -221,7 +221,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
                         >
                           <strong>{booking.start} - {booking.end}</strong>
                           <span>{booking.customer}</span>
-                          <small>{booking.phone} ﾂｷ {booking.service} ﾂｷ {platform.name}</small>
+                          <small>{booking.phone} · {booking.service} · {platform.name}</small>
                         </button>
                       );
                     })}
@@ -238,7 +238,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
           {weekDays.map((day, index) => {
             const dayNumber = 6 + index;
             const count = bookings.filter((booking) => bookingDay(booking) === dayNumber).length;
-            return <button className="weekCol weekDayButton" key={day} onClick={() => openDay(dayNumber)}><span>{day} ﾂｷ 10/{String(dayNumber).padStart(2, "0")}</span><strong>{count} bookings</strong></button>;
+            return <button className="weekCol weekDayButton" key={day} onClick={() => openDay(dayNumber)}><span>{day} · 10/{String(dayNumber).padStart(2, "0")}</span><strong>{count} lịch hẹn</strong></button>;
           })}
         </section>
       )}
@@ -257,7 +257,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
         <div className="bookingModalBackdrop" onMouseDown={() => setModalOpen(false)}>
           <div className="card bookingModal" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modalHead"><div><p className="eyebrow">{selected.draft ? "NEW BOOKING" : "EDIT BOOKING"}</p><h2>{selected.customer || "New customer"}</h2></div><button className="ghost iconClose" onClick={() => setModalOpen(false)}>Close</button></div>
-            <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>2026/10/{String(selectedDay).padStart(2, "0")} ﾂｷ {selected.staff}</span></div>
+            <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>2026/10/{String(selectedDay).padStart(2, "0")} · {selected.staff}</span></div>
             <div className="formGrid modalForm">
               <label>Customer<input value={selected.customer} onChange={(event) => setSelected({ ...selected, customer: event.target.value })} placeholder="Customer name" /></label>
               <label>Phone<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
