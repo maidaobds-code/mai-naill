@@ -1172,49 +1172,86 @@ section.nailPosPanel .nailPaymentAppName {
 }
 .nailPaymentMethodList {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .nailPaymentOption {
   display: grid;
-  grid-template-columns: 22px minmax(120px, 1fr) minmax(120px, 160px) minmax(120px, 160px);
+  grid-template-columns: 28px minmax(150px, 1fr) minmax(180px, 240px) minmax(160px, 220px);
   align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgba(31, 41, 55, 0.12);
+  gap: 14px;
+  min-height: 76px;
+  padding: 14px 16px;
+  border: 1px solid rgba(31, 41, 55, 0.11);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.78);
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 
 .nailPaymentOption.active {
-  border-color: rgba(236, 72, 153, 0.45);
-  background: rgba(253, 242, 248, 0.7);
+  border-color: rgba(236, 72, 153, 0.55);
+  background: linear-gradient(180deg, #fff8fb 0%, #fff 100%);
+  box-shadow: 0 10px 24px rgba(236, 72, 153, 0.12);
+}
+
+.nailPaymentOption span {
+  color: #111827;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .nailPaymentOption input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
+  accent-color: #ec4899;
 }
 
 .nailPaymentOption input[type="number"] {
   width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 1px solid rgba(31, 41, 55, 0.18);
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.nailPaymentOption input[type="number"]:focus {
+  border-color: rgba(236, 72, 153, 0.7);
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.12);
+  outline: none;
 }
 
 .nailPaymentOption input:disabled {
-  opacity: 0.55;
+  background: #f8fafc;
+  color: #94a3b8;
+  opacity: 1;
 }
 
 .nailPaymentOption small {
-  color: var(--muted);
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 @media (max-width: 720px) {
   .nailPaymentOption {
     grid-template-columns: 22px 1fr;
+    gap: 10px 12px;
+    padding: 14px;
   }
 
   .nailPaymentOption input[type="number"],
   .nailPaymentOption small {
     grid-column: 2;
+  }
+
+  .nailPaymentOption input[type="number"] {
+    min-height: 50px;
   }
 }
