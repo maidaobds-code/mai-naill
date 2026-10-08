@@ -66,7 +66,6 @@ export default function Checkout({ label = "POS / Checkout" }) {
   const [activeTab, setActiveTab] = useState("services");
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
-  const [receiptMode, setReceiptMode] = useState("receipt");
   const [order, setOrder] = useState(() => readJson(DRAFT_KEY, null) || {
     id: "",
     orderNumber: "",
@@ -200,91 +199,77 @@ export default function Checkout({ label = "POS / Checkout" }) {
     setError(paymentStatus === "Paid" ? "" : "Order đang Partial/Unpaid vì chưa nhận đủ tiền.");
   }
 
-  const paymentSummary = paymentMethods.map((method) => ({ ...method, amount: getStoredPosSales().flatMap((sale) => sale.payments || []).filter((payment) => payment.method === method.id && payment.confirmed).reduce((sum, payment) => sum + Number(payment.amount || 0), 0) }));
-
   return (
-    <>
-      <div className="pageHead">
-        <div><p className="eyebrow">POS NAIL SALON</p><h1>{label}</h1><p>Appointment → customer → order → split payment → receipt / 領収書.</p></div>
-        <div className="toolbar"><button className="ghost" onClick={() => setReceiptMode("receipt")}>レシート</button><button className="ghost" onClick={() => setReceiptMode("invoice")}>領収書</button><button className="primary" onClick={completePayment}>Complete Payment</button></div>
+    <section className="card nailPosPanel">
+      <div className="nailPosHeader">
+        <div><h1>💰 Nail POS</h1><p>Thanh toán · お会計</p></div>
+        <span className="pill active">{order.paymentStatus === "Paid" ? "Đã thanh toán" : "Đang tạo đơn"}</span>
       </div>
 
       {error && <div className="orderToast card"><strong>POS</strong><span>{error}</span></div>}
 
-      <div className="checkoutLayout posCheckoutLayout">
-        <section className="card checkoutPanel posCatalog">
-          <div className="sectionTitle"><div><h2>Khách hàng / Appointment</h2><p>Tải customer, employee, service, source từ lịch hẹn hiện có.</p></div><span className="pill">{order.paymentStatus}</span></div>
-          <div className="staffForm">
-            <label>Lịch hẹn<select value={order.appointmentId} onChange={(event) => chooseAppointment(event.target.value)}><option value="">Walk-in / Other</option>{bookings.map((booking) => <option key={booking.id} value={booking.id}>{booking.customer} - {booking.service} - {booking.staff} - {booking.origin || booking.source}</option>)}</select></label>
-            <label>Khách hàng<input value={order.customer} onChange={(event) => updateOrder({ customer: event.target.value })} /></label>
-            <label>Điện thoại<input value={order.phone} onChange={(event) => updateOrder({ phone: event.target.value })} /></label>
-            <label>Nhân viên chính<select value={order.employee} onChange={(event) => updateOrder({ employee: event.target.value })}><option value="">Chọn nhân viên</option>{staff.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label>
-          </div>
-
-          <div className="toolbar productTools">
-            <button className={activeTab === "services" ? "ghost activeSoft" : "ghost"} onClick={() => setActiveTab("services")}>💅 Services</button>
-            <button className={activeTab === "products" ? "ghost activeSoft" : "ghost"} onClick={() => setActiveTab("products")}>🛍️ Products</button>
-            <input className="searchInput" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm tên, SKU, danh mục" />
-          </div>
-
-          <div className="productGrid">
-            {activeTab === "services" && visibleServices.map((service) => <button className="card productCard" key={service.id} onClick={() => addLine(service, "service")}><strong>{service.name}</strong><span>{service.categoryName || "Service"}</span><b>{yen(service.price)}</b></button>)}
-            {activeTab === "products" && visibleProducts.map((product) => <button className="card productCard" key={product.id} onClick={() => addLine(product, "product")} disabled={Number(product.stock || 0) <= 0}>{product.mediaUrl && <img className="catalogThumb" src={product.mediaUrl} alt={product.name} />}<strong>{product.name}</strong><span>{product.sku || "SKU"} · Stock {product.stock || 0}</span><b>{yen(product.salePrice || product.basePrice)}</b></button>)}
-            {((activeTab === "services" && !visibleServices.length) || (activeTab === "products" && !visibleProducts.length)) && <p className="mutedText">Không có dữ liệu phù hợp.</p>}
-          </div>
-        </section>
-
-        <aside className="card checkoutPanel posCart">
-          <div className="sectionTitle"><div><h2>🛒 POS Order</h2><p>{order.orderNumber || "Draft"} · {order.bookingSource}</p></div></div>
-          {order.lines.length ? order.lines.map((line) => <div className="payrollLine posLine" key={line.id}>
-            <div><strong>{line.name}</strong><small>{line.type} {line.sku ? `· ${line.sku}` : ""}</small></div>
-            <input type="number" min="1" value={line.quantity} onChange={(event) => updateLine(line.id, { quantity: Number(event.target.value) })} />
-            <input type="number" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: Number(event.target.value) })} />
-            <select value={line.staff || ""} onChange={(event) => updateLine(line.id, { staff: event.target.value })}><option value="">Staff</option>{staff.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select>
-            <input value={line.note || ""} onChange={(event) => updateLine(line.id, { note: event.target.value })} placeholder="Ghi chú" />
-            <button className="ghost dangerButton" onClick={() => removeLine(line.id)}>Xóa</button>
-          </div>) : <p className="mutedText">Chưa có item. Chọn lịch hẹn hoặc thêm service/product.</p>}
-
-          <div className="staffForm">
-            <label>Coupon<input value={order.couponCode} onChange={(event) => updateOrder({ couponCode: event.target.value })} placeholder="OLD10 / EVENT" /></label>
-            <label>Discount<select value={order.orderDiscountType} onChange={(event) => updateOrder({ orderDiscountType: event.target.value })}><option value="amount">¥</option><option value="percent">%</option></select></label>
-            <label>Giá trị giảm<input type="number" value={order.orderDiscountValue} onChange={(event) => updateOrder({ orderDiscountValue: Number(event.target.value) })} /></label>
-          </div>
-
-          <div className="lineItem"><span>Subtotal</span><strong>{yen(subtotal)}</strong></div>
-          <div className="lineItem"><span>Discount</span><strong>-{yen(orderDiscount)}</strong></div>
-          <div className="lineItem"><span>Tax {taxRate}% {taxMode === "inclusive" ? "税込" : "税抜"}</span><strong>{yen(tax)}</strong></div>
-          <div className="totalLine"><span>Total</span><strong>{yen(total)}</strong></div>
-
-          <h3>💳 Split Payment</h3>
-          {order.payments.map((payment) => <div className="payrollLine" key={payment.id}>
-            <select value={payment.method} onChange={(event) => updatePayment(payment.id, { method: event.target.value })}>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}</select>
-            <input type="number" value={payment.amount} onChange={(event) => updatePayment(payment.id, { amount: Number(event.target.value) })} placeholder="Amount" />
-            {payment.method === "cash" && <input type="number" value={payment.received || ""} onChange={(event) => updatePayment(payment.id, { received: Number(event.target.value) })} placeholder="Khách đưa" />}
-            <label className="toggleLine"><input type="checkbox" checked={payment.confirmed} onChange={(event) => updatePayment(payment.id, { confirmed: event.target.checked })} /> Confirmed</label>
-          </div>)}
-          <button className="ghost" onClick={addPayment}>+ Split payment</button>
-          <div className="lineItem"><span>Paid confirmed</span><strong>{yen(paid)}</strong></div>
-          <div className="lineItem"><span>Remaining</span><strong>{yen(remaining)}</strong></div>
-          <div className="lineItem"><span>Cash change</span><strong>{yen(change)}</strong></div>
-
-          <section className="receiptPreview">
-            <h2>{receiptMode === "receipt" ? "レシート" : "領収書"}</h2>
-            {settings.logoUrl && <img className="settingsLogoPreview" src={settings.logoUrl} alt="Salon logo" />}
-            <p>{settings.salonName} · {settings.address}</p>
-            <p>{settings.phone}</p>
-            <div className="lineItem"><span>{receiptMode === "invoice" ? "領収金額" : "Total"}</span><strong>{yen(receiptMode === "invoice" ? paid : total)}</strong></div>
-            <div className="lineItem"><span>税率別金額</span><strong>{yen(taxableSubtotal)}</strong></div>
-            <div className="lineItem"><span>消費税額</span><strong>{yen(tax)}</strong></div>
-            <button className="ghost" onClick={() => window.print()}>Preview / Print</button>
-          </section>
-        </aside>
+      <div className="nailCustomerBlock">
+        <div>
+          <strong>👤 {order.customer || "Nguyễn A"}</strong>
+          <span>🗓️ 08/10/2026 · 14:00-15:30</span>
+          <span>💅 Nhân viên: {order.employee || staff[0]?.name || "Mai"} · Khách cũ</span>
+        </div>
+        <select value={order.appointmentId} onChange={(event) => chooseAppointment(event.target.value)}>
+          <option value="">Đặt từ Nailie</option>
+          {bookings.map((booking) => <option key={booking.id} value={booking.id}>{booking.customer} - {booking.service}</option>)}
+        </select>
       </div>
 
-      <section className="card reportPanel">
-        <div className="sectionTitle"><div><h2>Payment closing</h2><p>Không cộng tiền khách đưa vào doanh thu, chỉ cộng amount đã confirmed.</p></div></div>
-        {paymentSummary.map((payment) => <div className="lineItem" key={payment.id}><span>{payment.label}</span><strong>{yen(payment.amount)}</strong></div>)}
-      </section>
-    </>
+      <h2 className="nailSectionTitle">Thêm dịch vụ và sản phẩm</h2>
+      <div className="nailTabs">
+        <button className={activeTab === "services" ? "active" : ""} onClick={() => setActiveTab("services")}>💅 Dịch vụ</button>
+        <button className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}>🛍️ Sản phẩm</button>
+      </div>
+      <div className="nailItemGrid">
+        {activeTab === "services" && visibleServices.slice(0, 8).map((service) => <button className="nailMenuItem" key={service.id} onClick={() => addLine(service, "service")}><strong>{service.name}</strong><span>⊕</span><small>{yen(service.price)}</small></button>)}
+        {activeTab === "products" && visibleProducts.slice(0, 8).map((product) => <button className="nailMenuItem" key={product.id} onClick={() => addLine(product, "product")} disabled={Number(product.stock || 0) <= 0}><strong>{product.name}</strong><span>⊕</span><small>{yen(product.salePrice || product.basePrice)}</small></button>)}
+      </div>
+
+      <div className="nailDivider" />
+      <div className="nailOrderTitle"><strong>🛒 Chi tiết đơn hàng</strong><span>{order.lines.length} mục</span></div>
+      <div className="nailOrderLines">
+        {order.lines.map((line) => <div className="nailOrderLine" key={line.id}>
+          <div><strong>{line.name}</strong><small>{yen(line.unitPrice)} / mục</small></div>
+          <div className="nailQty"><button onClick={() => updateLine(line.id, { quantity: Math.max(1, Number(line.quantity || 1) - 1) })}>−</button><span>{line.quantity}</span><button onClick={() => updateLine(line.id, { quantity: Number(line.quantity || 1) + 1 })}>＋</button></div>
+          <strong>{yen(lineTotal(line))}</strong>
+        </div>)}
+        {!order.lines.length && <p className="mutedText">Chưa có mục nào trong đơn.</p>}
+      </div>
+
+      <div className="nailDivider" />
+      <h2 className="nailSectionTitle">🎟️ Mã giảm giá</h2>
+      <div className="nailCouponRow"><input value={order.couponCode} onChange={(event) => updateOrder({ couponCode: event.target.value })} placeholder="VD: NAIL10" /><button onClick={() => updateOrder({ orderDiscountType: "percent", orderDiscountValue: 10, couponCode: order.couponCode || "NAIL10" })}>Áp dụng</button></div>
+      <p className="mutedText">Thử mã NAIL10 để xem cách giảm 10% trong bản mẫu.</p>
+
+      <div className="nailTotals">
+        <div><span>Tạm tính</span><strong>{yen(subtotal)}</strong></div>
+        <div><span>Giảm giá</span><strong>- {yen(orderDiscount)}</strong></div>
+        <div><span>Thuế {taxRate}% {taxMode === "inclusive" ? "(đã gồm trong giá)" : ""}</span><strong>{yen(tax)}</strong></div>
+        <div className="grand"><span>Tổng thanh toán</span><strong>{yen(total)}</strong></div>
+      </div>
+
+      <div className="nailDivider" />
+      <h2 className="nailSectionTitle">💳 Phương thức thanh toán</h2>
+      {order.payments.map((payment) => <div className="nailPaymentRow" key={payment.id}>
+        <select value={payment.method} onChange={(event) => updatePayment(payment.id, { method: event.target.value })}>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}</select>
+        <input type="number" value={payment.amount || ""} onChange={(event) => updatePayment(payment.id, { amount: Number(event.target.value) })} placeholder="Số tiền" />
+        <button onClick={() => updateOrder({ payments: order.payments.filter((item) => item.id !== payment.id) })}>×</button>
+      </div>)}
+      <button className="nailAddPayment" onClick={addPayment}>＋ Thêm phương thức thanh toán</button>
+      <div className="nailRemaining"><span>Số tiền còn phải trả</span><strong>{yen(remaining)}</strong></div>
+      <button className="nailComplete" onClick={completePayment}>◎ Xem thanh toán & chứng từ</button>
+      <p className="nailDemoNote">Nhập đủ số tiền thanh toán để mở bản xem trước. Đây là bản demo, không lưu giao dịch thật.</p>
+
+      <div className="nailDivider" />
+      <div className="nailReceiptButtons">
+        <button onClick={() => window.print()}>▣ Hóa đơn</button>
+        <button onClick={() => window.print()}>▣ 領収書</button>
+      </div>
+    </section>
   );
 }
