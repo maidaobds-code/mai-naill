@@ -6,6 +6,7 @@ import { tx } from "../lib/i18nClean";
 import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
 import { platforms, staff as seedStaff } from "../lib/salonData";
 import { useStaffStore } from "../lib/staffStore";
+import { getStoredPosSales } from "./Checkout";
 
 const PAYROLL_KEY = "payroll-staff-settings-v2";
 
@@ -72,8 +73,9 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
   const selectedMember = staff.find((member) => member.name === selectedStaff) || staff[0];
   const selectedSettings = settings[selectedStaff] || createStaffPayrollSettings();
   const staffBookings = useMemo(() => bookings.filter((booking) => booking.staff === selectedStaff), [bookings, selectedStaff]);
-  const payrollRows = staffBookings.map((booking) => {
-    const rate = Number(selectedSettings.appRates[booking.source] ?? 45);
+  const posServiceRows = getStoredPosSales().filter((sale) => sale.paymentStatus === "Paid").flatMap((sale) => (sale.lines || []).filter((line) => line.type === "service" && line.staff === selectedStaff).map((line) => ({ id: `${sale.id}-${line.id}`, day: new Date(sale.issuedAt || sale.createdAt || Date.now()).getDate(), customer: sale.customer, source: sale.bookingSource || "pos", origin: "POS", price: Number(line.unitPrice || 0) * Number(line.quantity || 1), app: "POS", rateSource: sale.bookingSource || "direct" })));
+  const payrollRows = [...staffBookings, ...posServiceRows].map((booking) => {
+    const rate = Number(selectedSettings.appRates[booking.rateSource || booking.source] ?? 45);
     const commission = Number(booking.price || 0) * rate / 100;
     return { ...booking, rate, commission, app: platforms.find((platform) => platform.id === booking.source)?.name || booking.origin };
   });

@@ -39,8 +39,12 @@ export default function Reports() {
   const posSales = getStoredPosSales();
   const serviceRevenue = bookings.reduce((sum, booking) => sum + Number(booking.price || 0), 0);
   const productRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-  const posRevenue = posSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
-  const paymentBreakdown = ["Cash", "Card", "QR", "App payment", "Bank transfer"].map((method) => ({ method, total: posSales.filter((sale) => sale.paymentMethod === method).reduce((sum, sale) => sum + Number(sale.total || 0), 0) }));
+  const paidSales = posSales.filter((sale) => sale.paymentStatus === "Paid");
+  const posRevenue = paidSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+  const paymentLabels = { cash: "現金", card: "クレジットカード", paypay: "PayPay", transfer: "銀行振込", other: "その他" };
+  const paymentBreakdown = Object.keys(paymentLabels).map((method) => ({ method: paymentLabels[method], total: posSales.flatMap((sale) => sale.payments || []).filter((payment) => payment.method === method && payment.confirmed).reduce((sum, payment) => sum + Number(payment.amount || 0), 0) }));
+  const discounts = posSales.reduce((sum, sale) => sum + Number(sale.orderDiscount || 0), 0);
+  const taxes = posSales.reduce((sum, sale) => sum + Number(sale.tax || 0), 0);
   const weekDelta = ((total(currentWeek) - total(previousWeek)) / total(previousWeek)) * 100;
   const monthDelta = ((total(currentMonth) - total(previousMonth)) / total(previousMonth)) * 100;
 
@@ -53,7 +57,7 @@ export default function Reports() {
       <div className="stats">
         <div className="stat card"><span>Service revenue</span><strong>{yen(serviceRevenue)}</strong><small>{bookings.length} bookings</small></div>
         <div className="stat card"><span>Product revenue</span><strong>{yen(productRevenue)}</strong><small>{orders.length} online orders</small></div>
-        <div className="stat card"><span>POS revenue</span><strong>{yen(posRevenue)}</strong><small>{posSales.length} checkout sales</small></div>
+        <div className="stat card"><span>POS revenue</span><strong>{yen(posRevenue)}</strong><small>{paidSales.length} paid sales</small></div>
         <div className="stat card"><span>Vs last week</span><strong>{weekDelta.toFixed(1)}%</strong><small>Revenue growth</small></div>
       </div>
       <div className="reportGrid">
@@ -62,6 +66,7 @@ export default function Reports() {
       </div>
       <section className="card reportPanel"><div className="sectionTitle"><div><h2>Business mix</h2><p>Booking and ecommerce contribution.</p></div></div><div className="mixBars"><div><span>Services</span><strong style={{ width: `${Math.min(100, (serviceRevenue / (serviceRevenue + productRevenue)) * 100)}%` }} /></div><div><span>Products</span><strong style={{ width: `${Math.min(100, (productRevenue / (serviceRevenue + productRevenue)) * 100)}%` }} /></div></div></section>
       <section className="card reportPanel"><div className="sectionTitle"><div><h2>Payment methods</h2><p>Liệt kê doanh thu theo từng loại thanh toán từ trang tính tiền.</p></div><span className="pill">{monthDelta.toFixed(1)}% month</span></div>{paymentBreakdown.map((payment) => <div className="lineItem" key={payment.method}><span>{payment.method}</span><strong>{yen(payment.total)}</strong></div>)}</section>
+      <section className="card reportPanel"><div className="sectionTitle"><div><h2>Tax / discount</h2><p>Snapshot từ POS, không thay đổi khi chỉnh Settings sau này.</p></div></div><div className="lineItem"><span>Discount</span><strong>{yen(discounts)}</strong></div><div className="lineItem"><span>Tax</span><strong>{yen(taxes)}</strong></div></section>
     </>
   );
 }
