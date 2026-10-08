@@ -18,16 +18,17 @@ import { t } from "../lib/i18nClean";
 export default function Home() {
   const [active, setActive] = useState("Calendar");
   const [language, setLanguage] = useState("vi");
+  const [checkoutAppointmentId, setCheckoutAppointmentId] = useState("");
   let content = <Dashboard />;
 
-  if (active === "Calendar") content = <CalendarEnhanced label={t(language, "calendar")} language={language} onCheckout={() => setActive("POS / Checkout")} />;
+  if (active === "Calendar") content = <CalendarEnhanced label={t(language, "calendar")} language={language} onCheckout={(appointmentId) => { setCheckoutAppointmentId(appointmentId || ""); setActive("POS / Checkout"); }} />;
   else if (active === "Customers") content = <Customers label={t(language, "customers")} language={language} />;
   else if (active === "Services") content = <ServiceMenu label={t(language, "services")} language={language} />;
   else if (active === "ProductsInventory") content = <ProductInventory label={t(language, "productsInventory")} language={language} />;
   else if (active === "Online Store") content = <OnlineStore language={language} />;
   else if (active === "Orders") content = <Orders language={language} />;
   else if (active === "Payroll") content = <Payroll label={t(language, "payroll")} language={language} />;
-  else if (active === "POS / Checkout") content = <Checkout label={t(language, "checkout")} />;
+  else if (active === "POS / Checkout") content = <Checkout label={t(language, "checkout")} appointmentId={checkoutAppointmentId} />;
   else if (active === "Reports") content = <Reports language={language} />;
   else if (active === "Settings") content = <Settings language={language} />;
   else if (active !== "Dashboard") content = <GenericModule name={active} />;

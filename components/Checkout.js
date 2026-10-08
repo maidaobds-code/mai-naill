@@ -57,7 +57,7 @@ export function getStoredPosSales() {
   return readJson(CHECKOUT_KEY, []);
 }
 
-export default function Checkout({ label = "POS / Checkout" }) {
+export default function Checkout({ label = "POS / Checkout", appointmentId = "" }) {
   const { bookings, setBookings } = useBookingStore();
   const [services] = useServiceCatalog();
   const [products, setProducts] = useProductCatalog();
@@ -87,6 +87,11 @@ export default function Checkout({ label = "POS / Checkout" }) {
   useEffect(() => {
     window.localStorage.setItem(DRAFT_KEY, JSON.stringify(order));
   }, [order]);
+
+  useEffect(() => {
+    const nextAppointmentId = appointmentId || (typeof window !== "undefined" ? window.localStorage.getItem("nail-japan-checkout-appointment") : "");
+    if (nextAppointmentId && String(nextAppointmentId) !== String(order.appointmentId)) chooseAppointment(nextAppointmentId);
+  }, [appointmentId, bookings]);
 
   const catalogServices = useMemo(() => [...services, ...extraServices], [services]);
   const visibleServices = catalogServices.filter((item) => `${item.name} ${item.categoryName || ""}`.toLowerCase().includes(query.toLowerCase()));
@@ -136,6 +141,27 @@ export default function Checkout({ label = "POS / Checkout" }) {
 
   function addLine(item, type) {
     const line = type === "product" ? lineFromProduct(item) : lineFromService(item, null, order.employee || staff[0]?.name);
+    setOrder((current) => ({ ...current, lines: [...current.lines, line] }));
+  }
+
+  function addOtherLine(type) {
+    const line = {
+      id: newId(type === "product" ? "other-product" : "other-service"),
+      sourceId: "",
+      type,
+      name: type === "product" ? "Khoản sản phẩm khác / その他" : "Khoản dịch vụ khác / その他",
+      category: "その他",
+      sku: "",
+      quantity: 1,
+      unitPrice: 0,
+      staff: order.employee || staff[0]?.name || "",
+      stock: 999,
+      taxRate: null,
+      discountType: "amount",
+      discountValue: 0,
+      note: "その他",
+      snapshot: { name: "その他", price: 0 },
+    };
     setOrder((current) => ({ ...current, lines: [...current.lines, line] }));
   }
 
@@ -227,15 +253,19 @@ export default function Checkout({ label = "POS / Checkout" }) {
       </div>
       <div className="nailItemGrid">
         {activeTab === "services" && visibleServices.slice(0, 8).map((service) => <button className="nailMenuItem" key={service.id} onClick={() => addLine(service, "service")}><strong>{service.name}</strong><span>⊕</span><small>{yen(service.price)}</small></button>)}
+        {activeTab === "services" && <button className="nailMenuItem" onClick={() => addOtherLine("service")}><strong>Khoản khác / その他</strong><span>⊕</span><small>Ghi chú sau khi thêm</small></button>}
         {activeTab === "products" && visibleProducts.slice(0, 8).map((product) => <button className="nailMenuItem" key={product.id} onClick={() => addLine(product, "product")} disabled={Number(product.stock || 0) <= 0}><strong>{product.name}</strong><span>⊕</span><small>{yen(product.salePrice || product.basePrice)}</small></button>)}
+        {activeTab === "products" && <button className="nailMenuItem" onClick={() => addOtherLine("product")}><strong>Khoản khác / その他</strong><span>⊕</span><small>Ghi chú sau khi thêm</small></button>}
       </div>
 
       <div className="nailDivider" />
       <div className="nailOrderTitle"><strong>🛒 Chi tiết đơn hàng</strong><span>{order.lines.length} mục</span></div>
       <div className="nailOrderLines">
         {order.lines.map((line) => <div className="nailOrderLine" key={line.id}>
-          <div><strong>{line.name}</strong><small>{yen(line.unitPrice)} / mục</small></div>
+          <div><strong>{line.name}</strong><small>{yen(line.unitPrice)} / mục · {line.note || "Không ghi chú"}</small></div>
           <div className="nailQty"><button onClick={() => updateLine(line.id, { quantity: Math.max(1, Number(line.quantity || 1) - 1) })}>−</button><span>{line.quantity}</span><button onClick={() => updateLine(line.id, { quantity: Number(line.quantity || 1) + 1 })}>＋</button></div>
+          <input className="nailLineInput" type="number" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: Number(event.target.value) })} aria-label="Giá" />
+          <input className="nailLineNote" value={line.note || ""} onChange={(event) => updateLine(line.id, { note: event.target.value })} placeholder="Ghi chú / その他" />
           <strong>{yen(lineTotal(line))}</strong>
         </div>)}
         {!order.lines.length && <p className="mutedText">Chưa có mục nào trong đơn.</p>}

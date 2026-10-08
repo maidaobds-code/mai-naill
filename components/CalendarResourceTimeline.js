@@ -140,6 +140,14 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
     setModalOpen(false);
   }
 
+  function checkoutSelected() {
+    const bookingToCheckout = selected?.draft ? null : selected;
+    if (!bookingToCheckout) return;
+    window.localStorage.setItem("nail-japan-checkout-appointment", String(bookingToCheckout.id));
+    setModalOpen(false);
+    if (onCheckout) onCheckout(String(bookingToCheckout.id));
+  }
+
   return (
     <>
       <div className="pageHead">
@@ -152,10 +160,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
           <button className="ghost" onClick={() => setSelectedDay(Math.max(1, selectedDay - 1))}>Previous</button>
           <button className="ghost" onClick={() => setSelectedDay(6)}>Today</button>
           <button className="ghost" onClick={() => setSelectedDay(Math.min(31, selectedDay + 1))}>Next</button>
-          <button className={view === "day" ? "ghost activeSoft" : "ghost"} onClick={() => setView("day")}>Day</button>
-          <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>Week</button>
-          <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>Month</button>
-          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDay, "10:00", staff[0])); setModalOpen(true); }}>+ New Booking</button>
+          <button className={view === "day" ? "ghost activeSoft" : "ghost"} onClick={() => setView("day")}>Ngày</button>
+          <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>Tuần</button>
+          <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>Tháng</button>
+          <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>Tính tiền</button>
+          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDay, "10:00", staff[0])); setModalOpen(true); }}>+ Lịch mới</button>
         </div>
       </div>
 
@@ -172,7 +181,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
             <strong>2026/10/{String(selectedDay).padStart(2, "0")} ﾂｷ Day View</strong>
           </div>
           <div className="resourceTimeline">
-            <div className="resourceHeader">Staff</div>
+            <div className="resourceHeader">Nhân viên</div>
             <div className="timeAxis">{slots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {staff.map((member) => {
               const memberBookings = selectedDayBookings.filter((booking) => booking.staff === member.name);

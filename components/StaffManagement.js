@@ -45,17 +45,17 @@ export default function StaffManagement({ label = "Staff", embedded = false }) {
         <div>
           <p className="eyebrow">STAFF ACCOUNTS</p>
           <h1>{label}</h1>
-          <p>Add or remove staff, set staff colors, and link Nailie / Hot Pepper / minimo accounts.</p>
+          <p>Thêm, xóa nhân viên, đặt màu lịch và liên kết tài khoản Nailie / Hot Pepper / minimo.</p>
         </div>
-        <button className="primary" onClick={addStaff}>+ Add Staff</button>
+        <button className="primary" onClick={addStaff}>+ Thêm nhân viên</button>
       </div>}
 
       <section className="card staffEditor">
-        <div className="sectionTitle"><div><h2>{embedded ? label : "New staff"}</h2><p>Credentials are stored server-side as encrypted Supabase records, never plain text on the client.</p></div>{embedded && <button className="primary" onClick={addStaff}>+ Add Staff</button>}</div>
+        <div className="sectionTitle"><div><h2>{embedded ? label : "Nhân viên mới"}</h2><p>Thông tin đăng nhập được lưu mã hóa phía máy chủ, không lưu dạng chữ thường trên trình duyệt.</p></div>{embedded && <button className="primary" onClick={addStaff}>+ Thêm nhân viên</button>}</div>
         <div className="staffForm">
-          <label>Name<input value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} placeholder="Staff name" /></label>
-          <label>Role<input value={draft.role} onChange={(event) => updateDraft("role", event.target.value)} /></label>
-          <label>Color<select value={draft.color} onChange={(event) => updateDraft("color", event.target.value)}>{staffColors.map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
+          <label>Tên<input value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} placeholder="Tên nhân viên" /></label>
+          <label>Vai trò<input value={draft.role} onChange={(event) => updateDraft("role", event.target.value)} /></label>
+          <label>Màu lịch<select value={draft.color} onChange={(event) => updateDraft("color", event.target.value)}>{staffColors.map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
           <label>Hot Pepper account<input value={draft.external.hotpepper} onChange={(event) => updateExternal("hotpepper", event.target.value)} placeholder="HP staff/account id" /></label>
           <label>Nailie account<input value={draft.external.nailie} onChange={(event) => updateExternal("nailie", event.target.value)} placeholder="Nailie staff/account id" /></label>
           <label>minimo account<input value={draft.external.minimo} onChange={(event) => updateExternal("minimo", event.target.value)} placeholder="minimo staff/account id" /></label>
@@ -64,7 +64,7 @@ export default function StaffManagement({ label = "Staff", embedded = false }) {
 
       <section className="card tableWrap">
         <table>
-          <thead><tr><th>Staff</th><th>Color</th><th>Hot Pepper</th><th>Nailie</th><th>minimo</th><th>Credentials</th><th>Action</th></tr></thead>
+          <thead><tr><th>Nhân viên</th><th>Màu</th><th>Hot Pepper</th><th>Nailie</th><th>minimo</th><th>Đăng nhập</th><th>Thao tác</th></tr></thead>
           <tbody>{staff.map((member) => (
             <tr key={member.id}>
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{member.role}</span></div></div></td>
@@ -73,7 +73,7 @@ export default function StaffManagement({ label = "Staff", embedded = false }) {
               <td>{member.external.nailie || "-"}</td>
               <td>{member.external.minimo || "-"}</td>
               <td><span className="pill active">{member.credentialStatus}</span></td>
-              <td><button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>Delete</button></td>
+              <td><button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>Xóa</button></td>
             </tr>
           ))}</tbody>
         </table>
