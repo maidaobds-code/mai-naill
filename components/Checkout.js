@@ -396,7 +396,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
             <span>{settings.phone || ""}</span>
           </div>
           <h3>領収書</h3>
-          <p className="printRecipient"><span>{order.customer || "____________"}</span><strong>様</strong></p>
+          <p className="printRecipient"><span>&nbsp;</span><strong>様</strong></p>
           <div className="printRule" />
           <p><span>{new Date().toLocaleDateString("ja-JP")}</span><strong>{paymentMethodText || "現金"}</strong></p>
           <div className="printRule" />
