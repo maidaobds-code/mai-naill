@@ -957,6 +957,142 @@ section.nailPosPanel .nailPaymentRow {
   }
 }
 
+.nailPosHeaderActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nailSubtotalButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid rgba(120, 120, 130, 0.18);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.nailPaymentChoices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+  gap: 6px;
+}
+
+.nailPaymentChoices button {
+  min-height: 34px;
+  border: 1px solid rgba(120, 120, 130, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--muted);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.nailPaymentChoices button.active {
+  border-color: rgba(124, 58, 237, 0.42);
+  background: rgba(124, 58, 237, 0.14);
+  color: var(--ink);
+}
+
+.settingsPaymentMethods {
+  display: grid;
+  gap: 10px;
+}
+
+.settingsPaymentMethod {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.posHistoryOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(20, 18, 28, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+.posHistoryModal {
+  width: min(720px, 100%);
+  max-height: min(82vh, 720px);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 18px;
+  padding: 22px;
+  background: rgba(244, 242, 248, 0.86);
+  box-shadow: 0 24px 80px rgba(18, 14, 28, 0.28);
+}
+
+.posHistoryHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.posHistoryHeader span {
+  color: #8b5cf6;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.posHistoryHeader h2 {
+  margin: 6px 0 0;
+  color: #1f1a2a;
+}
+
+.posHistoryHeader button {
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #3a3345;
+  font-weight: 900;
+}
+
+.posHistoryList {
+  display: grid;
+  gap: 10px;
+}
+
+.posHistoryList button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 16px;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.64);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #1f1a2a;
+  cursor: pointer;
+}
+
+.posHistoryList span {
+  color: #6b6475;
+  font-size: 12px;
+}
+
+.posHistoryList em {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  font-style: normal;
+  font-weight: 900;
+}
+
 @media (max-width: 760px) {
   .nailPaymentRow {
     grid-template-columns: 1fr;

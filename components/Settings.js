@@ -32,6 +32,13 @@ export const defaultSettings = {
   bankAccount: "1234567",
   bankHolder: "MAI BEAUTY SALON",
   paymentNote: "Vui lòng ghi số đơn hàng khi chuyển khoản.",
+  paymentMethods: [
+    { id: "cash", label: "現金" },
+    { id: "card", label: "クレジットカード" },
+    { id: "paypay", label: "PayPay" },
+    { id: "transfer", label: "銀行振込" },
+    { id: "other", label: "その他" },
+  ],
 };
 
 export function getAppSettings() {
@@ -70,6 +77,30 @@ export default function Settings({ language = "vi" }) {
     reader.readAsDataURL(file);
   }
 
+  function updatePaymentMethod(id, field, value) {
+    setSaved(false);
+    setSettings((current) => ({
+      ...current,
+      paymentMethods: (current.paymentMethods || defaultSettings.paymentMethods).map((method) => method.id === id ? { ...method, [field]: value } : method),
+    }));
+  }
+
+  function addPaymentMethod() {
+    setSaved(false);
+    setSettings((current) => ({
+      ...current,
+      paymentMethods: [...(current.paymentMethods || defaultSettings.paymentMethods), { id: `custom-${Date.now()}`, label: "新しい支払い" }],
+    }));
+  }
+
+  function removePaymentMethod(id) {
+    setSaved(false);
+    setSettings((current) => ({
+      ...current,
+      paymentMethods: (current.paymentMethods || defaultSettings.paymentMethods).filter((method) => method.id !== id),
+    }));
+  }
+
   function saveSettings(event) {
     event.preventDefault();
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(settings));
@@ -85,7 +116,7 @@ export default function Settings({ language = "vi" }) {
         {activePanel === "salon" && <section className="card settingsPanel"><h2>Thông tin cửa hàng</h2><label>Tên cửa hàng<input value={settings.salonName} onChange={(event) => update("salonName", event.target.value)} /></label><label>Chi nhánh<input value={settings.branch} onChange={(event) => update("branch", event.target.value)} /></label><label>Địa chỉ<input value={settings.address} onChange={(event) => update("address", event.target.value)} /></label><label>Điện thoại<input value={settings.phone} onChange={(event) => update("phone", event.target.value)} /></label><label>Email<input type="email" value={settings.email} onChange={(event) => update("email", event.target.value)} /></label><label>Logo cửa hàng<input type="file" accept="image/*" onChange={uploadLogo} /></label>{settings.logoUrl && <img className="settingsLogoPreview" src={settings.logoUrl} alt="Salon logo" />}</section>}
         {activePanel === "business" && <section className="card settingsPanel"><h2>Giờ làm & thuế</h2><label>Mở cửa<input type="time" value={settings.openTime} onChange={(event) => update("openTime", event.target.value)} /></label><label>Đóng cửa<input type="time" value={settings.closeTime} onChange={(event) => update("closeTime", event.target.value)} /></label><label>Thuế %<input type="number" value={settings.taxRate} onChange={(event) => update("taxRate", Number(event.target.value))} /></label><label>Cách tính thuế<select value={settings.taxMode} onChange={(event) => update("taxMode", event.target.value)}><option value="exclusive">税抜</option><option value="inclusive">税込</option></select></label><label>登録番号<input value={settings.invoiceNumber} onChange={(event) => update("invoiceNumber", event.target.value)} placeholder="T..." /></label><label>Giới hạn hủy lịch theo giờ<input type="number" value={settings.cancellationHours} onChange={(event) => update("cancellationHours", Number(event.target.value))} /></label></section>}
         {activePanel === "automation" && <section className="card settingsPanel"><h2>Tự động hóa</h2><label className="toggleLine"><input type="checkbox" checked={settings.autoConfirm} onChange={(event) => update("autoConfirm", event.target.checked)} /> Tự động xác nhận lịch</label><label className="toggleLine"><input type="checkbox" checked={settings.emailReminder} onChange={(event) => update("emailReminder", event.target.checked)} /> Nhắc lịch qua email</label><label className="toggleLine"><input type="checkbox" checked={settings.lineReminder} onChange={(event) => update("lineReminder", event.target.checked)} /> Nhắc lịch qua LINE</label><label className="toggleLine"><input type="checkbox" checked={settings.depositRequired} onChange={(event) => update("depositRequired", event.target.checked)} /> Yêu cầu đặt cọc</label>{saved && <p className="successNote">Đã lưu cài đặt.</p>}</section>}
-        {activePanel === "payment" && <section className="card settingsPanel paymentSettingsPanel"><h2>Cài đặt thanh toán</h2><p className="mutedText">Bật/tắt phương thức thanh toán và thông tin chuyển khoản.</p><label className="toggleLine"><input type="checkbox" checked={settings.payAtStoreEnabled} onChange={(event) => update("payAtStoreEnabled", event.target.checked)} /> Thanh toán tại cửa hàng</label><label className="toggleLine"><input type="checkbox" checked={settings.bankTransferEnabled} onChange={(event) => update("bankTransferEnabled", event.target.checked)} /> Chuyển khoản</label><label className="toggleLine"><input type="checkbox" checked={settings.cardEnabled} onChange={(event) => update("cardEnabled", event.target.checked)} /> Thẻ</label><label className="toggleLine"><input type="checkbox" checked={settings.codEnabled} onChange={(event) => update("codEnabled", event.target.checked)} /> COD</label><label>Tên ngân hàng<input value={settings.bankName} onChange={(event) => update("bankName", event.target.value)} /></label><label>Số tài khoản<input value={settings.bankAccount} onChange={(event) => update("bankAccount", event.target.value)} /></label><label>Chủ tài khoản<input value={settings.bankHolder} onChange={(event) => update("bankHolder", event.target.value)} /></label><label>Ghi chú thanh toán<input value={settings.paymentNote} onChange={(event) => update("paymentNote", event.target.value)} /></label></section>}
+        {activePanel === "payment" && <section className="card settingsPanel paymentSettingsPanel"><h2>Cài đặt thanh toán</h2><p className="mutedText">Chủ quán có thể thêm, sửa hoặc xóa phương thức thanh toán dùng trong POS.</p><div className="settingsPaymentMethods">{(settings.paymentMethods || defaultSettings.paymentMethods).map((method) => <div className="settingsPaymentMethod" key={method.id}><input value={method.label} onChange={(event) => updatePaymentMethod(method.id, "label", event.target.value)} /><button type="button" className="ghost dangerButton" onClick={() => removePaymentMethod(method.id)}>Xóa</button></div>)}<button type="button" className="ghost" onClick={addPaymentMethod}>+ Thêm phương thức thanh toán</button></div><label>Tên ngân hàng<input value={settings.bankName} onChange={(event) => update("bankName", event.target.value)} /></label><label>Số tài khoản<input value={settings.bankAccount} onChange={(event) => update("bankAccount", event.target.value)} /></label><label>Chủ tài khoản<input value={settings.bankHolder} onChange={(event) => update("bankHolder", event.target.value)} /></label><label>Ghi chú thanh toán<input value={settings.paymentNote} onChange={(event) => update("paymentNote", event.target.value)} /></label></section>}
         {activePanel === "apps" && <section className="card settingsPanel paymentSettingsPanel"><h2>Liên kết ứng dụng</h2><p className="mutedText">Cài đặt kết nối Nailie, minimo, Hot Pepper và website riêng.</p>{platforms.filter((platform) => platform.id !== "direct").map((platform) => { const provider = bookingProviders[platform.id === "hotpepper" ? "hotpepper" : platform.id]; return <div className="lineItem" key={platform.id}><span><strong>{platform.name}</strong><small>{provider?.status === "manual" ? "Manual / chờ API hợp lệ" : platform.status}</small></span><strong>{provider?.capabilities?.includes("block") ? "Đồng bộ" : "Thủ công"}</strong></div>; })}<h3>Nhật ký đồng bộ</h3>{syncEvents.map((event) => <div className="lineItem" key={event.id}><span>{event.title}</span><small>{event.severity}</small></div>)}</section>}
       </form>
       {activePanel === "staff" && <section className="settingsStaffSection">
