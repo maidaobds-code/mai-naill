@@ -1093,6 +1093,73 @@ section.nailPosPanel .nailPaymentRow {
   font-weight: 900;
 }
 
+section.nailPosPanel .nailPaymentRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 116px 116px 34px;
+  align-items: center;
+  gap: 8px;
+}
+
+section.nailPosPanel .nailPaymentChoices {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+section.nailPosPanel .nailPaymentChoices button {
+  flex: 0 0 auto;
+  min-width: 74px;
+  max-width: 132px;
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
+  word-break: keep-all;
+  line-height: 1;
+  text-align: center;
+}
+
+section.nailPosPanel .nailPaymentRow > input {
+  width: 100%;
+  min-width: 0;
+}
+
+section.nailPosPanel .nailPaymentRow > button:last-child {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+}
+
+section.nailPosPanel .nailPaymentAppName {
+  min-width: 86px;
+  writing-mode: horizontal-tb;
+  word-break: keep-all;
+}
+
+@media (max-width: 900px) {
+  section.nailPosPanel .nailPaymentRow {
+    grid-template-columns: 1fr 110px 110px 34px;
+  }
+}
+
+@media (max-width: 680px) {
+  section.nailPosPanel .nailPaymentRow {
+    grid-template-columns: 1fr;
+  }
+
+  section.nailPosPanel .nailPaymentRow > button:last-child {
+    justify-self: end;
+  }
+}
+
 @media (max-width: 760px) {
   .nailPaymentRow {
     grid-template-columns: 1fr;
