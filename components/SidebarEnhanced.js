@@ -1,5 +1,5 @@
 ﻿"use client";
-import { languages, t } from "../lib/i18nClean";
+import { languages, t, tx } from "../lib/i18nClean";
 import { useStoreOrders } from "../lib/orderStore";
 
 const items = [
@@ -23,7 +23,7 @@ export default function SidebarEnhanced({ active, setActive, language, setLangua
   const unread = orders.filter((order) => order.unread).length;
   return (
     <aside className="sidebar">
-      <div className="brand"><div className="brandMark">N</div><div><strong>Nail Japan</strong><span>{t(language, "salonOs")}</span></div></div>
+      <div className="brand"><div className="brandMark">M</div><div><strong>{tx(language, "brand", "name")}</strong><span>{t(language, "salonOs")}</span></div></div>
       <nav>
         {items.map(([icon, label, key]) => (
           <button key={label} className={active === label ? "navItem active" : "navItem"} onClick={() => setActive(label)}>
@@ -31,8 +31,8 @@ export default function SidebarEnhanced({ active, setActive, language, setLangua
           </button>
         ))}
       </nav>
-      <div className="languageBox"><span>Language</span><select value={language} onChange={(event) => setLanguage(event.target.value)}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></div>
-      <div className="sidebarFoot"><div className="salonAvatar">GN</div><div><strong>Glass Nail</strong><span>Shinjuku · JP</span></div></div>
+      <div className="languageBox"><span>{t(language, "language")}</span><select value={language} onChange={(event) => setLanguage(event.target.value)}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></div>
+      <div className="sidebarFoot"><div className="salonAvatar">MB</div><div><strong>{tx(language, "brand", "name")}</strong><span>{tx(language, "brand", "foot")}</span></div></div>
     </aside>
   );
 }

@@ -22,18 +22,18 @@ export default function Home() {
   const [language, setLanguage] = useState("vi");
   let content = <Dashboard />;
 
-  if (active === "Calendar") content = <CalendarEnhanced label={t(language, "calendar")} onCheckout={() => setActive("POS / Checkout")} />;
-  else if (active === "Customers") content = <Customers label={t(language, "customers")} />;
+  if (active === "Calendar") content = <CalendarEnhanced label={t(language, "calendar")} language={language} onCheckout={() => setActive("POS / Checkout")} />;
+  else if (active === "Customers") content = <Customers label={t(language, "customers")} language={language} />;
   else if (active === "Staff") content = <StaffManagement label={t(language, "staff")} />;
-  else if (active === "Services") content = <ServiceMenu label={t(language, "services")} />;
-  else if (active === "ProductsInventory") content = <ProductInventory label={t(language, "productsInventory")} />;
-  else if (active === "Online Store") content = <OnlineStore />;
-  else if (active === "Orders") content = <Orders />;
+  else if (active === "Services") content = <ServiceMenu label={t(language, "services")} language={language} />;
+  else if (active === "ProductsInventory") content = <ProductInventory label={t(language, "productsInventory")} language={language} />;
+  else if (active === "Online Store") content = <OnlineStore language={language} />;
+  else if (active === "Orders") content = <Orders language={language} />;
   else if (active === "Integrations") content = <Integrations label={t(language, "integrations")} />;
-  else if (active === "Payroll") content = <Payroll label={t(language, "payroll")} />;
+  else if (active === "Payroll") content = <Payroll label={t(language, "payroll")} language={language} />;
   else if (active === "POS / Checkout") content = <Checkout label={t(language, "checkout")} />;
-  else if (active === "Reports") content = <Reports />;
-  else if (active === "Settings") content = <Settings />;
+  else if (active === "Reports") content = <Reports language={language} />;
+  else if (active === "Settings") content = <Settings language={language} />;
   else if (active !== "Dashboard") content = <GenericModule name={active} />;
 
   return (

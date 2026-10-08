@@ -21,7 +21,7 @@ export default function Sidebar({ active, setActive }) {
       <div className="brand">
         <div className="brandMark">N</div>
         <div>
-          <strong>Nail Japan</strong>
+          <strong>Mai Beauty Salon</strong>
           <span>Salon + Store OS</span>
         </div>
       </div>
@@ -34,7 +34,7 @@ export default function Sidebar({ active, setActive }) {
       </nav>
       <div className="sidebarFoot">
         <div className="salonAvatar">GN</div>
-        <div><strong>Glass Nail</strong><span>Shinjuku · JP</span></div>
+        <div><strong>Mai Beauty Salon</strong><span>Tokyo · JP</span></div>
       </div>
     </aside>
   );

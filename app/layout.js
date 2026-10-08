@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Nail Japan",
-  description: "All-in-one salon management for Japan",
+  title: "Mai Beauty Salon",
+  description: "All-in-one beauty salon management",
 };
 
 export default function RootLayout({ children }) {

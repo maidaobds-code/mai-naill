@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useBookingStore } from "../lib/bookingStore";
 import { useStoreOrders } from "../lib/orderStore";
+import { tx } from "../lib/i18nClean";
 import { customers as seedCustomers } from "../lib/salonData";
 
 function yen(value) {
@@ -25,11 +26,13 @@ function uniqueCustomers(seed, bookings, orders) {
   return Array.from(map.values());
 }
 
-export default function CustomersEnhanced({ label = "Customers" }) {
+export default function CustomersEnhanced({ label = "Customers", language = "vi" }) {
+  const tr = (key) => tx(language, "customersPage", key);
+  const tc = (key) => tx(language, "common", key);
   const { bookings } = useBookingStore();
   const { orders } = useStoreOrders();
   const [campaigns, setCampaigns] = useState([]);
-  const [draft, setDraft] = useState({ title: "Giam gia mua le", type: "promotion", target: "old", message: "Cam on ban da ung ho Glass Nail. Tuan nay salon co uu dai dac biet cho khach cu." });
+  const [draft, setDraft] = useState({ title: "Giảm giá mùa lễ", type: "promotion", target: "old", message: "Cảm ơn bạn đã ủng hộ Mai Beauty Salon. Tuần này salon có ưu đãi đặc biệt cho khách cũ." });
   const customerList = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders), [bookings, orders]);
 
   function targetCustomers() {
@@ -47,20 +50,21 @@ export default function CustomersEnhanced({ label = "Customers" }) {
 
   return (
     <>
-      <div className="pageHead"><div><p className="eyebrow">CRM</p><h1>{label}</h1><p>Quan ly khach cu, tao su kien/thong bao va gui Gmail hang loat cho khach da mua hoac dat lich.</p></div><button className="primary" form="campaignForm">Gui thong bao</button></div>
+      <div className="pageHead"><div><p className="eyebrow">CRM</p><h1>{label}</h1><p>{tr("desc")}</p></div><button className="primary" form="campaignForm">{tr("sendNotice")}</button></div>
       <section className="card customerCampaignPanel">
-        <div className="sectionTitle"><div><h2>Su kien / thong bao cho khach cu</h2><p>Vi du: giam gia mua le, uu dai sinh nhat, lich nghi cua hang.</p></div></div>
+        <div className="sectionTitle"><div><h2>{tr("campaignTitle")}</h2><p>{tr("campaignDesc")}</p></div></div>
         <form id="campaignForm" className="campaignForm" onSubmit={sendCampaign}>
-          <label>Tieu de<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
-          <label>Loai<select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })}><option value="promotion">Giam gia</option><option value="event">Su kien</option><option value="notice">Thong bao</option></select></label>
-          <label>Nhom nhan<select value={draft.target} onChange={(event) => setDraft({ ...draft, target: event.target.value })}><option value="old">Khach cu da mua/dat lich</option><option value="buyers">Khach da mua hang</option><option value="bookers">Khach da dat lich</option></select></label>
-          <label className="campaignMessage">Noi dung<input value={draft.message} onChange={(event) => setDraft({ ...draft, message: event.target.value })} /></label>
+          <label>{tr("subject")}<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
+          <label>{tr("type")}<select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })}><option value="promotion">{tr("promotion")}</option><option value="event">{tr("event")}</option><option value="notice">{tr("notice")}</option></select></label>
+          <label>{tr("target")}<select value={draft.target} onChange={(event) => setDraft({ ...draft, target: event.target.value })}><option value="old">{tr("oldCustomers")}</option><option value="buyers">{tr("buyers")}</option><option value="bookers">{tr("bookers")}</option></select></label>
+          <label className="campaignMessage">{tr("message")}<input value={draft.message} onChange={(event) => setDraft({ ...draft, message: event.target.value })} /></label>
         </form>
       </section>
       <div className="customerGrid">
-        <section className="card tableWrap"><table><thead><tr><th>Customer</th><th>Phone</th><th>Gmail</th><th>Bookings</th><th>Orders</th><th>Total spend</th><th>Type</th></tr></thead><tbody>{customerList.map((customer) => <tr key={customer.phone || customer.id}><td><strong>{customer.name}</strong></td><td>{customer.phone}</td><td>{customer.email || "-"}</td><td>{customer.bookingCount || customer.visits || 0}</td><td>{customer.orderCount || 0}</td><td>{yen(customer.spend)}</td><td><span className="pill">{customer.tag}</span></td></tr>)}</tbody></table></section>
-        <aside className="card campaignLog"><h2>Gmail campaign log</h2>{campaigns.length ? campaigns.map((campaign) => <div className="campaignItem" key={campaign.id}><strong>{campaign.title}</strong><span>{campaign.recipients.length} khach · {new Date(campaign.sentAt).toLocaleString("ja-JP")}</span><small>{campaign.message}</small></div>) : <p>Chua gui thong bao nao.</p>}</aside>
+        <section className="card tableWrap"><table><thead><tr><th>{tc("customer")}</th><th>{tc("phone")}</th><th>{tc("email")}</th><th>{tr("bookings")}</th><th>{tr("orders")}</th><th>{tr("spend")}</th><th>{tr("typeCol")}</th></tr></thead><tbody>{customerList.map((customer) => <tr key={customer.phone || customer.id}><td><strong>{customer.name}</strong></td><td>{customer.phone}</td><td>{customer.email || "-"}</td><td>{customer.bookingCount || customer.visits || 0}</td><td>{customer.orderCount || 0}</td><td>{yen(customer.spend)}</td><td><span className="pill">{customer.tag}</span></td></tr>)}</tbody></table></section>
+        <aside className="card campaignLog"><h2>{tr("campaignLog")}</h2>{campaigns.length ? campaigns.map((campaign) => <div className="campaignItem" key={campaign.id}><strong>{campaign.title}</strong><span>{campaign.recipients.length} khach · {new Date(campaign.sentAt).toLocaleString("ja-JP")}</span><small>{campaign.message}</small></div>) : <p>{tr("noCampaign")}</p>}</aside>
       </div>
     </>
   );
 }
+

@@ -5,6 +5,7 @@ import { useBookingStore } from "../lib/bookingStore";
 import { useProductCatalog, useServiceCatalog } from "../lib/catalogStore";
 import { useStoreOrders } from "../lib/orderStore";
 import { getAppSettings } from "./Settings";
+import { tx } from "../lib/i18nClean";
 import { staff } from "../lib/salonData";
 
 const timeSlots = Array.from({ length: 29 }, (_, index) => {
@@ -24,16 +25,18 @@ function addMinutes(time, minutesToAdd) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
-function paymentOptions(settings, fulfillmentType) {
-  if (fulfillmentType === "pickup") return settings.payAtStoreEnabled ? [{ id: "payAtStore", label: "Den cua hang lay va thanh toan tai cua hang" }] : [];
+function paymentOptions(settings, fulfillmentType, language = "vi") {
+  if (fulfillmentType === "pickup") return settings.payAtStoreEnabled ? [{ id: "payAtStore", label: tx(language, "settingsPage", "payAtStore") }] : [];
   return [
-    settings.bankTransferEnabled && { id: "bankTransfer", label: "Chuyen khoan" },
-    settings.cardEnabled && { id: "card", label: "Thanh toan the" },
-    settings.codEnabled && { id: "cod", label: "Thanh toan khi nhan hang" },
+    settings.bankTransferEnabled && { id: "bankTransfer", label: tx(language, "settingsPage", "bankTransfer") },
+    settings.cardEnabled && { id: "card", label: tx(language, "settingsPage", "card") },
+    settings.codEnabled && { id: "cod", label: tx(language, "settingsPage", "cod") },
   ].filter(Boolean);
 }
 
-export default function OnlineStore() {
+export default function OnlineStore({ language = "vi" }) {
+  const tr = (key, vars) => tx(language, "online", key, vars);
+  const tc = (key) => tx(language, "common", key);
   const [products] = useProductCatalog();
   const [services] = useServiceCatalog();
   const { orders, addOrder, updateOrder, addChatMessage } = useStoreOrders();
@@ -46,10 +49,10 @@ export default function OnlineStore() {
   const [checkout, setCheckout] = useState(emptyCheckout);
   const [trackingId, setTrackingId] = useState("");
   const [chatDraft, setChatDraft] = useState("");
-  const [draft, setDraft] = useState({ service: activeServices[0]?.name || "", branch: "Glass Nail Shinjuku", date: "2026-10-06", day: 6, time: "09:00", staff: "", customer: "", phone: "", email: "" });
+  const [draft, setDraft] = useState({ service: activeServices[0]?.name || "", branch: "Mai Beauty Salon Tokyo", date: "2026-10-06", day: 6, time: "09:00", staff: "", customer: "", phone: "", email: "" });
   const selectedService = useMemo(() => activeServices.find((service) => service.name === draft.service) || activeServices[0], [activeServices, draft.service]);
   const trackedOrder = orders.find((order) => order.orderNumber === trackingId || order.id === trackingId) || orders[0];
-  const availablePayments = paymentOptions(settings, checkout.fulfillmentType);
+  const availablePayments = paymentOptions(settings, checkout.fulfillmentType, language);
 
   useEffect(() => {
     setSettings(getAppSettings());
@@ -67,14 +70,14 @@ export default function OnlineStore() {
 
   function openBuy(product) {
     setSelectedProduct(product);
-    const firstPayment = paymentOptions(settings, "pickup")[0]?.id || "payAtStore";
+    const firstPayment = paymentOptions(settings, "pickup", language)[0]?.id || "payAtStore";
     setCheckout({ ...emptyCheckout, paymentMethod: firstPayment });
   }
 
   function updateCheckout(field, value) {
     setCheckout((current) => {
       const next = { ...current, [field]: value };
-      if (field === "fulfillmentType") next.paymentMethod = paymentOptions(settings, value)[0]?.id || "";
+      if (field === "fulfillmentType") next.paymentMethod = paymentOptions(settings, value, language)[0]?.id || "";
       return next;
     });
   }
@@ -91,19 +94,19 @@ export default function OnlineStore() {
     event.preventDefault();
     if (!selectedProduct) return;
     if (Number(selectedProduct.stock || 0) <= 0) {
-      setMessage("San pham nay hien het hang nen chua the mua.");
+      setMessage(tr("outOfStock"));
       return;
     }
     if (!checkout.customer.trim() || !checkout.phone.trim() || !checkout.email.trim()) {
-      setMessage("Vui long nhap ten, so dien thoai va gmail.");
+      setMessage(tr("requiredInfo"));
       return;
     }
     if (checkout.fulfillmentType === "shipping" && !checkout.address.trim()) {
-      setMessage("Phuong thuc gui hang can dia chi nhan hang.");
+      setMessage(tr("requiredAddress"));
       return;
     }
     if (checkout.fulfillmentType === "shipping" && !checkout.paymentMethod) {
-      setMessage("Vui long chon phuong thuc thanh toan.");
+      setMessage(tr("paymentMethod"));
       return;
     }
 
@@ -124,7 +127,7 @@ export default function OnlineStore() {
       transferBillName: checkout.transferBillName,
     });
     setTrackingId(order.orderNumber);
-    setMessage(`Da tao don ${order.orderNumber}. Ban co the theo doi don va chat voi chu quan ben duoi.`);
+    setMessage(tr("orderCreated", { order: order.orderNumber }));
     setSelectedProduct(null);
   }
 
@@ -132,36 +135,37 @@ export default function OnlineStore() {
     event.preventDefault();
     if (!selectedService) return;
     if (!draft.customer.trim() || !draft.phone.trim() || !draft.email.trim()) {
-      setMessage("Vui long nhap du ten, so dien thoai va gmail.");
+      setMessage(tr("requiredInfo"));
       return;
     }
 
     const saved = addBooking({ day: draft.day, start: draft.time, end: addMinutes(draft.time, selectedService.duration), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: selectedService.name, staff: draft.staff || selectedService.staff?.[0] || staff[0].name, source: "direct", origin: "Website booking", price: selectedService.price, commissionRule: "Website direct" });
-    setMessage(`Da dat lich ${saved.start} ngay ${draft.date}. Lich hen da tu dong cap nhat vao trang Calendar.`);
+    setMessage(tr("bookingCreated", { time: saved.start, date: draft.date }));
     setDraft((current) => ({ ...current, customer: "", phone: "", email: "" }));
   }
 
   return (
     <div className="storeSoftShell">
-      <section className="storeHero softHero"><div><p className="eyebrow">GLASS NAIL TOKYO</p><h1>Book your nail day</h1><p>Chon mau, chon dich vu, dat lich va mua san pham trong mot web ban hang.</p><div className="heroActions"><button className="primary">Shop Now</button><button className="ghost">Book Nail</button></div></div></section>
+      <section className="storeHero softHero"><div><p className="eyebrow">MAI BEAUTY SALON</p><h1>{tr("heroTitle")}</h1><p>{tr("heroText")}</p><div className="heroActions"><button className="primary">{tr("shopNow")}</button><button className="ghost">{tr("bookNail")}</button></div></div></section>
 
-      <div className="sectionTitle storeTitle"><div><h2>Featured Products</h2><p>Moi san pham co nut mua va kiem tra ton kho truoc khi tao don.</p></div><button className="ghost">Preview Store</button></div>
+      <div className="sectionTitle storeTitle"><div><h2>{tr("productsTitle")}</h2><p>{tr("productsText")}</p></div><button className="ghost">Preview Store</button></div>
       <div className="productGrid softProductGrid">
         {featured.map((product) => {
           const canBuy = Number(product.stock || 0) > 0 && product.status !== "DRAFT";
-          return <article className="productCard softProductCard" key={product.id}><div className="storeImage softStoreImage">{product.mediaUrl ? <img src={product.mediaUrl} alt={product.name} /> : <span>{product.productType || "Nail"}</span>}</div><div className="productMeta"><span>{product.brandName}</span><h3>{product.name}</h3><p>{product.description || product.shortDescription}</p><div><strong>{money(product.salePrice || product.basePrice)}</strong><span className={canBuy ? "pill active" : "pill danger"}>{canBuy ? `Con ${product.stock} trong kho` : "Het hang"}</span></div><button className="primary buyButton" onClick={() => openBuy(product)}>{canBuy ? "Mua" : "Xem tinh trang"}</button></div></article>;
+          return <article className="productCard softProductCard" key={product.id}><div className="storeImage softStoreImage">{product.mediaUrl ? <img src={product.mediaUrl} alt={product.name} /> : <span>{product.productType || "Nail"}</span>}</div><div className="productMeta"><span>{product.brandName}</span><h3>{product.name}</h3><p>{product.description || product.shortDescription}</p><div><strong>{money(product.salePrice || product.basePrice)}</strong><span className={canBuy ? "pill active" : "pill danger"}>{canBuy ? tr("canBuy", { stock: product.stock }) : tr("outOfStock")}</span></div><button className="primary buyButton" onClick={() => openBuy(product)}>{canBuy ? tr("buy") : tr("viewStatus")}</button></div></article>;
         })}
       </div>
 
       <section className="card orderTrackerPanel">
-        <div className="sectionTitle"><div><h2>Theo doi don hang</h2><p>Nhap ma don hoac xem don moi nhat, chat truc tiep voi chu quan.</p></div></div>
-        <div className="trackerSearch"><input value={trackingId} onChange={(event) => setTrackingId(event.target.value)} placeholder="WEB-123456" /><button className="ghost" onClick={() => setTrackingId(orders[0]?.orderNumber || "")}>Don moi nhat</button></div>
-        {trackedOrder ? <div className="trackingCard"><div><strong>{trackedOrder.orderNumber}</strong><span>{trackedOrder.productName} · {money(trackedOrder.total)}</span><small>{trackedOrder.status} · {trackedOrder.paymentStatus}</small></div>{trackedOrder.transferBillUrl && <img src={trackedOrder.transferBillUrl} alt="Transfer bill" />}<div className="chatBox">{(trackedOrder.chat || []).map((item) => <p key={item.id}>{item.text}</p>)}<div><input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder="Nhan tin cho chu quan" /><button className="primary" onClick={() => { addChatMessage(trackedOrder.id, chatDraft); setChatDraft(""); }}>Gui</button></div></div></div> : <p className="storeNote">Chua co don hang nao.</p>}
+        <div className="sectionTitle"><div><h2>{tr("trackerTitle")}</h2><p>{tr("trackerText")}</p></div></div>
+        <div className="trackerSearch"><input value={trackingId} onChange={(event) => setTrackingId(event.target.value)} placeholder="WEB-123456" /><button className="ghost" onClick={() => setTrackingId(orders[0]?.orderNumber || "")}>{tr("latestOrder")}</button></div>
+        {trackedOrder ? <div className="trackingCard"><div><strong>{trackedOrder.orderNumber}</strong><span>{trackedOrder.productName} · {money(trackedOrder.total)}</span><small>{trackedOrder.status} · {trackedOrder.paymentStatus}</small></div>{trackedOrder.transferBillUrl && <img src={trackedOrder.transferBillUrl} alt="Transfer bill" />}<div className="chatBox">{(trackedOrder.chat || []).map((item) => <p key={item.id}>{item.text}</p>)}<div><input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder={tr("chatPlaceholder")} /><button className="primary" onClick={() => { addChatMessage(trackedOrder.id, chatDraft); setChatDraft(""); }}>{tc("send")}</button></div></div></div> : <p className="storeNote">{tr("noOrders")}</p>}
       </section>
 
-      <section className="card storeBooking bookingSurface softBookingPanel"><div className="sectionTitle"><div><h2>Dat lich hen nail</h2><p>Chon dich vu bang the anh. Ten, so dien thoai va gmail la bat buoc.</p></div></div><div className="serviceChoiceRail">{activeServices.map((service) => <button type="button" key={service.id} className={draft.service === service.name ? "serviceChoice active" : "serviceChoice"} onClick={() => chooseService(service)}>{service.imageUrl ? <img src={service.imageUrl} alt={service.name} /> : <span>{service.name.slice(0, 1)}</span>}<strong>{service.name}</strong><small>{service.duration} phut · {money(service.price)}</small></button>)}</div><form onSubmit={submitBooking}><div className="bookingFormGrid softBookingGrid"><label>Dich vu<select value={draft.service} onChange={(event) => updateDraft("service", event.target.value)}>{activeServices.map((service) => <option key={service.id}>{service.name}</option>)}</select></label><label>Chi nhanh<select value={draft.branch} onChange={(event) => updateDraft("branch", event.target.value)}><option>Glass Nail Shinjuku</option><option>Glass Nail Ikebukuro</option></select></label><label>Ngay<input type="date" value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} /></label><label>Gio<select value={draft.time} onChange={(event) => updateDraft("time", event.target.value)}>{timeSlots.map((time) => <option key={time}>{time}</option>)}</select></label><label>Nhan vien<select value={draft.staff} onChange={(event) => updateDraft("staff", event.target.value)}><option value="">Tu dong chon</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label><label>Gmail<input required type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="name@gmail.com" /></label><label>Ten khach hang<input required value={draft.customer} onChange={(event) => updateDraft("customer", event.target.value)} placeholder="Nguyen Van A" /></label><label>So dien thoai<input required value={draft.phone} onChange={(event) => updateDraft("phone", event.target.value)} placeholder="090-0000-0000" /></label></div><div className="bookingCheckoutBar"><span>{selectedService ? `${selectedService.duration} phut · ${money(selectedService.price)}` : "Chon dich vu"}</span><button className="primary" type="submit">Xac nhan dat lich</button></div></form>{message && <p className="storeNote successNote">{message}</p>}</section>
+      <section className="card storeBooking bookingSurface softBookingPanel"><div className="sectionTitle"><div><h2>{tr("bookingTitle")}</h2><p>{tr("bookingText")}</p></div></div><div className="serviceChoiceRail">{activeServices.map((service) => <button type="button" key={service.id} className={draft.service === service.name ? "serviceChoice active" : "serviceChoice"} onClick={() => chooseService(service)}>{service.imageUrl ? <img src={service.imageUrl} alt={service.name} /> : <span>{service.name.slice(0, 1)}</span>}<strong>{service.name}</strong><small>{service.duration} min · {money(service.price)}</small></button>)}</div><form onSubmit={submitBooking}><div className="bookingFormGrid softBookingGrid"><label>{tc("service")}<select value={draft.service} onChange={(event) => updateDraft("service", event.target.value)}>{activeServices.map((service) => <option key={service.id}>{service.name}</option>)}</select></label><label>Branch<select value={draft.branch} onChange={(event) => updateDraft("branch", event.target.value)}><option>Mai Beauty Salon Tokyo</option><option>Mai Beauty Salon Osaka</option></select></label><label>{tc("date")}<input type="date" value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} /></label><label>{tc("time")}<select value={draft.time} onChange={(event) => updateDraft("time", event.target.value)}>{timeSlots.map((time) => <option key={time}>{time}</option>)}</select></label><label>{tc("staff")}<select value={draft.staff} onChange={(event) => updateDraft("staff", event.target.value)}><option value="">{tr("autoStaff")}</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label><label>{tc("email")}<input required type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="name@gmail.com" /></label><label>{tc("customer")}<input required value={draft.customer} onChange={(event) => updateDraft("customer", event.target.value)} placeholder="Nguyen Van A" /></label><label>{tc("phone")}<input required value={draft.phone} onChange={(event) => updateDraft("phone", event.target.value)} placeholder="090-0000-0000" /></label></div><div className="bookingCheckoutBar"><span>{selectedService ? `${selectedService.duration} min · ${money(selectedService.price)}` : tr("chooseService")}</span><button className="primary" type="submit">{tr("confirmBooking")}</button></div></form>{message && <p className="storeNote successNote">{message}</p>}</section>
 
-      {selectedProduct && <div className="bookingModalBackdrop" onMouseDown={() => setSelectedProduct(null)}><form className="card bookingModal productCheckoutModal" onSubmit={submitProductOrder} onMouseDown={(event) => event.stopPropagation()}><div className="modalHead"><div><p className="eyebrow">PRODUCT CHECKOUT</p><h2>{selectedProduct.name}</h2><p>{Number(selectedProduct.stock || 0) > 0 ? `Con ${selectedProduct.stock} san pham co the mua` : "San pham het hang"}</p></div><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>Close</button></div><div className="checkoutProductLine">{selectedProduct.mediaUrl && <img src={selectedProduct.mediaUrl} alt={selectedProduct.name} />}<div><strong>{money(selectedProduct.salePrice || selectedProduct.basePrice)}</strong><span>{selectedProduct.description || selectedProduct.shortDescription}</span></div></div><div className="fulfillmentTabs"><button type="button" className={checkout.fulfillmentType === "pickup" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "pickup")}>Den cua hang lay</button><button type="button" className={checkout.fulfillmentType === "shipping" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "shipping")}>Gui hang</button></div><div className="formGrid modalForm"><label>Ten khach hang<input required value={checkout.customer} onChange={(event) => updateCheckout("customer", event.target.value)} /></label><label>So dien thoai<input required value={checkout.phone} onChange={(event) => updateCheckout("phone", event.target.value)} /></label><label>Gmail<input required type="email" value={checkout.email} onChange={(event) => updateCheckout("email", event.target.value)} /></label>{checkout.fulfillmentType === "shipping" && <><label>Phuong thuc thanh toan<select value={checkout.paymentMethod} onChange={(event) => updateCheckout("paymentMethod", event.target.value)}>{availablePayments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="fullField">Dia chi nhan hang<input required value={checkout.address} onChange={(event) => updateCheckout("address", event.target.value)} /></label><label className="fullField">Ghi chu giao hang<input value={checkout.note} onChange={(event) => updateCheckout("note", event.target.value)} /></label>{checkout.paymentMethod === "bankTransfer" && <div className="bankTransferBox fullField"><strong>{settings.bankName} · {settings.bankAccount}</strong><span>{settings.bankHolder}</span><small>{settings.paymentNote}</small><label>Upload bill chuyen khoan<input type="file" accept="image/*" onChange={uploadTransferBill} /></label>{checkout.transferBillUrl && <img src={checkout.transferBillUrl} alt="Transfer bill preview" />}</div>}</>}</div><div className="modalActions"><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>Cancel</button><button className="primary" type="submit" disabled={Number(selectedProduct.stock || 0) <= 0}>Tao don hang</button></div></form></div>}
+      {selectedProduct && <div className="bookingModalBackdrop" onMouseDown={() => setSelectedProduct(null)}><form className="card bookingModal productCheckoutModal" onSubmit={submitProductOrder} onMouseDown={(event) => event.stopPropagation()}><div className="modalHead"><div><p className="eyebrow">{tr("checkoutTitle")}</p><h2>{selectedProduct.name}</h2><p>{Number(selectedProduct.stock || 0) > 0 ? tr("canBuy", { stock: selectedProduct.stock }) : tr("outOfStock")}</p></div><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("close")}</button></div><div className="checkoutProductLine">{selectedProduct.mediaUrl && <img src={selectedProduct.mediaUrl} alt={selectedProduct.name} />}<div><strong>{money(selectedProduct.salePrice || selectedProduct.basePrice)}</strong><span>{selectedProduct.description || selectedProduct.shortDescription}</span></div></div><div className="fulfillmentTabs"><button type="button" className={checkout.fulfillmentType === "pickup" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "pickup")}>{tr("pickup")}</button><button type="button" className={checkout.fulfillmentType === "shipping" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "shipping")}>{tr("shipping")}</button></div><div className="formGrid modalForm"><label>{tc("customer")}<input required value={checkout.customer} onChange={(event) => updateCheckout("customer", event.target.value)} /></label><label>{tc("phone")}<input required value={checkout.phone} onChange={(event) => updateCheckout("phone", event.target.value)} /></label><label>{tc("email")}<input required type="email" value={checkout.email} onChange={(event) => updateCheckout("email", event.target.value)} /></label>{checkout.fulfillmentType === "shipping" && <><label>{tr("paymentMethod")}<select value={checkout.paymentMethod} onChange={(event) => updateCheckout("paymentMethod", event.target.value)}>{availablePayments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="fullField">{tr("deliveryAddress")}<input required value={checkout.address} onChange={(event) => updateCheckout("address", event.target.value)} /></label><label className="fullField">{tr("deliveryNote")}<input value={checkout.note} onChange={(event) => updateCheckout("note", event.target.value)} /></label>{checkout.paymentMethod === "bankTransfer" && <div className="bankTransferBox fullField"><strong>{settings.bankName} · {settings.bankAccount}</strong><span>{settings.bankHolder}</span><small>{settings.paymentNote}</small><label>{tr("uploadBill")}<input type="file" accept="image/*" onChange={uploadTransferBill} /></label>{checkout.transferBillUrl && <img src={checkout.transferBillUrl} alt="Transfer bill preview" />}</div>}</>}</div><div className="modalActions"><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("cancel")}</button><button className="primary" type="submit" disabled={Number(selectedProduct.stock || 0) <= 0}>{tr("createOrder")}</button></div></form></div>}
     </div>
   );
 }
+

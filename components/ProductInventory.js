@@ -8,7 +8,7 @@ function yen(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
 }
 
-export default function ProductInventory({ label = "San pham & Kho" }) {
+export default function ProductInventory({ label = "Sản phẩm & Kho", language = "vi" }) {
   const [products, setProducts] = useProductCatalog();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -55,46 +55,47 @@ export default function ProductInventory({ label = "San pham & Kho" }) {
   return (
     <>
       <div className="pageHead">
-        <div><p className="eyebrow">CATALOG SYNC</p><h1>{label}</h1><p>Quan ly san pham, ton kho va anh hien thi dong bo truc tiep len web ban hang.</p></div>
-        <button className="primary" onClick={saveProduct}>+ Luu san pham</button>
+        <div><p className="eyebrow">CATALOG SYNC</p><h1>{label}</h1><p>Quản lý sản phẩm, tồn kho và ảnh hiển thị đồng bộ trực tiếp lên web bán hàng.</p></div>
+        <button className="primary" onClick={saveProduct}>+ Lưu sản phẩm</button>
       </div>
       <section className="card staffEditor productEditorPanel">
-        <div className="sectionTitle"><div><h2>Them / sua san pham</h2><p>Chon anh tu may tinh. Sau khi luu, san pham tu dong xuat hien o trang Online Store.</p></div></div>
+        <div className="sectionTitle"><div><h2>Thêm / sửa sản phẩm</h2><p>Chọn ảnh từ máy tính. Sau khi lưu, sản phẩm tự động xuất hiện ở trang Web bán hàng.</p></div></div>
         <div className="staffForm">
-          <label>Ten san pham<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-          <label>Mo ta<input value={draft.description || ""} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-          <label>Gia<input type="number" value={draft.basePrice} onChange={(event) => setDraft({ ...draft, basePrice: Number(event.target.value) })} /></label>
-          <label>Ton kho<input type="number" value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label>
-          <label>Canh bao thap<input type="number" value={draft.lowStockThreshold} onChange={(event) => setDraft({ ...draft, lowStockThreshold: Number(event.target.value) })} /></label>
-          <label>Anh san pham<input type="file" accept="image/*" onChange={uploadProductImage} /></label>
+          <label>Tên sản phẩm<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+          <label>Mô tả<input value={draft.description || ""} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+          <label>Giá<input type="number" value={draft.basePrice} onChange={(event) => setDraft({ ...draft, basePrice: Number(event.target.value) })} /></label>
+          <label>Tồn kho<input type="number" value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label>
+          <label>Cảnh báo thấp<input type="number" value={draft.lowStockThreshold} onChange={(event) => setDraft({ ...draft, lowStockThreshold: Number(event.target.value) })} /></label>
+          <label>Ảnh sản phẩm<input type="file" accept="image/*" onChange={uploadProductImage} /></label>
         </div>
-        {draft.mediaUrl && <div className="imagePreview"><img src={draft.mediaUrl} alt={draft.name || "Product preview"} /><span>{draft.mediaFileName || "Anh da chon tu may tinh"}</span></div>}
+        {draft.mediaUrl && <div className="imagePreview"><img src={draft.mediaUrl} alt={draft.name || "Product preview"} /><span>{draft.mediaFileName || "Ảnh đã chọn từ máy tính"}</span></div>}
       </section>
       <div className="toolbar productTools">
-        <input className="searchInput" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tim ten san pham hoac SKU" />
+        <input className="searchInput" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tim Tên sản phẩm hoac SKU" />
         <select className="searchInput" value={filter} onChange={(event) => setFilter(event.target.value)}>
-          <option value="all">Tat ca</option>
-          <option value="low">Sap het hang</option>
-          <option value="ACTIVE">Dang ban</option>
-          <option value="DRAFT">Nhap</option>
+          <option value="all">Tất cả</option>
+          <option value="low">Sắp hết hàng</option>
+          <option value="ACTIVE">Đang bán</option>
+          <option value="DRAFT">Nháp</option>
         </select>
       </div>
       <section className="card tableWrap">
         <table>
-          <thead><tr><th>San pham</th><th>Gia</th><th>Ton</th><th>Online/POS</th><th>Canh bao</th><th>Thao tac</th></tr></thead>
+          <thead><tr><th>Sản phẩm</th><th>Giá</th><th>Tồn</th><th>Online/POS</th><th>Cảnh báo</th><th>Thao tác</th></tr></thead>
           <tbody>{visible.map((product) => (
             <tr key={product.id}>
               <td><div className="productCell">{product.mediaUrl ? <img className="catalogThumb" src={product.mediaUrl} alt={product.name} /> : <div className="productThumb">{product.name.slice(0, 1)}</div>}<div><strong>{product.name}</strong><span>{product.description || product.shortDescription}</span></div></div></td>
               <td>{yen(product.salePrice || product.basePrice)}</td>
               <td><span className={product.stock <= product.lowStockThreshold ? "pill danger" : "pill"}>{product.stock}</span></td>
               <td>{product.onlineStoreEnabled ? "Web" : "-"} / {product.posEnabled ? "POS" : "-"}</td>
-              <td>{product.stock <= product.lowStockThreshold ? "Sap het hang" : "OK"}</td>
-              <td><button className="ghost" onClick={() => setDraft({ ...emptyProduct, ...product })}>Sua</button> <button className="ghost dangerButton" onClick={() => deleteProduct(product.id)}>Xoa</button></td>
+              <td>{product.stock <= product.lowStockThreshold ? "Sắp hết hàng" : "OK"}</td>
+              <td><button className="ghost" onClick={() => setDraft({ ...emptyProduct, ...product })}>Sửa</button> <button className="ghost dangerButton" onClick={() => deleteProduct(product.id)}>Xóa</button></td>
             </tr>
           ))}</tbody>
         </table>
       </section>
-      <section className="card integrationHint"><h2>Dong bo website ban hang</h2><p>Hien co {products.length} san pham trong catalog va {inventoryRows.length} dong inventory. Anh luu dang data URL de MVP hien thi ngay tren Online Store.</p></section>
+      <section className="card integrationHint"><h2>Đồng bộ website bán hàng</h2><p>Hiện có {products.length} sản phẩm trong catalog và {inventoryRows.length} dòng inventory. Ảnh lưu dạng data URL để MVP hiển thị ngay trên Web bán hàng.</p></section>
     </>
   );
 }
+
