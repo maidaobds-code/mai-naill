@@ -1,17 +1,9 @@
 ﻿"use client";
 
 import { useMemo, useState } from "react";
-import { getProductSummary } from "../lib/ecommerce/data";
-import { staff } from "../lib/salonData";
 import { useBookingStore } from "../lib/bookingStore";
-
-const services = [
-  { name: "Gel One Color", duration: 75, price: 6500 },
-  { name: "Magnet + Art", duration: 90, price: 9800 },
-  { name: "French Design", duration: 90, price: 8800 },
-  { name: "Extension + Art", duration: 105, price: 13500 },
-  { name: "Foot Care", duration: 60, price: 7600 },
-];
+import { useProductCatalog, useServiceCatalog } from "../lib/catalogStore";
+import { staff } from "../lib/salonData";
 
 const timeSlots = Array.from({ length: 29 }, (_, index) => {
   const minutes = 9 * 60 + index * 30;
@@ -19,7 +11,7 @@ const timeSlots = Array.from({ length: 29 }, (_, index) => {
 });
 
 function money(value) {
-  return `JPY ${value.toLocaleString("ja-JP")}`;
+  return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
 }
 
 function addMinutes(time, minutesToAdd) {
@@ -29,11 +21,14 @@ function addMinutes(time, minutesToAdd) {
 }
 
 export default function OnlineStore() {
-  const featured = getProductSummary().filter((product) => product.onlineStoreEnabled);
+  const [products] = useProductCatalog();
+  const [services] = useServiceCatalog();
+  const featured = products.filter((product) => product.onlineStoreEnabled !== false);
+  const activeServices = services.length ? services : [];
   const { addBooking } = useBookingStore();
   const [message, setMessage] = useState("");
-  const [draft, setDraft] = useState({ service: services[0].name, branch: "Glass Nail Shinjuku", date: "2026-10-06", day: 6, time: "09:00", staff: "", customer: "", phone: "", email: "" });
-  const selectedService = useMemo(() => services.find((service) => service.name === draft.service) || services[0], [draft.service]);
+  const [draft, setDraft] = useState({ service: activeServices[0]?.name || "", branch: "Glass Nail Shinjuku", date: "2026-10-06", day: 6, time: "09:00", staff: "", customer: "", phone: "", email: "" });
+  const selectedService = useMemo(() => activeServices.find((service) => service.name === draft.service) || activeServices[0], [activeServices, draft.service]);
 
   function updateDraft(field, value) {
     const next = { ...draft, [field]: value };
@@ -41,8 +36,13 @@ export default function OnlineStore() {
     setDraft(next);
   }
 
+  function chooseService(service) {
+    setDraft((current) => ({ ...current, service: service.name, staff: service.staff?.[0] || current.staff }));
+  }
+
   function submitBooking(event) {
     event.preventDefault();
+    if (!selectedService) return;
     if (!draft.customer.trim() || !draft.phone.trim() || !draft.email.trim()) {
       setMessage("Vui long nhap du ten, so dien thoai va gmail.");
       return;
@@ -56,7 +56,7 @@ export default function OnlineStore() {
       phone: draft.phone.trim(),
       email: draft.email.trim(),
       service: selectedService.name,
-      staff: draft.staff || staff[0].name,
+      staff: draft.staff || selectedService.staff?.[0] || staff[0].name,
       source: "direct",
       origin: "Website booking",
       price: selectedService.price,
@@ -68,40 +68,34 @@ export default function OnlineStore() {
   }
 
   return (
-    <>
-      <section className="storeHero">
+    <div className="storeSoftShell">
+      <section className="storeHero softHero">
         <div>
-          <p className="eyebrow">NEW COLLECTION</p>
-          <h1>Autumn Magnet Series</h1>
-          <p>Premium Japanese nail colors, salon care products, and booking-ready nail design inspiration.</p>
+          <p className="eyebrow">GLASS NAIL TOKYO</p>
+          <h1>Book your nail day</h1>
+          <p>Chon mau, chon dich vu, dat lich mem nhu mot ung dung mobile.</p>
           <div className="heroActions"><button className="primary">Shop Now</button><button className="ghost">Book Nail</button></div>
         </div>
       </section>
 
-      <div className="sectionTitle storeTitle">
-        <div><h2>Featured Products</h2><p>Storefront skeleton connected to the shared product catalog.</p></div>
-        <button className="ghost">Preview Store</button>
-      </div>
-
-      <div className="productGrid">
+      <div className="sectionTitle storeTitle"><div><h2>Featured Products</h2><p>San pham tu trang kho dong bo len website ban hang.</p></div><button className="ghost">Preview Store</button></div>
+      <div className="productGrid softProductGrid">
         {featured.map((product) => (
-          <article className="productCard" key={product.id}>
-            <div className="storeImage">{product.productType}</div>
-            <div className="productMeta">
-              <span>{product.brandName}</span>
-              <h3>{product.name}</h3>
-              <p>{product.shortDescription}</p>
-              <div><strong>{money(product.salePrice || product.basePrice)}</strong>{product.isLowStock && <span className="pill danger">Low stock</span>}</div>
-            </div>
+          <article className="productCard softProductCard" key={product.id}>
+            <div className="storeImage softStoreImage">{product.mediaUrl ? <img src={product.mediaUrl} alt={product.name} /> : <span>{product.productType || "Nail"}</span>}</div>
+            <div className="productMeta"><span>{product.brandName}</span><h3>{product.name}</h3><p>{product.description || product.shortDescription}</p><div><strong>{money(product.salePrice || product.basePrice)}</strong>{product.isLowStock && <span className="pill danger">Low stock</span>}</div></div>
           </article>
         ))}
       </div>
 
-      <section className="card storeBooking bookingSurface">
-        <div className="sectionTitle"><div><h2>Dat lich hen nail</h2><p>Chon dich vu, nhan vien va gio tu 09:00 den 23:00. Ten, so dien thoai va gmail la bat buoc.</p></div></div>
+      <section className="card storeBooking bookingSurface softBookingPanel">
+        <div className="sectionTitle"><div><h2>Dat lich hen nail</h2><p>Chon dich vu bang the anh. Ten, so dien thoai va gmail la bat buoc.</p></div></div>
+        <div className="serviceChoiceRail">
+          {activeServices.map((service) => <button type="button" key={service.id} className={draft.service === service.name ? "serviceChoice active" : "serviceChoice"} onClick={() => chooseService(service)}>{service.imageUrl ? <img src={service.imageUrl} alt={service.name} /> : <span>{service.name.slice(0, 1)}</span>}<strong>{service.name}</strong><small>{service.duration} phut · {money(service.price)}</small></button>)}
+        </div>
         <form onSubmit={submitBooking}>
-          <div className="bookingFormGrid">
-            <label>Dich vu<select value={draft.service} onChange={(event) => updateDraft("service", event.target.value)}>{services.map((service) => <option key={service.name}>{service.name}</option>)}</select></label>
+          <div className="bookingFormGrid softBookingGrid">
+            <label>Dich vu<select value={draft.service} onChange={(event) => updateDraft("service", event.target.value)}>{activeServices.map((service) => <option key={service.id}>{service.name}</option>)}</select></label>
             <label>Chi nhanh<select value={draft.branch} onChange={(event) => updateDraft("branch", event.target.value)}><option>Glass Nail Shinjuku</option><option>Glass Nail Ikebukuro</option></select></label>
             <label>Ngay<input type="date" value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} /></label>
             <label>Gio<select value={draft.time} onChange={(event) => updateDraft("time", event.target.value)}>{timeSlots.map((time) => <option key={time}>{time}</option>)}</select></label>
@@ -110,10 +104,10 @@ export default function OnlineStore() {
             <label>Ten khach hang<input required value={draft.customer} onChange={(event) => updateDraft("customer", event.target.value)} placeholder="Nguyen Van A" /></label>
             <label>So dien thoai<input required value={draft.phone} onChange={(event) => updateDraft("phone", event.target.value)} placeholder="090-0000-0000" /></label>
           </div>
-          <div className="bookingCheckoutBar"><span>{selectedService.duration} phut · {money(selectedService.price)}</span><button className="primary" type="submit">Xac nhan dat lich</button></div>
+          <div className="bookingCheckoutBar"><span>{selectedService ? `${selectedService.duration} phut · ${money(selectedService.price)}` : "Chon dich vu"}</span><button className="primary" type="submit">Xac nhan dat lich</button></div>
         </form>
         {message && <p className="storeNote successNote">{message}</p>}
       </section>
-    </>
+    </div>
   );
 }
