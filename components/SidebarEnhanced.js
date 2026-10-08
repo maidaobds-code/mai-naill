@@ -6,7 +6,6 @@ const items = [
   ["📅", "Calendar", "calendar"],
   ["📊", "Dashboard", "dashboard"],
   ["👥", "Customers", "customers"],
-  ["💅", "Staff", "staff"],
   ["📋", "Services", "services"],
   ["💳", "POS / Checkout", "checkout"],
   ["💴", "Payroll", "payroll"],

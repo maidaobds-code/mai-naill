@@ -17,7 +17,7 @@ function newStaff(nextId) {
   };
 }
 
-export default function StaffManagement({ label = "Staff" }) {
+export default function StaffManagement({ label = "Staff", embedded = false }) {
   const { staff, setStaff } = useStaffStore();
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
 
@@ -41,17 +41,17 @@ export default function StaffManagement({ label = "Staff" }) {
 
   return (
     <>
-      <div className="pageHead">
+      {!embedded && <div className="pageHead">
         <div>
           <p className="eyebrow">STAFF ACCOUNTS</p>
           <h1>{label}</h1>
           <p>Add or remove staff, set staff colors, and link Nailie / Hot Pepper / minimo accounts.</p>
         </div>
         <button className="primary" onClick={addStaff}>+ Add Staff</button>
-      </div>
+      </div>}
 
       <section className="card staffEditor">
-        <div className="sectionTitle"><div><h2>New staff</h2><p>Credentials are stored server-side as encrypted Supabase records, never plain text on the client.</p></div></div>
+        <div className="sectionTitle"><div><h2>{embedded ? label : "New staff"}</h2><p>Credentials are stored server-side as encrypted Supabase records, never plain text on the client.</p></div>{embedded && <button className="primary" onClick={addStaff}>+ Add Staff</button>}</div>
         <div className="staffForm">
           <label>Name<input value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} placeholder="Staff name" /></label>
           <label>Role<input value={draft.role} onChange={(event) => updateDraft("role", event.target.value)} /></label>

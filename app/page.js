@@ -4,7 +4,6 @@ import Sidebar from "../components/SidebarEnhanced";
 import Dashboard from "../components/DashboardEnhanced";
 import CalendarEnhanced from "../components/CalendarResourceTimeline";
 import Customers from "../components/CustomersEnhanced";
-import StaffManagement from "../components/StaffManagement";
 import ProductInventory from "../components/ProductInventory";
 import ServiceMenu from "../components/ServiceMenu";
 import OnlineStore from "../components/OnlineStore";
@@ -23,7 +22,6 @@ export default function Home() {
 
   if (active === "Calendar") content = <CalendarEnhanced label={t(language, "calendar")} language={language} onCheckout={() => setActive("POS / Checkout")} />;
   else if (active === "Customers") content = <Customers label={t(language, "customers")} language={language} />;
-  else if (active === "Staff") content = <StaffManagement label={t(language, "staff")} />;
   else if (active === "Services") content = <ServiceMenu label={t(language, "services")} language={language} />;
   else if (active === "ProductsInventory") content = <ProductInventory label={t(language, "productsInventory")} language={language} />;
   else if (active === "Online Store") content = <OnlineStore language={language} />;
