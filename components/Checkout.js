@@ -175,13 +175,23 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
     setOrder((current) => ({ ...current, lines: current.lines.filter((line) => line.id !== id) }));
   }
 
-  function addPayment() {
-    const nextMethod = paymentMethods.find((method) => method.id !== "cash")?.id || paymentMethods[0]?.id || "other";
-    setOrder((current) => ({ ...current, payments: [...current.payments, { id: newId("pay"), method: nextMethod, amount: remaining, received: 0, confirmed: true }] }));
-  }
-
   function updatePayment(id, patch) {
     setOrder((current) => ({ ...current, payments: current.payments.map((payment) => payment.id === id ? { ...payment, ...patch } : payment) }));
+  }
+
+  function paymentForMethod(methodId) {
+    return order.payments.find((payment) => payment.method === methodId && payment.confirmed !== false);
+  }
+
+  function togglePaymentMethod(methodId, checked) {
+    setOrder((current) => {
+      const existing = current.payments.find((payment) => payment.method === methodId && payment.confirmed !== false);
+      if (checked) {
+        if (existing) return current;
+        return { ...current, payments: [...current.payments, { id: newId("pay"), method: methodId, amount: 0, received: 0, confirmed: true }] };
+      }
+      return { ...current, payments: current.payments.filter((payment) => payment.id !== existing?.id) };
+    });
   }
 
   function validateOrder() {
@@ -306,14 +316,39 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
 
       <div className="nailDivider" />
       <h2 className="nailSectionTitle">💳 Phương thức thanh toán</h2>
-      {order.payments.map((payment) => <div className="nailPaymentRow" key={payment.id}>
-        <div className="nailPaymentChoices">{paymentMethods.map((method) => <button key={method.id} type="button" className={payment.method === method.id ? "active" : ""} onClick={() => updatePayment(payment.id, { method: method.id })}>{method.label}</button>)}</div>
-        <input type="number" value={payment.amount || ""} onChange={(event) => updatePayment(payment.id, { amount: Number(event.target.value) })} placeholder="Số tiền" />
-        {payment.method === "cash" ? <input type="number" value={payment.received || ""} onChange={(event) => { const received = Number(event.target.value); updatePayment(payment.id, { received, amount: Math.min(received, total) }); }} placeholder="Khách đưa" /> : <span className="nailPaymentAppName">{paymentLabel(payment.method, paymentMethods)}</span>}
-        <button onClick={() => updateOrder({ payments: order.payments.filter((item) => item.id !== payment.id) })}>×</button>
-      </div>)}
-      <p className="mutedText">Thêm hoặc xóa phương thức thanh toán trong Cài đặt.</p>
-      <button className="nailAddPayment" onClick={addPayment}>＋ Thanh toán tách thêm</button>
+      <div className="nailPaymentMethodList">
+        {paymentMethods.map((method) => {
+          const payment = paymentForMethod(method.id);
+          const selected = Boolean(payment);
+          return (
+            <label className={selected ? "nailPaymentOption active" : "nailPaymentOption"} key={method.id}>
+              <input type="checkbox" checked={selected} onChange={(event) => togglePaymentMethod(method.id, event.target.checked)} />
+              <span>{method.label}</span>
+              <input
+                type="number"
+                value={payment?.amount || ""}
+                onChange={(event) => payment && updatePayment(payment.id, { amount: Number(event.target.value) })}
+                placeholder="Số tiền"
+                disabled={!selected}
+              />
+              {method.id === "cash" ? (
+                <input
+                  type="number"
+                  value={payment?.received || ""}
+                  onChange={(event) => {
+                    if (!payment) return;
+                    const received = Number(event.target.value);
+                    updatePayment(payment.id, { received, amount: Math.min(received, total) });
+                  }}
+                  placeholder="Khách đưa"
+                  disabled={!selected}
+                />
+              ) : <small>Thanh toán app/thẻ/chuyển khoản</small>}
+            </label>
+          );
+        })}
+      </div>
+      <p className="mutedText">Danh sách phương thức lấy từ Cài đặt. Có thể chọn nhiều ô để tách thanh toán app và phần còn thiếu.</p>
       <div className="nailPaymentSummary">
         <div><span>Đã nhận</span><strong>{yen(paid)}</strong></div>
         <div><span>Số tiền còn phải trả</span><strong>{yen(remaining)}</strong></div>
