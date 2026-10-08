@@ -78,6 +78,26 @@ body{background:radial-gradient(circle at top left,#fde7f3,transparent 30%),radi
   .bookingModalBackdrop{align-items:end;padding:0}.bookingModal{width:100%;max-height:90vh;border-radius:26px 26px 0 0}.modalActions{grid-template-columns:1fr!important}.resourceTimeline{min-width:720px}.storeSoftShell:before{left:0}.settingsPanel,.payrollPanel,.orderDetailPanel,.customerCampaignPanel{padding:16px}.staffSelectRail,.payrollHeroRow,.payrollWorkGrid,.payrollSummaryPanel{grid-template-columns:1fr!important}.campaignForm{grid-template-columns:1fr!important}
 }
 
+.navItem .navIcon {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 34px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.navItem.active .navIcon {
+  background: linear-gradient(180deg, #ffb33f 0%, #f97316 100%);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.35);
+}
+
 .nailPosPanel {
   max-width: 690px;
   margin: 0 auto;

@@ -4,15 +4,14 @@ import { useStoreOrders } from "../lib/orderStore";
 
 const items = [
   ["📅", "Calendar", "calendar"],
-  ["📊", "Dashboard", "dashboard"],
   ["👥", "Customers", "customers"],
   ["📋", "Services", "services"],
-  ["💳", "POS / Checkout", "checkout"],
+  ["💰", "POS / Checkout", "checkout"],
   ["💴", "Payroll", "payroll"],
-  ["📈", "Reports", "reports"],
-  ["🧴", "ProductsInventory", "productsInventory"],
-  ["🛒", "Online Store", "onlineStore"],
-  ["📦", "Orders", "orders"],
+  ["🛍️", "Online Store", "onlineStore"],
+  ["📦", "ProductsInventory", "productsInventory"],
+  ["📊", "Reports", "reports"],
+  ["📢", "Orders", "orders"],
   ["⚙️", "Settings", "settings"],
 ];
 
@@ -25,7 +24,7 @@ export default function SidebarEnhanced({ active, setActive, language, setLangua
       <nav>
         {items.map(([icon, label, key]) => (
           <button key={label} className={active === label ? "navItem active" : "navItem"} onClick={() => setActive(label)}>
-            <span>{icon}</span>{t(language, key)}{label === "Orders" && orders.length > 0 && <b className="navBadge">{unread || orders.length}</b>}
+            <span className="navIcon">{icon}</span>{t(language, key)}{label === "Orders" && orders.length > 0 && <b className="navBadge">{unread || orders.length}</b>}
           </button>
         ))}
       </nav>
