@@ -839,6 +839,124 @@ section.nailPosPanel .nailPaymentRow {
   color: var(--muted);
 }
 
+.printDocument {
+  display: none;
+}
+
+.printTitle {
+  margin: 0 auto 14px;
+  font-size: 28px;
+  font-weight: 900;
+  text-align: center;
+  color: #111;
+  letter-spacing: 0;
+}
+
+.printPaper {
+  width: 82mm;
+  min-height: 128mm;
+  margin: 0 auto;
+  padding: 8mm;
+  border: 2px solid #777;
+  background: #fff;
+  color: #111;
+  font-family: Arial, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.printStore {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.printStore strong {
+  font-size: 13px;
+}
+
+.printMeta,
+.printPaper p {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 5px 0;
+}
+
+.printPaper h3 {
+  margin: 12px 0 10px;
+  text-align: center;
+  font-size: 15px;
+}
+
+.printPaper strong {
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.printRule {
+  height: 2px;
+  margin: 10px 0;
+  background: #333;
+}
+
+.printItems p {
+  margin: 6px 0;
+}
+
+.printRecipient {
+  min-height: 32px;
+  align-items: flex-end;
+  border-bottom: 1px solid #777;
+}
+
+.printTotal strong {
+  font-size: 16px;
+}
+
+.printTaxGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px 8px;
+  margin-top: 12px;
+  font-size: 10px;
+  text-align: right;
+}
+
+.printTaxGrid span:nth-child(4n + 1) {
+  text-align: left;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .printDocument.active,
+  .printDocument.active * {
+    visibility: visible !important;
+  }
+
+  .printDocument.active {
+    display: block !important;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    padding: 0;
+    background: #fff;
+  }
+
+  .printPaper {
+    box-shadow: none;
+  }
+}
+
 @media (max-width: 760px) {
   .nailPaymentRow {
     grid-template-columns: 1fr;

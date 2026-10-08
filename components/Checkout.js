@@ -71,6 +71,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [drawerNotice, setDrawerNotice] = useState("");
+  const [printMode, setPrintMode] = useState("");
   const [order, setOrder] = useState(() => readJson(DRAFT_KEY, null) || {
     id: "",
     orderNumber: "",
@@ -111,8 +112,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
   const paid = order.payments.filter((payment) => payment.confirmed !== false).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const remaining = Math.max(0, total - paid);
   const cashReceived = order.payments.filter((payment) => payment.method === "cash").reduce((sum, payment) => sum + Number(payment.received || 0), 0);
-  const cashPaid = order.payments.filter((payment) => payment.method === "cash").reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
-  const change = Math.max(0, cashReceived - cashPaid);
+  const change = Math.max(0, cashReceived - total);
   const confirmedPayments = order.payments.filter((payment) => payment.confirmed !== false && Number(payment.amount || 0) > 0);
   const paymentMethodText = confirmedPayments.map((payment) => paymentLabel(payment.method)).join(" + ");
   const existingPaidAppointment = order.appointmentId && getStoredPosSales().find((sale) => sale.appointmentId === order.appointmentId && sale.paymentStatus === "Paid");
@@ -240,8 +240,13 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
       } else {
         setDrawerNotice("");
       }
-      window.setTimeout(() => window.print(), 120);
+      printDocument("receipt");
     }
+  }
+
+  function printDocument(type) {
+    setPrintMode(type);
+    window.setTimeout(() => window.print(), 120);
   }
 
   return (
@@ -323,8 +328,48 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
 
       <div className="nailDivider" />
       <div className="nailReceiptButtons">
-        <button onClick={() => window.print()}>▣ Hóa đơn</button>
-        <button onClick={() => window.print()}>▣ 領収書</button>
+        <button onClick={() => printDocument("receipt")}>▣ Hóa đơn</button>
+        <button onClick={() => printDocument("ryoshusho")}>▣ 領収書</button>
+      </div>
+
+      <div className={`printDocument ${printMode === "receipt" ? "active" : ""}`}>
+        <div className="printTitle">紙レシート</div>
+        <div className="printPaper">
+          <div className="printStore">
+            <strong>{settings.salonName || "Mai Beauty Salon"}</strong>
+            <span>{settings.address || "Tokyo, Japan"}</span>
+            <span>{settings.phone || ""}</span>
+          </div>
+          <div className="printMeta"><span>{new Date().toLocaleDateString("ja-JP")}</span><span>#{order.receiptNumber || order.orderNumber || "POS"}</span></div>
+          <h3>お支払い</h3>
+          <div className="printItems">{order.lines.map((line) => <p key={line.id}><span>{line.name} × {line.quantity}</span><strong>{yen(lineTotal(line))}</strong></p>)}</div>
+          <div className="printRule" />
+          <p><span>合計</span><strong>{yen(total)}</strong></p>
+          <p><span>{paymentMethodText || "お支払い"}</span><strong>{yen(paid)}</strong></p>
+          <p><span>お釣り</span><strong>{yen(change)}</strong></p>
+          <div className="printRule" />
+          <p><span>税率 10%</span><span>税抜 {yen(Math.max(0, taxableSubtotal - tax))}</span><strong>税額 {yen(tax)}</strong></p>
+        </div>
+      </div>
+
+      <div className={`printDocument ${printMode === "ryoshusho" ? "active" : ""}`}>
+        <div className="printTitle">領収書</div>
+        <div className="printPaper">
+          <div className="printStore">
+            <strong>{settings.salonName || "Mai Beauty Salon"}</strong>
+            <span>{settings.address || "Tokyo, Japan"}</span>
+            <span>{settings.phone || ""}</span>
+          </div>
+          <h3>領収書</h3>
+          <p className="printRecipient"><span>{order.customer || "____________"}</span><strong>様</strong></p>
+          <div className="printRule" />
+          <p><span>{new Date().toLocaleDateString("ja-JP")}</span><strong>{paymentMethodText || "現金"}</strong></p>
+          <div className="printRule" />
+          <p className="printTotal"><span>合計</span><strong>{yen(total)}</strong></p>
+          <p><span>但し書き</span><strong>ネイルサービス代として</strong></p>
+          <div className="printTaxGrid"><span>税率</span><span>税抜</span><span>税額</span><span>合計</span><span>10%</span><span>{yen(Math.max(0, taxableSubtotal - tax))}</span><span>{yen(tax)}</span><span>{yen(total)}</span></div>
+          <small>領収書番号: {order.receiptNumber || order.orderNumber || "POS"}</small>
+        </div>
       </div>
     </section>
   );
