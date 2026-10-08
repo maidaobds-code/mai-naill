@@ -3,16 +3,16 @@ import { languages, t, tx } from "../lib/i18nClean";
 import { useStoreOrders } from "../lib/orderStore";
 
 const items = [
-  ["📅", "Calendar", "calendar"],
-  ["👥", "Customers", "customers"],
-  ["📋", "Services", "services"],
-  ["💰", "POS / Checkout", "checkout"],
-  ["💴", "Payroll", "payroll"],
-  ["🛍️", "Online Store", "onlineStore"],
-  ["📦", "ProductsInventory", "productsInventory"],
-  ["📊", "Reports", "reports"],
-  ["📢", "Orders", "orders"],
-  ["⚙️", "Settings", "settings"],
+  ["◷", "Calendar", "calendar"],
+  ["◎", "Customers", "customers"],
+  ["☰", "Services", "services"],
+  ["¥", "POS / Checkout", "checkout"],
+  ["円", "Payroll", "payroll"],
+  ["◇", "Online Store", "onlineStore"],
+  ["□", "ProductsInventory", "productsInventory"],
+  ["≋", "Reports", "reports"],
+  ["!", "Orders", "orders"],
+  ["⚙", "Settings", "settings"],
 ];
 
 export default function SidebarEnhanced({ active, setActive, language, setLanguage }) {

@@ -85,17 +85,20 @@ body{background:radial-gradient(circle at top left,#fde7f3,transparent 30%),radi
   place-items: center;
   flex: 0 0 34px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  font-size: 17px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  font-size: 15px;
+  font-weight: 800;
   line-height: 1;
 }
 
 .navItem.active .navIcon {
-  background: linear-gradient(180deg, #ffb33f 0%, #f97316 100%);
-  border-color: rgba(255, 255, 255, 0.24);
-  box-shadow: 0 10px 24px rgba(249, 115, 22, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .nailPosPanel {
