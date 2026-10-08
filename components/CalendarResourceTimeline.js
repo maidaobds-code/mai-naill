@@ -237,8 +237,30 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
         <section className="card weekGrid weekCalendar">
           {weekDays.map((day, index) => {
             const dayNumber = 6 + index;
-            const count = bookings.filter((booking) => bookingDay(booking) === dayNumber).length;
-            return <button className="weekCol weekDayButton" key={day} onClick={() => openDay(dayNumber)}><span>{day} · 10/{String(dayNumber).padStart(2, "0")}</span><strong>{count} lịch hẹn</strong></button>;
+            const dayBookings = bookings.filter((booking) => bookingDay(booking) === dayNumber).sort((a, b) => a.start.localeCompare(b.start));
+            const isSelected = dayNumber === selectedDay;
+            return (
+              <button className={isSelected ? "weekCol weekDayButton selectedWeekDay" : "weekCol weekDayButton"} key={day} onClick={() => openDay(dayNumber)}>
+                <span className="weekDayTop"><small>{day}</small><em>10/{String(dayNumber).padStart(2, "0")}</em></span>
+                <strong className="weekDayNumber">{dayNumber}</strong>
+                <span className="weekCountBadge">{dayBookings.length} lịch hẹn</span>
+                <span className="weekBookingList">
+                  {dayBookings.slice(0, 3).map((booking) => {
+                    const member = staffFor(booking.staff);
+                    const platform = platformFor(booking.source);
+                    return (
+                      <span className="weekBookingCard" key={booking.id} style={{ borderColor: member.color, background: `${member.color}16` }}>
+                        <i style={{ background: member.color }} />
+                        <span><b>{booking.start}</b> {booking.customer}</span>
+                        <small>{booking.service} · {platform.name}</small>
+                      </span>
+                    );
+                  })}
+                  {!dayBookings.length && <span className="weekEmptyState">Chưa có lịch</span>}
+                  {dayBookings.length > 3 && <span className="weekMore">+{dayBookings.length - 3} lịch khác</span>}
+                </span>
+              </button>
+            );
           })}
         </section>
       )}
