@@ -30,6 +30,10 @@ function yen(value) {
   return `¥${Math.round(Number(value || 0)).toLocaleString("ja-JP")}`;
 }
 
+function paymentLabel(id) {
+  return paymentMethods.find((method) => method.id === id)?.label || id || "その他";
+}
+
 function newId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -66,6 +70,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
   const [activeTab, setActiveTab] = useState("services");
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
+  const [drawerNotice, setDrawerNotice] = useState("");
   const [order, setOrder] = useState(() => readJson(DRAFT_KEY, null) || {
     id: "",
     orderNumber: "",
@@ -103,11 +108,13 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
   const taxRate = Number(settings.taxRate || 10);
   const tax = taxMode === "inclusive" ? Math.round(taxableSubtotal - taxableSubtotal / (1 + taxRate / 100)) : Math.round(taxableSubtotal * taxRate / 100);
   const total = taxMode === "inclusive" ? taxableSubtotal : taxableSubtotal + tax;
-  const paid = order.payments.filter((payment) => payment.confirmed).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const paid = order.payments.filter((payment) => payment.confirmed !== false).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const remaining = Math.max(0, total - paid);
   const cashReceived = order.payments.filter((payment) => payment.method === "cash").reduce((sum, payment) => sum + Number(payment.received || 0), 0);
   const cashPaid = order.payments.filter((payment) => payment.method === "cash").reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
   const change = Math.max(0, cashReceived - cashPaid);
+  const confirmedPayments = order.payments.filter((payment) => payment.confirmed !== false && Number(payment.amount || 0) > 0);
+  const paymentMethodText = confirmedPayments.map((payment) => paymentLabel(payment.method)).join(" + ");
   const existingPaidAppointment = order.appointmentId && getStoredPosSales().find((sale) => sale.appointmentId === order.appointmentId && sale.paymentStatus === "Paid");
 
   function updateOrder(patch) {
@@ -174,7 +181,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
   }
 
   function addPayment() {
-    setOrder((current) => ({ ...current, payments: [...current.payments, { id: newId("pay"), method: "paypay", amount: remaining, received: 0, confirmed: false }] }));
+    setOrder((current) => ({ ...current, payments: [...current.payments, { id: newId("pay"), method: "paypay", amount: remaining, received: 0, confirmed: true }] }));
   }
 
   function updatePayment(id, patch) {
@@ -206,6 +213,8 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
       paid,
       remaining,
       change,
+      paymentMethods: confirmedPayments.map((payment) => ({ method: payment.method, label: paymentLabel(payment.method), amount: Number(payment.amount || 0), received: Number(payment.received || 0) })),
+      paymentMethodText,
       taxSnapshot: { mode: taxMode, rate: taxRate, amount: tax },
       storeSnapshot: { salonName: settings.salonName, address: settings.address, phone: settings.phone, email: settings.email, logoUrl: settings.logoUrl, invoiceNumber: settings.invoiceNumber || "" },
       receiptNumber: `R-${Date.now().toString().slice(-8)}`,
@@ -223,6 +232,16 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
     }
     setOrder(record);
     setError(paymentStatus === "Paid" ? "" : "Order đang Partial/Unpaid vì chưa nhận đủ tiền.");
+    if (paymentStatus === "Paid") {
+      const hasCashPayment = record.payments.some((payment) => payment.method === "cash" && payment.confirmed !== false && Number(payment.amount || 0) > 0);
+      if (hasCashPayment) {
+        setDrawerNotice(`Đã gửi lệnh mở hòm tiền mặt. Tiền trả lại khách: ${yen(change)}.`);
+        window.dispatchEvent(new CustomEvent("nail-japan-cash-drawer-open", { detail: { orderNumber: record.orderNumber, change } }));
+      } else {
+        setDrawerNotice("");
+      }
+      window.setTimeout(() => window.print(), 120);
+    }
   }
 
   return (
@@ -288,11 +307,18 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
       {order.payments.map((payment) => <div className="nailPaymentRow" key={payment.id}>
         <select value={payment.method} onChange={(event) => updatePayment(payment.id, { method: event.target.value })}>{paymentMethods.map((method) => <option key={method.id} value={method.id}>{method.label}</option>)}</select>
         <input type="number" value={payment.amount || ""} onChange={(event) => updatePayment(payment.id, { amount: Number(event.target.value) })} placeholder="Số tiền" />
+        {payment.method === "cash" ? <input type="number" value={payment.received || ""} onChange={(event) => updatePayment(payment.id, { received: Number(event.target.value) })} placeholder="Khách đưa" /> : <span className="nailPaymentAppName">{paymentLabel(payment.method)}</span>}
         <button onClick={() => updateOrder({ payments: order.payments.filter((item) => item.id !== payment.id) })}>×</button>
       </div>)}
       <button className="nailAddPayment" onClick={addPayment}>＋ Thêm phương thức thanh toán</button>
-      <div className="nailRemaining"><span>Số tiền còn phải trả</span><strong>{yen(remaining)}</strong></div>
-      <button className="nailComplete" onClick={completePayment}>◎ Xem thanh toán & chứng từ</button>
+      <div className="nailPaymentSummary">
+        <div><span>Đã nhận</span><strong>{yen(paid)}</strong></div>
+        <div><span>Số tiền còn phải trả</span><strong>{yen(remaining)}</strong></div>
+        <div className={change > 0 ? "changeDue active" : "changeDue"}><span>Tiền trả lại khách</span><strong>{yen(change)}</strong></div>
+        <div><span>Phương thức thanh toán</span><strong>{paymentMethodText || "-"}</strong></div>
+      </div>
+      {drawerNotice && <div className="nailDrawerNotice">{drawerNotice}</div>}
+      <button className="nailComplete" onClick={completePayment}>◎ Thanh toán & in hóa đơn</button>
       <p className="nailDemoNote">Nhập đủ số tiền thanh toán để mở bản xem trước. Đây là bản demo, không lưu giao dịch thật.</p>
 
       <div className="nailDivider" />
