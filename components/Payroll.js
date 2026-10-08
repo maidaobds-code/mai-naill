@@ -13,13 +13,17 @@ function yen(value) {
   return `JPY ${Math.round(Number(value || 0)).toLocaleString("ja-JP")}`;
 }
 
-function defaultStaffSettings() {
-  return seedStaff.reduce((acc, member) => {
-    acc[member.name] = {
-      appRates: platforms.reduce((rates, platform) => ({ ...rates, [platform.id]: platform.id === "direct" ? 55 : 45 }), {}),
-      additions: [{ id: "bonus", label: "Thưởng", amount: 0 }],
-      deductions: [{ id: "insurance", label: "Bảo hiểm", amount: 0 }],
-    };
+function createStaffPayrollSettings() {
+  return {
+    appRates: platforms.reduce((rates, platform) => ({ ...rates, [platform.id]: platform.id === "direct" ? 55 : 45 }), {}),
+    additions: [{ id: "bonus", label: "Thưởng", amount: 0 }],
+    deductions: [{ id: "insurance", label: "Bảo hiểm", amount: 0 }],
+  };
+}
+
+function defaultStaffSettings(staffList = seedStaff) {
+  return staffList.reduce((acc, member) => {
+    acc[member.name] = createStaffPayrollSettings();
     return acc;
   }, {});
 }
@@ -34,20 +38,31 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
   const { bookings } = useBookingStore();
   const { staff } = useStaffStore();
   const [selectedStaff, setSelectedStaff] = useState(staff[0]?.name || "");
-  const [settings, setSettings] = useState(defaultStaffSettings);
+  const [settings, setSettings] = useState(() => defaultStaffSettings(staff));
 
   useEffect(() => {
     const raw = window.localStorage.getItem(PAYROLL_KEY);
-    if (raw) setSettings({ ...defaultStaffSettings(), ...JSON.parse(raw) });
+    if (raw) setSettings({ ...defaultStaffSettings(staff), ...JSON.parse(raw) });
     if (supabaseReady()) {
       getKv(PAYROLL_KEY).then((remote) => {
         if (remote) {
-          setSettings({ ...defaultStaffSettings(), ...remote });
+          setSettings({ ...defaultStaffSettings(staff), ...remote });
           window.localStorage.setItem(PAYROLL_KEY, JSON.stringify(remote));
         }
       }).catch(() => {});
     }
-  }, []);
+  }, [staff]);
+
+  useEffect(() => {
+    setSettings((current) => {
+      const defaults = defaultStaffSettings(staff);
+      return staff.reduce((next, member) => {
+        next[member.name] = current[member.name] || defaults[member.name] || createStaffPayrollSettings();
+        return next;
+      }, {});
+    });
+    if (!staff.some((member) => member.name === selectedStaff)) setSelectedStaff(staff[0]?.name || "");
+  }, [staff, selectedStaff]);
 
   useEffect(() => {
     window.localStorage.setItem(PAYROLL_KEY, JSON.stringify(settings));
@@ -55,7 +70,7 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
   }, [settings]);
 
   const selectedMember = staff.find((member) => member.name === selectedStaff) || staff[0];
-  const selectedSettings = settings[selectedStaff] || defaultStaffSettings()[selectedStaff];
+  const selectedSettings = settings[selectedStaff] || createStaffPayrollSettings();
   const staffBookings = useMemo(() => bookings.filter((booking) => booking.staff === selectedStaff), [bookings, selectedStaff]);
   const payrollRows = staffBookings.map((booking) => {
     const rate = Number(selectedSettings.appRates[booking.source] ?? 45);

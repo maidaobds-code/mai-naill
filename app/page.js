@@ -9,7 +9,6 @@ import ProductInventory from "../components/ProductInventory";
 import ServiceMenu from "../components/ServiceMenu";
 import OnlineStore from "../components/OnlineStore";
 import Orders from "../components/Orders";
-import Integrations from "../components/Integrations";
 import Payroll from "../components/Payroll";
 import Checkout from "../components/Checkout";
 import Reports from "../components/Reports";
@@ -29,7 +28,6 @@ export default function Home() {
   else if (active === "ProductsInventory") content = <ProductInventory label={t(language, "productsInventory")} language={language} />;
   else if (active === "Online Store") content = <OnlineStore language={language} />;
   else if (active === "Orders") content = <Orders language={language} />;
-  else if (active === "Integrations") content = <Integrations label={t(language, "integrations")} />;
   else if (active === "Payroll") content = <Payroll label={t(language, "payroll")} language={language} />;
   else if (active === "POS / Checkout") content = <Checkout label={t(language, "checkout")} />;
   else if (active === "Reports") content = <Reports language={language} />;
