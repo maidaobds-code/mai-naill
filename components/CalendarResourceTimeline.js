@@ -1,18 +1,19 @@
-"use client";
+﻿"use client";
 import { useRef, useState } from "react";
 import { platforms, staff } from "../lib/salonData";
+import { useBookingStore } from "../lib/bookingStore";
 
 const slots = [
   "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
   "12:00", "12:30", "13:00", "13:30", "14:00", "14:30",
   "15:00", "15:30", "16:00", "16:30", "17:00", "17:30",
-  "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00"
+  "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"
 ];
 const intervalSlots = slots.slice(0, -1);
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthDays = Array.from({ length: 31 }, (_, index) => index + 1);
 const timelineStart = 9 * 60;
-const timelineEnd = 21 * 60;
+const timelineEnd = 23 * 60;
 
 function platformFor(id) {
   return platforms.find((platform) => platform.id === id) || platforms[0];
@@ -46,7 +47,7 @@ function blankBooking(day, hour, member) {
     id: `draft-${day}-${hour}-${member.id}`,
     day,
     start: hour,
-    end: slots[slots.indexOf(hour) + 2] || "21:00",
+    end: slots[slots.indexOf(hour) + 2] || "23:00",
     customer: "",
     phone: "",
     service: "Gel One Color",
@@ -62,7 +63,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
   const [selected, setSelected] = useState(blankBooking(6, "10:00", staff[0]));
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
-  const [bookings, setBookings] = useState([]);
+  const { bookings, setBookings } = useBookingStore();
   const pressRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => bookingDay(booking) === selectedDay);
   const weekTotal = bookings.filter((booking) => bookingDay(booking) >= 6 && bookingDay(booking) <= 12).length;
@@ -168,7 +169,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
       {view === "day" && (
         <section className="card resourceTimelineShell">
           <div className="calendarHeader">
-            <strong>2026/10/{String(selectedDay).padStart(2, "0")} · Day View</strong>
+            <strong>2026/10/{String(selectedDay).padStart(2, "0")} ﾂｷ Day View</strong>
           </div>
           <div className="resourceTimeline">
             <div className="resourceHeader">Staff</div>
@@ -211,7 +212,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
                         >
                           <strong>{booking.start} - {booking.end}</strong>
                           <span>{booking.customer}</span>
-                          <small>{booking.phone} · {booking.service} · {platform.name}</small>
+                          <small>{booking.phone} ﾂｷ {booking.service} ﾂｷ {platform.name}</small>
                         </button>
                       );
                     })}
@@ -228,7 +229,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
           {weekDays.map((day, index) => {
             const dayNumber = 6 + index;
             const count = bookings.filter((booking) => bookingDay(booking) === dayNumber).length;
-            return <button className="weekCol weekDayButton" key={day} onClick={() => openDay(dayNumber)}><span>{day} · 10/{String(dayNumber).padStart(2, "0")}</span><strong>{count} bookings</strong></button>;
+            return <button className="weekCol weekDayButton" key={day} onClick={() => openDay(dayNumber)}><span>{day} ﾂｷ 10/{String(dayNumber).padStart(2, "0")}</span><strong>{count} bookings</strong></button>;
           })}
         </section>
       )}
@@ -247,7 +248,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
         <div className="bookingModalBackdrop" onMouseDown={() => setModalOpen(false)}>
           <div className="card bookingModal" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modalHead"><div><p className="eyebrow">{selected.draft ? "NEW BOOKING" : "EDIT BOOKING"}</p><h2>{selected.customer || "New customer"}</h2></div><button className="ghost iconClose" onClick={() => setModalOpen(false)}>Close</button></div>
-            <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>2026/10/{String(selectedDay).padStart(2, "0")} · {selected.staff}</span></div>
+            <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>2026/10/{String(selectedDay).padStart(2, "0")} ﾂｷ {selected.staff}</span></div>
             <div className="formGrid modalForm">
               <label>Customer<input value={selected.customer} onChange={(event) => setSelected({ ...selected, customer: event.target.value })} placeholder="Customer name" /></label>
               <label>Phone<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
@@ -259,7 +260,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
             <div className="modalActions">
               <button className="ghost dangerButton" onClick={deleteBooking}>Delete booking</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button className="ghost" onClick={() => { setModalOpen(false); onCheckout?.(selected); }}>Tính tiền</button>
+              <button className="ghost" onClick={() => { setModalOpen(false); onCheckout?.(selected); }}>Tﾃｭnh ti盻］</button>
               <button className="primary" onClick={saveBooking}>Save and sync blocks</button>
             </div>
           </div>
@@ -268,3 +269,5 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
     </>
   );
 }
+
+

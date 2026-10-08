@@ -12,6 +12,8 @@ import Orders from "../components/Orders";
 import Integrations from "../components/Integrations";
 import Payroll from "../components/Payroll";
 import Checkout from "../components/Checkout";
+import Reports from "../components/Reports";
+import Settings from "../components/Settings";
 import GenericModule from "../components/GenericModule";
 import { t } from "../lib/i18nClean";
 
@@ -30,6 +32,8 @@ export default function Home() {
   else if (active === "Integrations") content = <Integrations label={t(language, "integrations")} />;
   else if (active === "Payroll") content = <Payroll label={t(language, "payroll")} />;
   else if (active === "POS / Checkout") content = <Checkout label={t(language, "checkout")} />;
+  else if (active === "Reports") content = <Reports />;
+  else if (active === "Settings") content = <Settings />;
   else if (active !== "Dashboard") content = <GenericModule name={active} />;
 
   return (
