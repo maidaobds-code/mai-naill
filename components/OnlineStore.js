@@ -50,6 +50,7 @@ export default function OnlineStore({ language = "vi" }) {
   const [trackingId, setTrackingId] = useState("");
   const [chatDraft, setChatDraft] = useState("");
   const [productSearch, setProductSearch] = useState("");
+  const [featuredIndex, setFeaturedIndex] = useState(0);
   const productRailRef = useRef(null);
   const [draft, setDraft] = useState({ service: activeServices[0]?.name || "", branch: "Mai Beauty Salon Tokyo", date: "2026-10-06", day: 6, time: "09:00", staff: "", customer: "", phone: "", email: "" });
   const selectedService = useMemo(() => activeServices.find((service) => service.name === draft.service) || activeServices[0], [activeServices, draft.service]);
@@ -65,7 +66,22 @@ export default function OnlineStore({ language = "vi" }) {
     setSettings(getAppSettings());
   }, []);
 
-  useEffect(() => () => stopProductCarousel(), []);
+  useEffect(() => {
+    setFeaturedIndex(0);
+    productRailRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+  }, [productSearch, visibleFeatured.length]);
+
+  useEffect(() => {
+    if (visibleFeatured.length < 2) return;
+    const timer = window.setInterval(() => {
+      setFeaturedIndex((current) => (current + 1) % visibleFeatured.length);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [visibleFeatured.length]);
+
+  useEffect(() => {
+    scrollFeaturedTo(featuredIndex);
+  }, [featuredIndex, visibleFeatured.length]);
 
   function updateDraft(field, value) {
     const next = { ...draft, [field]: value };
@@ -89,24 +105,19 @@ export default function OnlineStore({ language = "vi" }) {
 
   function submitProductSearch(event) {
     event.preventDefault();
-    productRailRef.current?.scrollTo({ left: 0, behavior: "smooth" });
+    setFeaturedIndex(0);
   }
 
-  function startProductCarousel() {
+  function scrollFeaturedTo(index) {
     const rail = productRailRef.current;
-    if (!rail || rail.dataset.autoSlide) return;
-    rail.dataset.autoSlide = window.setInterval(() => {
-      const next = rail.scrollLeft + rail.clientWidth * 0.82;
-      const max = rail.scrollWidth - rail.clientWidth - 4;
-      rail.scrollTo({ left: next >= max ? 0 : next, behavior: "smooth" });
-    }, 1700);
+    const card = rail?.querySelector(`[data-product-slide="${index}"]`);
+    if (!rail || !card) return;
+    rail.scrollTo({ left: card.offsetLeft - rail.offsetLeft, behavior: "smooth" });
   }
 
-  function stopProductCarousel() {
-    const rail = productRailRef.current;
-    if (!rail?.dataset.autoSlide) return;
-    window.clearInterval(Number(rail.dataset.autoSlide));
-    delete rail.dataset.autoSlide;
+  function moveFeatured(direction) {
+    if (!visibleFeatured.length) return;
+    setFeaturedIndex((current) => (current + direction + visibleFeatured.length) % visibleFeatured.length);
   }
 
   function updateCheckout(field, value) {
@@ -183,14 +194,19 @@ export default function OnlineStore({ language = "vi" }) {
     <div className="storeSoftShell">
       <section className="storeHero softHero"><div><p className="eyebrow">MAI BEAUTY SALON</p><h1>{tr("heroTitle")}</h1><p>{tr("heroText")}</p><form className="heroActions storeSearchBar" onSubmit={submitProductSearch}><input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Tìm sản phẩm / 商品検索" /><button className="primary" type="submit">Tìm kiếm</button><button className="ghost" type="button" onClick={scrollToBooking}>{tr("bookNail")}</button></form></div></section>
 
-      <div className="sectionTitle storeTitle"><div><h2>{tr("productsTitle")}</h2><p>{tr("productsText")}</p></div><button className="ghost">Preview Store</button></div>
-      <div className="productGrid softProductGrid productCarouselRail" ref={productRailRef} onMouseEnter={startProductCarousel} onMouseLeave={stopProductCarousel} onTouchStart={stopProductCarousel}>
-        {visibleFeatured.map((product) => {
-          const canBuy = Number(product.stock || 0) > 0 && product.status !== "DRAFT";
-          return <article className="productCard softProductCard" key={product.id}><div className="storeImage softStoreImage">{product.mediaUrl ? <img src={product.mediaUrl} alt={product.name} /> : <span>{product.productType || "Nail"}</span>}</div><div className="productMeta"><span>{product.brandName}</span><h3>{product.name}</h3><p>{product.description || product.shortDescription}</p><div><strong>{money(product.salePrice || product.basePrice)}</strong><span className={canBuy ? "pill active" : "pill danger"}>{canBuy ? tr("canBuy", { stock: product.stock }) : tr("outOfStock")}</span></div><button className="primary buyButton" onClick={() => openBuy(product)}>{canBuy ? tr("buy") : tr("viewStatus")}</button></div></article>;
-        })}
-        {!visibleFeatured.length && <p className="storeNote">Không tìm thấy sản phẩm phù hợp.</p>}
+      <div className="sectionTitle storeTitle"><div><h2>{tr("productsTitle")}</h2><p>Tự động chạy vòng tròn liên tục từ 2 sản phẩm trở lên.</p></div><span className={visibleFeatured.length > 1 ? "carouselAutoBadge active" : "carouselAutoBadge"}><i />Tự động chạy</span></div>
+      <div className="featuredCarouselShell">
+        {visibleFeatured.length > 1 && <button className="carouselArrow prev" type="button" onClick={() => moveFeatured(-1)} aria-label="Sản phẩm trước">‹</button>}
+        <div className="productGrid softProductGrid productCarouselRail" ref={productRailRef}>
+          {visibleFeatured.map((product, index) => {
+            const canBuy = Number(product.stock || 0) > 0 && product.status !== "DRAFT";
+            return <article className={index === featuredIndex ? "productCard softProductCard activeSlide" : "productCard softProductCard"} data-product-slide={index} key={product.id}><div className="storeImage softStoreImage">{product.mediaUrl ? <img src={product.mediaUrl} alt={product.name} /> : <span>{product.productType || "Nail"}</span>}</div><div className="productMeta"><span>{product.brandName || `Sản phẩm ${index + 1}`}</span><h3>{product.name}</h3><p>{product.description || product.shortDescription}</p><div><strong>{money(product.salePrice || product.basePrice)}</strong><span className={canBuy ? "pill active" : "pill danger"}>{canBuy ? tr("canBuy", { stock: product.stock }) : tr("outOfStock")}</span></div><button className="primary buyButton" onClick={() => openBuy(product)}>{canBuy ? tr("buy") : tr("viewStatus")}</button></div></article>;
+          })}
+          {!visibleFeatured.length && <p className="storeNote">Không tìm thấy sản phẩm phù hợp.</p>}
+        </div>
+        {visibleFeatured.length > 1 && <button className="carouselArrow next" type="button" onClick={() => moveFeatured(1)} aria-label="Sản phẩm tiếp theo">›</button>}
       </div>
+      {visibleFeatured.length > 1 && <div className="carouselDots">{visibleFeatured.map((product, index) => <button key={product.id} className={index === featuredIndex ? "active" : ""} type="button" onClick={() => setFeaturedIndex(index)} aria-label={`Xem sản phẩm ${index + 1}`} />)}</div>}
 
       <section className="card orderTrackerPanel">
         <div className="sectionTitle"><div><h2>{tr("trackerTitle")}</h2><p>{tr("trackerText")}</p></div></div>

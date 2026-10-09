@@ -291,7 +291,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
             <div className="modalActions">
               <button className="ghost dangerButton" onClick={deleteBooking}>Delete booking</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button className="ghost" onClick={() => { setModalOpen(false); onCheckout?.(selected); }}>Tﾃｭnh ti盻］</button>
+              <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>Tính tiền</button>
               <button className="primary" onClick={saveBooking}>Save and sync blocks</button>
             </div>
           </div>
