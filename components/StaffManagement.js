@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useState } from "react";
 import { platforms, staff as seedStaff } from "../lib/salonData";
+import { useAccountStore } from "../lib/accountStore";
 import { useStaffStore } from "../lib/staffStore";
 
 const staffColors = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444"];
@@ -13,13 +14,17 @@ function newStaff(nextId) {
     status: "Working",
     color: staffColors[(nextId - 1) % staffColors.length],
     external: { hotpepper: "", nailie: "", minimo: "" },
+    email: "",
+    accountPassword: "",
     credentialStatus: "Not saved",
   };
 }
 
 export default function StaffManagement({ label = "Staff", embedded = false }) {
   const { staff, setStaff } = useStaffStore();
+  const { accounts, upsertStaffAccount, resetPassword } = useAccountStore();
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
+  const [resetDraft, setResetDraft] = useState({});
 
   function updateDraft(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -29,10 +34,21 @@ export default function StaffManagement({ label = "Staff", embedded = false }) {
     setDraft((current) => ({ ...current, external: { ...current.external, [platform]: value } }));
   }
 
-  function addStaff() {
+  async function addStaff() {
     if (!draft.name.trim()) return;
-    setStaff((current) => [...current, { ...draft, credentialStatus: "Encrypted in Supabase" }]);
+    const record = { ...draft, credentialStatus: draft.accountPassword ? "Account ready" : "Needs password" };
+    await upsertStaffAccount(record, draft.accountPassword);
+    setStaff((current) => [...current, record]);
     setDraft(newStaff(draft.id + 1));
+  }
+
+  async function resetStaffPassword(member) {
+    const password = resetDraft[member.id];
+    const account = accounts.find((item) => item.id === `staff-${member.id}`);
+    if (!password || !account) return;
+    await resetPassword(account.id, password);
+    setResetDraft((current) => ({ ...current, [member.id]: "" }));
+    setStaff((current) => current.map((item) => item.id === member.id ? { ...item, credentialStatus: "Password reset" } : item));
   }
 
   function deleteStaff(id) {
@@ -59,6 +75,8 @@ export default function StaffManagement({ label = "Staff", embedded = false }) {
           <label>Hot Pepper account<input value={draft.external.hotpepper} onChange={(event) => updateExternal("hotpepper", event.target.value)} placeholder="HP staff/account id" /></label>
           <label>Nailie account<input value={draft.external.nailie} onChange={(event) => updateExternal("nailie", event.target.value)} placeholder="Nailie staff/account id" /></label>
           <label>minimo account<input value={draft.external.minimo} onChange={(event) => updateExternal("minimo", event.target.value)} placeholder="minimo staff/account id" /></label>
+          <label>Email đăng nhập<input type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="staff@example.com" /></label>
+          <label>Mật khẩu tài khoản<input type="password" value={draft.accountPassword} onChange={(event) => updateDraft("accountPassword", event.target.value)} placeholder="Tạo mật khẩu" /></label>
         </div>
       </section>
 
@@ -72,8 +90,8 @@ export default function StaffManagement({ label = "Staff", embedded = false }) {
               <td>{member.external.hotpepper || "-"}</td>
               <td>{member.external.nailie || "-"}</td>
               <td>{member.external.minimo || "-"}</td>
-              <td><span className="pill active">{member.credentialStatus}</span></td>
-              <td><button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>Xóa</button></td>
+              <td><span className="pill active">{member.credentialStatus}</span><small>{accounts.find((item) => item.id === `staff-${member.id}`)?.email || member.email || "-"}</small></td>
+              <td><div className="staffAccountActions"><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder="Mật khẩu mới" /><button className="ghost" onClick={() => resetStaffPassword(member)}>Reset</button><button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>Xóa</button></div></td>
             </tr>
           ))}</tbody>
         </table>

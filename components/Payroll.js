@@ -33,7 +33,7 @@ function sumItems(items) {
   return items.reduce((total, item) => total + Number(item.amount || 0), 0);
 }
 
-export default function Payroll({ label = "Payroll", language = "vi" }) {
+export default function Payroll({ label = "Payroll", language = "vi", currentAccount = null }) {
   const tr = (key, vars) => tx(language, "payrollPage", key, vars);
   const tc = (key) => tx(language, "common", key);
   const { bookings } = useBookingStore();
@@ -70,10 +70,12 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
     if (supabaseReady()) saveKv(PAYROLL_KEY, settings).catch(() => {});
   }, [settings]);
 
-  const selectedMember = staff.find((member) => member.name === selectedStaff) || staff[0];
-  const selectedSettings = settings[selectedStaff] || createStaffPayrollSettings();
-  const staffBookings = useMemo(() => bookings.filter((booking) => booking.staff === selectedStaff), [bookings, selectedStaff]);
-  const posServiceRows = getStoredPosSales().filter((sale) => sale.paymentStatus === "Paid").flatMap((sale) => (sale.lines || []).filter((line) => line.type === "service" && line.staff === selectedStaff).map((line) => ({ id: `${sale.id}-${line.id}`, day: new Date(sale.issuedAt || sale.createdAt || Date.now()).getDate(), customer: sale.customer, source: sale.bookingSource || "pos", origin: "POS", price: Number(line.unitPrice || 0) * Number(line.quantity || 1), app: "POS", rateSource: sale.bookingSource || "direct" })));
+  const isStaffAccount = currentAccount?.role === "staff";
+  const effectiveStaff = isStaffAccount ? currentAccount.staffName || currentAccount.name : selectedStaff;
+  const selectedMember = staff.find((member) => member.name === effectiveStaff) || staff[0];
+  const selectedSettings = settings[effectiveStaff] || createStaffPayrollSettings();
+  const staffBookings = useMemo(() => bookings.filter((booking) => booking.staff === effectiveStaff), [bookings, effectiveStaff]);
+  const posServiceRows = getStoredPosSales().filter((sale) => sale.paymentStatus === "Paid").flatMap((sale) => (sale.lines || []).filter((line) => line.type === "service" && line.staff === effectiveStaff).map((line) => ({ id: `${sale.id}-${line.id}`, day: new Date(sale.issuedAt || sale.createdAt || Date.now()).getDate(), customer: sale.customer, source: sale.bookingSource || "pos", origin: "POS", price: Number(line.unitPrice || 0) * Number(line.quantity || 1), app: "POS", rateSource: sale.bookingSource || "direct" })));
   const payrollRows = [...staffBookings, ...posServiceRows].map((booking) => {
     const rate = Number(selectedSettings.appRates[booking.rateSource || booking.source] ?? 45);
     const commission = Number(booking.price || 0) * rate / 100;
@@ -133,9 +135,9 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
       </div>
 
       <section className="card payrollStudio">
-        <div className="staffSelectRail">
+        {!isStaffAccount && <div className="staffSelectRail">
           {staff.map((member) => <button key={member.id} className={selectedStaff === member.name ? "staffChip active" : "staffChip"} onClick={() => setSelectedStaff(member.name)}><span className="avatar small" style={{ background: member.color }}>{member.name[0]}</span><strong>{member.name}</strong><small>{member.role}</small></button>)}
-        </div>
+        </div>}
 
         <div className="payrollHeroRow">
           <div className="payrollPerson"><div className="avatar" style={{ background: selectedMember.color }}>{selectedMember.name[0]}</div><div><span>{tr("current")}</span><h2>{selectedMember.name}</h2><small>{selectedMember.status}</small></div></div>
@@ -145,9 +147,9 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
         </div>
       </section>
 
-      <div className="payrollWorkGrid">
+      {!isStaffAccount && <div className="payrollWorkGrid">
         <section className="card payrollPanel">
-          <div className="sectionTitle"><div><h2>{tr("appRates")}</h2><p>{tr("appRatesDesc", { staff: selectedStaff })}</p></div></div>
+          <div className="sectionTitle"><div><h2>{tr("appRates")}</h2><p>{tr("appRatesDesc", { staff: effectiveStaff })}</p></div></div>
           <div className="appRateList">
             {platforms.map((platform) => <label key={platform.id} className="appRateRow"><span style={{ background: platform.color }} /><strong>{platform.name}</strong><input type="number" min="0" max="100" value={selectedSettings.appRates[platform.id] ?? 45} onChange={(event) => updateRate(platform.id, event.target.value)} /><small>%</small></label>)}
           </div>
@@ -162,7 +164,7 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
           <div className="sectionTitle"><div><h2>{tr("deductions")}</h2><p>{tr("deductionsDesc")}</p></div><button className="ghost" onClick={() => addLine("deductions")}>+ {tr("addLine")}</button></div>
           <div className="payrollLineList">{selectedSettings.deductions.map((item) => <div className="payrollLine" key={item.id}><input value={item.label} onChange={(event) => updateLine("deductions", item.id, "label", event.target.value)} /><input type="number" value={item.amount} onChange={(event) => updateLine("deductions", item.id, "amount", event.target.value)} /><button className="ghost dangerButton" onClick={() => removeLine("deductions", item.id)}>{tc("delete")}</button></div>)}</div>
         </section>
-      </div>
+      </div>}
 
       <section className="card payrollSummaryPanel">
         <div><span>{tr("commission")}</span><strong>{yen(commission)}</strong></div>
@@ -173,8 +175,8 @@ export default function Payroll({ label = "Payroll", language = "vi" }) {
 
       <section className="card tableWrap">
         <table>
-          <thead><tr><th>{tr("date")}</th><th>{tc("customer")}</th><th>App</th><th>{tr("sale")}</th><th>{tr("percent")}</th><th>{tr("commission")}</th></tr></thead>
-          <tbody>{payrollRows.map((booking) => <tr key={booking.id}><td>2026/10/{String(booking.day || 6).padStart(2, "0")}</td><td>{booking.customer}</td><td>{booking.app}</td><td>{yen(booking.price)}</td><td>{booking.rate}%</td><td><strong>{yen(booking.commission)}</strong></td></tr>)}</tbody>
+          <thead><tr><th>{tr("date")}</th><th>{tc("customer")}</th><th>App</th><th>{tr("sale")}</th>{!isStaffAccount && <th>{tr("percent")}</th>}<th>{tr("commission")}</th></tr></thead>
+          <tbody>{payrollRows.map((booking) => <tr key={booking.id}><td>2026/10/{String(booking.day || 6).padStart(2, "0")}</td><td>{booking.customer}</td><td>{booking.app}</td><td>{yen(booking.price)}</td>{!isStaffAccount && <td>{booking.rate}%</td>}<td><strong>{yen(booking.commission)}</strong></td></tr>)}</tbody>
         </table>
       </section>
     </>

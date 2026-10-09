@@ -12,17 +12,19 @@ const items = [
   ["inventory", "▣", "ProductsInventory", "productsInventory", "#93c5fd"],
   ["reports", "⌁", "Reports", "reports", "#fb7185"],
   ["notice", "◕", "Orders", "orders", "#facc15"],
+  ["customers", "◎", "Staff", "staff", "#67e8f9"],
   ["settings", "⚙", "Settings", "settings", "#a7f3d0"],
 ];
 
-export default function SidebarEnhanced({ active, setActive, language, setLanguage }) {
+export default function SidebarEnhanced({ active, setActive, language, setLanguage, allowedItems = items.map((item) => item[2]) }) {
   const { orders } = useStoreOrders();
   const unread = orders.filter((order) => order.unread).length;
+  const visibleItems = items.filter((item) => allowedItems.includes(item[2]));
   return (
     <aside className="sidebar">
       <div className="brand"><div className="brandMark">M</div><div><strong>{tx(language, "brand", "name")}</strong><span>{t(language, "salonOs")}</span></div></div>
       <nav>
-        {items.map(([iconType, icon, label, key, accent]) => (
+        {visibleItems.map(([iconType, icon, label, key, accent]) => (
           <button key={label} className={active === label ? "navItem active" : "navItem"} style={{ "--nav-accent": accent }} onClick={() => setActive(label)}>
             <span className={`navIcon navIcon-${iconType}`}>{icon}</span>{t(language, key)}{label === "Orders" && orders.length > 0 && <b className="navBadge">{unread || orders.length}</b>}
           </button>
