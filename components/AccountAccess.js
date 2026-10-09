@@ -62,8 +62,8 @@ export function AccountGate() {
           <h1>Đăng nhập</h1>
           <p>Nhập email và mật khẩu tài khoản của bạn.</p>
         </div>
-        <label>Email<input type="email" value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required placeholder="email@example.com" /></label>
-        <label>Mật khẩu<input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required minLength={6} /></label>
+        <label>Email<span className="loginInputShell mailIcon"><input type="email" value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required placeholder="email@example.com" /></span></label>
+        <label>Mật khẩu<span className="loginInputShell lockIcon"><input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required minLength={6} /></span></label>
         {loginMessage && <p className="storeNote">{loginMessage}</p>}
         <div className="loginButtonRow"><button className="ghost" type="button" onClick={() => setShowRegister(true)}>Tạo tài khoản</button><button className="primary" type="submit">Đăng nhập</button></div>
         <button className="gmailLoginButton" type="button" onClick={startGoogleLogin}>Đăng nhập bằng tài khoản Gmail trực tiếp</button>
@@ -78,8 +78,8 @@ export function LoginPage() {
       <div className="loginBrandPanel">
         <div className="brandMark large">M</div>
         <p className="eyebrow">MAI BEAUTY SALON</p>
-        <h1>Đăng nhập hệ thống</h1>
-        <p>Mặc định là đăng nhập. Tạo tài khoản chỉ dành cho khách hàng.</p>
+        <h1>Mai Beauty Salon</h1>
+        <p>Không gian đặt lịch, mua hàng và chăm sóc khách hàng dành riêng cho salon.</p>
       </div>
       <AccountGate />
     </div>
