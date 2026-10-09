@@ -256,6 +256,12 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
     window.setTimeout(() => window.print(), 120);
   }
 
+  function printHistorySale(sale, type) {
+    setOrder({ ...sale, status: "Reopened" });
+    setPrintMode(type);
+    window.setTimeout(() => window.print(), 160);
+  }
+
   return (
     <section className="card nailPosPanel">
       <div className="nailPosHeader">
@@ -409,7 +415,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
         </div>
       </div>
 
-      {historyOpen && <div className="posHistoryOverlay"><div className="posHistoryModal"><div className="posHistoryHeader"><div><span>PAYMENT HISTORY</span><h2>Lịch sử thanh toán</h2></div><button onClick={() => setHistoryOpen(false)}>Close</button></div><div className="posHistoryList">{posHistory.length ? posHistory.map((sale) => <button key={sale.id} onClick={() => { setOrder({ ...sale, status: "Reopened" }); setHistoryOpen(false); }}><strong>{sale.customer || "-"}</strong><span>{sale.orderNumber || sale.receiptNumber} · {new Date(sale.issuedAt || Date.now()).toLocaleString("ja-JP")}</span><em>{yen(sale.total)}</em></button>) : <p className="mutedText">Chưa có lịch sử thanh toán.</p>}</div></div></div>}
+      {historyOpen && <div className="posHistoryOverlay"><div className="posHistoryModal"><div className="posHistoryHeader"><div><span>PAYMENT HISTORY</span><h2>Lịch sử thanh toán</h2></div><button onClick={() => setHistoryOpen(false)}>Close</button></div><div className="posHistoryList">{posHistory.length ? posHistory.map((sale) => <div className="posHistoryItem" key={sale.id}><button type="button" onClick={() => { setOrder({ ...sale, status: "Reopened" }); setHistoryOpen(false); }}><strong>{sale.customer || "-"}</strong><span>{sale.orderNumber || sale.receiptNumber} · {new Date(sale.issuedAt || Date.now()).toLocaleString("ja-JP")}</span><em>{yen(sale.total)}</em></button><div className="posHistoryActions"><button type="button" onClick={() => printHistorySale(sale, "receipt")}>In lại hóa đơn</button><button type="button" onClick={() => printHistorySale(sale, "ryoshusho")}>In lại 領収書</button></div></div>) : <p className="mutedText">Chưa có lịch sử thanh toán.</p>}</div></div></div>}
     </section>
   );
 }
