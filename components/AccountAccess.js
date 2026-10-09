@@ -5,37 +5,56 @@ import { useAccountStore } from "../lib/accountStore";
 import { useStoreOrders } from "../lib/orderStore";
 
 export function AccountGate() {
-  const { accounts, currentAccount, login, logout, setupOwner, registerCustomer } = useAccountStore();
-  const ownerReady = accounts.some((account) => account.role === "owner" && account.passwordHash);
-  const [mode, setMode] = useState(ownerReady ? "login" : "owner");
-  const [form, setForm] = useState({ name: "", email: ownerReady ? "" : "owner@salon.local", password: "", phone: "", address: "" });
-  const [message, setMessage] = useState("");
+  const { currentAccount, login, logout, registerCustomer } = useAccountStore();
+  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [customerForm, setCustomerForm] = useState({ name: "", email: "", password: "", phone: "", address: "" });
+  const [loginMessage, setLoginMessage] = useState("");
+  const [registerMessage, setRegisterMessage] = useState("");
 
   if (currentAccount) {
     return <div className="accountStrip"><span>{currentAccount.role === "owner" ? "Chủ quán" : currentAccount.role === "staff" ? "Nhân viên" : "Khách hàng"} · {currentAccount.name}</span><button className="ghost" onClick={logout}>Đăng xuất</button></div>;
   }
 
-  async function submit(event) {
+  async function submitLogin(event) {
     event.preventDefault();
-    const result = mode === "owner" ? await setupOwner(form) : mode === "register" ? await registerCustomer(form) : await login(form.email, form.password);
-    setMessage(result.message || "");
+    const result = await login(loginForm.email, loginForm.password);
+    setLoginMessage(result.message || "");
+  }
+
+  async function submitCustomer(event) {
+    event.preventDefault();
+    const result = await registerCustomer(customerForm);
+    setRegisterMessage(result.message || "");
   }
 
   return (
-    <section className="accountAuth card">
-      <div>
-        <p className="eyebrow">{mode === "owner" ? "OWNER SETUP" : mode === "register" ? "CUSTOMER ACCOUNT" : "LOGIN"}</p>
-        <h1>{mode === "owner" ? "Tạo tài khoản chủ quán" : mode === "register" ? "Đăng ký khách hàng bằng Gmail" : "Đăng nhập tài khoản"}</h1>
-      </div>
-      <form onSubmit={submit} className="accountForm">
-        {mode !== "login" && <label>Tên<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>}
-        <label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required placeholder={mode === "register" ? "yourname@gmail.com" : "owner@salon.local"} /></label>
-        <label>Mật khẩu<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required minLength={6} /></label>
-        {mode === "register" && <><label>Số điện thoại<input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label><label>Địa chỉ<input value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label></>}
-        {message && <p className="storeNote">{message}</p>}
-        <button className="primary" type="submit">{mode === "register" ? "Đăng ký" : mode === "owner" ? "Tạo chủ quán" : "Đăng nhập"}</button>
+    <section className="accountAuthSplit">
+      <form onSubmit={submitLogin} className="accountAuth card accountLoginCard">
+        <div>
+          <p className="eyebrow">LOGIN</p>
+          <h1>Đăng nhập</h1>
+          <p>Chủ quán, nhân viên và khách hàng dùng chung form này.</p>
+        </div>
+        <label>Email<input type="email" value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required placeholder="email@example.com" /></label>
+        <label>Mật khẩu<input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required minLength={6} /></label>
+        {loginMessage && <p className="storeNote">{loginMessage}</p>}
+        <button className="primary" type="submit">Đăng nhập</button>
       </form>
-      {ownerReady && <div className="accountSwitch"><button className="ghost" onClick={() => setMode("login")}>Đăng nhập</button><button className="ghost" onClick={() => setMode("register")}>Khách hàng đăng ký Gmail</button></div>}
+
+      <form onSubmit={submitCustomer} className="accountAuth card accountRegisterCard">
+        <div>
+          <p className="eyebrow">CUSTOMER ACCOUNT</p>
+          <h1>Tạo tài khoản</h1>
+          <p>Chỉ dành cho khách hàng. Vui lòng dùng Gmail để đăng ký.</p>
+        </div>
+        <label>Tên<input value={customerForm.name} onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })} required /></label>
+        <label>Gmail<input type="email" value={customerForm.email} onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })} required placeholder="yourname@gmail.com" /></label>
+        <label>Mật khẩu<input type="password" value={customerForm.password} onChange={(event) => setCustomerForm({ ...customerForm, password: event.target.value })} required minLength={6} /></label>
+        <label>Số điện thoại<input value={customerForm.phone} onChange={(event) => setCustomerForm({ ...customerForm, phone: event.target.value })} /></label>
+        <label>Địa chỉ<input value={customerForm.address} onChange={(event) => setCustomerForm({ ...customerForm, address: event.target.value })} /></label>
+        {registerMessage && <p className="storeNote">{registerMessage}</p>}
+        <button className="primary" type="submit">Tạo tài khoản khách hàng</button>
+      </form>
     </section>
   );
 }
@@ -47,7 +66,7 @@ export function LoginPage() {
         <div className="brandMark large">M</div>
         <p className="eyebrow">MAI BEAUTY SALON</p>
         <h1>Đăng nhập hệ thống</h1>
-        <p>Chủ quán, nhân viên và khách hàng đăng nhập ở đây. Sau khi đăng nhập, hệ thống tự mở đúng quyền tài khoản.</p>
+        <p>Đăng nhập dùng chung cho chủ quán, nhân viên và khách hàng. Tạo tài khoản mới chỉ dành cho khách hàng.</p>
       </div>
       <AccountGate />
     </div>
