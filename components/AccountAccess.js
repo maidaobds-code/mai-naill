@@ -40,6 +40,20 @@ export function AccountGate() {
   );
 }
 
+export function LoginPage() {
+  return (
+    <div className="loginPage">
+      <div className="loginBrandPanel">
+        <div className="brandMark large">M</div>
+        <p className="eyebrow">MAI BEAUTY SALON</p>
+        <h1>Đăng nhập hệ thống</h1>
+        <p>Chủ quán, nhân viên và khách hàng đăng nhập ở đây. Sau khi đăng nhập, hệ thống tự mở đúng quyền tài khoản.</p>
+      </div>
+      <AccountGate />
+    </div>
+  );
+}
+
 export function CustomerProfile({ onClose }) {
   const { currentAccount, updateProfile } = useAccountStore();
   const { orders, addChatMessage } = useStoreOrders();

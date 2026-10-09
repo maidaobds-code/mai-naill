@@ -14,7 +14,7 @@ import Reports from "../components/Reports";
 import Settings from "../components/Settings";
 import GenericModule from "../components/GenericModule";
 import StaffManagement from "../components/StaffManagement";
-import { AccountGate, CustomerProfile } from "../components/AccountAccess";
+import { AccountGate, CustomerProfile, LoginPage } from "../components/AccountAccess";
 import { permissionsFor, useAccountStore } from "../lib/accountStore";
 import { t } from "../lib/i18nClean";
 
@@ -28,6 +28,8 @@ export default function Home() {
   const isCustomer = currentAccount?.role === "customer";
   const activePage = allowed.includes(active) ? active : allowed[0] || "Online Store";
   let content = <Dashboard />;
+
+  if (!currentAccount) return <LoginPage />;
 
   if (activePage === "Calendar") content = <CalendarEnhanced label={t(language, "calendar")} language={language} onCheckout={(appointmentId) => { setCheckoutAppointmentId(appointmentId || ""); setActive("POS / Checkout"); }} />;
   else if (activePage === "Customers") content = <Customers label={t(language, "customers")} language={language} />;
