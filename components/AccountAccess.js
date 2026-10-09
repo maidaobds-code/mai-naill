@@ -5,7 +5,8 @@ import { useAccountStore } from "../lib/accountStore";
 import { useStoreOrders } from "../lib/orderStore";
 
 export function AccountGate() {
-  const { currentAccount, login, logout, registerCustomer } = useAccountStore();
+  const { currentAccount, login, logout, loginWithGoogle, registerCustomer } = useAccountStore();
+  const [showRegister, setShowRegister] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [customerForm, setCustomerForm] = useState({ name: "", email: "", password: "", phone: "", address: "" });
   const [loginMessage, setLoginMessage] = useState("");
@@ -27,33 +28,45 @@ export function AccountGate() {
     setRegisterMessage(result.message || "");
   }
 
+  function startGoogleLogin() {
+    const result = loginWithGoogle();
+    setLoginMessage(result.message || "");
+  }
+
+  if (showRegister) {
+    return (
+      <section className="accountAuthSplit singleAuth">
+        <form onSubmit={submitCustomer} className="accountAuth card accountRegisterCard">
+          <div>
+            <p className="eyebrow">CUSTOMER ACCOUNT</p>
+            <h1>Tạo tài khoản khách hàng</h1>
+            <p>Chỉ dành cho khách hàng. Vui lòng dùng Gmail để đăng ký.</p>
+          </div>
+          <label>Tên<input value={customerForm.name} onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })} required /></label>
+          <label>Gmail<input type="email" value={customerForm.email} onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })} required placeholder="yourname@gmail.com" /></label>
+          <label>Mật khẩu<input type="password" value={customerForm.password} onChange={(event) => setCustomerForm({ ...customerForm, password: event.target.value })} required minLength={6} /></label>
+          <label>Số điện thoại<input value={customerForm.phone} onChange={(event) => setCustomerForm({ ...customerForm, phone: event.target.value })} /></label>
+          <label>Địa chỉ<input value={customerForm.address} onChange={(event) => setCustomerForm({ ...customerForm, address: event.target.value })} /></label>
+          {registerMessage && <p className="storeNote">{registerMessage}</p>}
+          <div className="loginButtonRow"><button className="ghost" type="button" onClick={() => setShowRegister(false)}>Quay lại đăng nhập</button><button className="primary" type="submit">Tạo tài khoản</button></div>
+        </form>
+      </section>
+    );
+  }
+
   return (
-    <section className="accountAuthSplit">
+    <section className="accountAuthSplit singleAuth">
       <form onSubmit={submitLogin} className="accountAuth card accountLoginCard">
         <div>
           <p className="eyebrow">LOGIN</p>
           <h1>Đăng nhập</h1>
-          <p>Chủ quán, nhân viên và khách hàng dùng chung form này.</p>
+          <p>Nhập email và mật khẩu tài khoản của bạn.</p>
         </div>
         <label>Email<input type="email" value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required placeholder="email@example.com" /></label>
         <label>Mật khẩu<input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required minLength={6} /></label>
         {loginMessage && <p className="storeNote">{loginMessage}</p>}
-        <button className="primary" type="submit">Đăng nhập</button>
-      </form>
-
-      <form onSubmit={submitCustomer} className="accountAuth card accountRegisterCard">
-        <div>
-          <p className="eyebrow">CUSTOMER ACCOUNT</p>
-          <h1>Tạo tài khoản</h1>
-          <p>Chỉ dành cho khách hàng. Vui lòng dùng Gmail để đăng ký.</p>
-        </div>
-        <label>Tên<input value={customerForm.name} onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })} required /></label>
-        <label>Gmail<input type="email" value={customerForm.email} onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })} required placeholder="yourname@gmail.com" /></label>
-        <label>Mật khẩu<input type="password" value={customerForm.password} onChange={(event) => setCustomerForm({ ...customerForm, password: event.target.value })} required minLength={6} /></label>
-        <label>Số điện thoại<input value={customerForm.phone} onChange={(event) => setCustomerForm({ ...customerForm, phone: event.target.value })} /></label>
-        <label>Địa chỉ<input value={customerForm.address} onChange={(event) => setCustomerForm({ ...customerForm, address: event.target.value })} /></label>
-        {registerMessage && <p className="storeNote">{registerMessage}</p>}
-        <button className="primary" type="submit">Tạo tài khoản khách hàng</button>
+        <div className="loginButtonRow"><button className="ghost" type="button" onClick={() => setShowRegister(true)}>Tạo tài khoản</button><button className="primary" type="submit">Đăng nhập</button></div>
+        <button className="gmailLoginButton" type="button" onClick={startGoogleLogin}>Đăng nhập bằng tài khoản Gmail trực tiếp</button>
       </form>
     </section>
   );
@@ -66,7 +79,7 @@ export function LoginPage() {
         <div className="brandMark large">M</div>
         <p className="eyebrow">MAI BEAUTY SALON</p>
         <h1>Đăng nhập hệ thống</h1>
-        <p>Đăng nhập dùng chung cho chủ quán, nhân viên và khách hàng. Tạo tài khoản mới chỉ dành cho khách hàng.</p>
+        <p>Mặc định là đăng nhập. Tạo tài khoản chỉ dành cho khách hàng.</p>
       </div>
       <AccountGate />
     </div>
