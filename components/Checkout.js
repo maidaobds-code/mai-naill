@@ -366,7 +366,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
       </div>
 
       <div className={`printDocument ${printMode === "receipt" ? "active" : ""}`}>
-        <div className="printTitle">紙レシート</div>
+        
         <div className="printPaper">
           <div className="printStore">
             <strong>{settings.salonName || "Mai Beauty Salon"}</strong>
@@ -388,7 +388,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
       </div>
 
       <div className={`printDocument ${printMode === "ryoshusho" ? "active" : ""}`}>
-        <div className="printTitle">領収書</div>
+        
         <div className="printPaper">
           <div className="printStore">
             <strong>{settings.salonName || "Mai Beauty Salon"}</strong>
