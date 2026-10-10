@@ -1292,3 +1292,131 @@ section.nailPosPanel .nailPaymentAppName {
 @media(max-width:720px){.accountAuthSplit{grid-template-columns:1fr}.loginPage .accountAuth{padding:30px 24px;border-radius:26px}.loginPage .accountAuth h1{font-size:42px}.loginButtonRow{grid-template-columns:1fr}}
 @media(max-width:650px){.profileGrid,.chatComposer,.staffAccountActions{grid-template-columns:1fr}.customerShell main{padding:14px}.customerProfilePanel{right:14px;top:72px}}
 .loginInputShell.userIcon:before{content:"👤"}.loginInputShell.phoneIcon:before{content:"☎"}
+.storeSoftShell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 96px 22px 48px;
+}
+
+.storeGlassToolbar {
+  position: sticky;
+  top: 16px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto minmax(220px, 1fr);
+  align-items: center;
+  gap: 18px;
+  width: min(1120px, calc(100vw - 32px));
+  margin: 0 auto 28px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 18px 48px rgba(39, 37, 55, 0.13);
+  backdrop-filter: blur(18px);
+}
+
+.storeToolbarBrand,
+.storeToolbarLinks,
+.storeToolbarTools {
+  display: flex;
+  align-items: center;
+}
+
+.storeToolbarBrand {
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.storeToolbarBrand strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storeToolbarLinks {
+  justify-content: center;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(245, 240, 248, 0.78);
+}
+
+.storeToolbarLinks a {
+  padding: 9px 14px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.storeToolbarLinks a.active,
+.storeToolbarLinks a:hover {
+  color: var(--text);
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(31, 28, 44, 0.08);
+}
+
+.storeToolbarTools {
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.storeProfileButton,
+.storeLanguageSelect {
+  min-height: 40px;
+  border: 1px solid rgba(53, 45, 62, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.storeProfileButton {
+  max-width: 180px;
+  padding: 0 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storeLanguageSelect {
+  padding: 0 34px 0 14px;
+}
+
+.storeSoftShell .softHero {
+  margin-top: 0;
+}
+
+.storeSoftShell .featuredCarouselShell {
+  margin-bottom: 18px;
+}
+
+@media (max-width: 760px) {
+  .storeSoftShell {
+    padding: 76px 14px 36px;
+  }
+
+  .storeGlassToolbar {
+    top: 10px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    width: calc(100vw - 20px);
+    margin-bottom: 20px;
+  }
+
+  .storeToolbarLinks,
+  .storeToolbarTools {
+    justify-content: stretch;
+  }
+
+  .storeToolbarLinks a,
+  .storeProfileButton,
+  .storeLanguageSelect {
+    flex: 1;
+  }
+}
