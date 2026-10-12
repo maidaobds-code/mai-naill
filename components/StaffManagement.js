@@ -3,7 +3,6 @@ import { useState } from "react";
 import { platforms, staff as seedStaff } from "../lib/salonData";
 import { useAccountStore } from "../lib/accountStore";
 import { useStaffStore } from "../lib/staffStore";
-import AccountManagement from "./AccountManagement";
 
 const staffColors = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444"];
 
@@ -23,7 +22,7 @@ function newStaff(nextId) {
 
 export default function StaffManagement({ label = "Staff", embedded = false }) {
   const { staff, setStaff } = useStaffStore();
-  const { accounts, upsertStaffAccount, resetPassword } = useAccountStore();
+  const { accounts, upsertStaffAccount, resetPassword, updateAccountRole } = useAccountStore();
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
   const [resetDraft, setResetDraft] = useState({});
 
@@ -86,24 +85,22 @@ export default function StaffManagement({ label = "Staff", embedded = false }) {
           <thead><tr><th>Nhân viên</th><th>Màu</th><th>Hot Pepper</th><th>Nailie</th><th>minimo</th><th>Đăng nhập</th><th>Thao tác</th></tr></thead>
           <tbody>{staff.map((member) => (
             <tr key={member.id}>
+	              {(() => {
+	                const account = accounts.find((item) => item.id === `staff-${member.id}` || item.email === member.email);
+	                return <>
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{member.role}</span></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} /></td>
               <td>{member.external.hotpepper || "-"}</td>
               <td>{member.external.nailie || "-"}</td>
               <td>{member.external.minimo || "-"}</td>
-              <td><span className="pill active">{member.credentialStatus}</span><small>{accounts.find((item) => item.id === `staff-${member.id}`)?.email || member.email || "-"}</small></td>
+	              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={account.role} onChange={(event) => updateAccountRole(account.id, event.target.value)}><option value="owner">Chủ quán</option><option value="staff">Nhân viên</option><option value="customer">Khách hàng</option></select>}</div></td>
               <td><div className="staffAccountActions"><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder="Mật khẩu mới" /><button className="ghost" onClick={() => resetStaffPassword(member)}>Reset</button><button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>Xóa</button></div></td>
+	                </>;
+	              })()}
             </tr>
           ))}</tbody>
         </table>
       </section>
-
-      <section className="card integrationHint">
-        <h2>Supabase storage model</h2>
-        <p>Each linked app account should be saved in <code>staff_external_accounts</code>. API tokens/passwords belong in <code>encrypted_credentials</code>, encrypted on the server before insert/update.</p>
-        <div className="capabilities">{platforms.filter((platform) => platform.id !== "direct").map((platform) => <span key={platform.id}>{platform.name}</span>)}</div>
-      </section>
-      {!embedded && <AccountManagement label="Phân quyền tài khoản" embedded />}
     </>
   );
 }
