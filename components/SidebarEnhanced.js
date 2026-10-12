@@ -13,6 +13,7 @@ const items = [
   ["reports", "⌁", "Reports", "reports", "#fb7185"],
   ["notice", "◕", "Orders", "orders", "#facc15"],
   ["customers", "◎", "Staff", "staff", "#67e8f9"],
+  ["settings", "◉", "Accounts", "accountAdmin", "#fda4af"],
   ["settings", "⚙", "Settings", "settings", "#a7f3d0"],
 ];
 
