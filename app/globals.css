@@ -1459,6 +1459,23 @@ section.nailPosPanel .nailPaymentAppName {
   white-space: nowrap;
 }
 
+.profileModalActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.dangerGhost {
+  color: #b42318;
+}
+
+.customerProfilePanel input[readonly] {
+  background: #f8f7fb;
+  color: #5f586b;
+}
+
 @media (max-width: 720px) {
   .storeGlassToolbar {
     grid-template-columns: 1fr;

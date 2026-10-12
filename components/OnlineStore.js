@@ -16,6 +16,12 @@ const timeSlots = Array.from({ length: 29 }, (_, index) => {
 });
 
 const emptyCheckout = { fulfillmentType: "pickup", paymentMethod: "payAtStore", customer: "", phone: "", email: "", address: "", note: "", transferBillUrl: "", transferBillName: "" };
+const LANGUAGE_KEY = "nail-japan-store-language";
+
+function storedLanguage(fallback) {
+  if (typeof window === "undefined") return fallback;
+  return window.localStorage.getItem(LANGUAGE_KEY) || fallback;
+}
 
 function money(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
@@ -37,7 +43,7 @@ function paymentOptions(settings, fulfillmentType, language = "vi") {
 }
 
 export default function OnlineStore({ language: initialLanguage = "vi", mode = "all" }) {
-  const [language, setLanguage] = useState(initialLanguage);
+  const [language, setLanguage] = useState(() => storedLanguage(initialLanguage));
   const tr = (key, vars) => tx(language, "online", key, vars);
   const tc = (key) => tx(language, "common", key);
   const [products] = useProductCatalog();
@@ -63,6 +69,12 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
   const availablePayments = paymentOptions(settings, checkout.fulfillmentType, language);
   const showShop = mode !== "booking";
   const showBooking = mode !== "shop";
+  const accountContact = {
+    customer: currentAccount?.name || "",
+    phone: currentAccount?.phone || "",
+    email: currentAccount?.email || "",
+    address: currentAccount?.address || "",
+  };
   const localCopy = {
     vi: { search: "Tìm sản phẩm", noProducts: "Không tìm thấy sản phẩm phù hợp.", auto: "Tự động chạy", autoText: "Sản phẩm nổi bật được sắp xếp gọn để khách dễ chọn.", shop: "Mua hàng" },
     ja: { search: "商品を検索", noProducts: "該当する商品が見つかりません。", auto: "自動再生", autoText: "おすすめ商品を見やすく整理しています。", shop: "買い物" },
@@ -77,6 +89,27 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
   useEffect(() => {
     setSettings(getAppSettings());
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(LANGUAGE_KEY, language);
+  }, [language]);
+
+  useEffect(() => {
+    if (!currentAccount) return;
+    setDraft((current) => ({
+      ...current,
+      customer: current.customer || accountContact.customer,
+      phone: current.phone || accountContact.phone,
+      email: current.email || accountContact.email,
+    }));
+    setCheckout((current) => ({
+      ...current,
+      customer: current.customer || accountContact.customer,
+      phone: current.phone || accountContact.phone,
+      email: current.email || accountContact.email,
+      address: current.address || accountContact.address,
+    }));
+  }, [currentAccount?.id, currentAccount?.name, currentAccount?.phone, currentAccount?.email, currentAccount?.address]);
 
   useEffect(() => {
     setFeaturedIndex(0);
@@ -108,7 +141,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
   function openBuy(product) {
     setSelectedProduct(product);
     const firstPayment = paymentOptions(settings, "pickup", language)[0]?.id || "payAtStore";
-    setCheckout({ ...emptyCheckout, paymentMethod: firstPayment });
+    setCheckout({ ...emptyCheckout, ...accountContact, paymentMethod: firstPayment });
   }
 
   function scrollToBooking() {
@@ -199,7 +232,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
 
     const saved = addBooking({ day: draft.day, start: draft.time, end: addMinutes(draft.time, selectedService.duration), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: selectedService.name, staff: draft.staff || selectedService.staff?.[0] || staff[0].name, source: "direct", origin: "Website booking", price: selectedService.price, commissionRule: "Website direct" });
     setMessage(tr("bookingCreated", { time: saved.start, date: draft.date }));
-    setDraft((current) => ({ ...current, customer: "", phone: "", email: "" }));
+    setDraft((current) => ({ ...current, customer: accountContact.customer, phone: accountContact.phone, email: accountContact.email }));
   }
 
   return (

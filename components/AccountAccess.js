@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccountStore } from "../lib/accountStore";
 import { useStoreOrders } from "../lib/orderStore";
 
@@ -86,7 +86,7 @@ export function LoginPage() {
 }
 
 export function CustomerProfile({ onClose }) {
-  const { currentAccount, updateProfile } = useAccountStore();
+  const { currentAccount, logout, updateProfile } = useAccountStore();
   const { orders, addChatMessage } = useStoreOrders();
   const [draft, setDraft] = useState(() => ({ name: currentAccount?.name || "", phone: currentAccount?.phone || "", address: currentAccount?.address || "" }));
   const [selectedOrderId, setSelectedOrderId] = useState("");
@@ -94,10 +94,19 @@ export function CustomerProfile({ onClose }) {
   const customerOrders = orders.filter((order) => order.email?.toLowerCase() === currentAccount?.email?.toLowerCase() || order.phone === currentAccount?.phone);
   const selectedOrder = customerOrders.find((order) => order.id === selectedOrderId) || customerOrders[0];
 
+  useEffect(() => {
+    setDraft({ name: currentAccount?.name || "", phone: currentAccount?.phone || "", address: currentAccount?.address || "" });
+  }, [currentAccount?.id, currentAccount?.name, currentAccount?.phone, currentAccount?.address]);
+
   if (!currentAccount) return null;
 
   function saveProfile() {
     updateProfile(draft);
+  }
+
+  function signOut() {
+    logout();
+    onClose?.();
   }
 
   function sendMessage() {
@@ -108,9 +117,10 @@ export function CustomerProfile({ onClose }) {
 
   return (
     <div className="customerProfilePanel card">
-      <div className="modalHead"><div><p className="eyebrow">MY PAGE</p><h2>Trang cá nhân</h2></div><button className="ghost" onClick={onClose}>Close</button></div>
+      <div className="modalHead"><div><p className="eyebrow">MY PAGE</p><h2>Trang cá nhân</h2></div><div className="profileModalActions"><button className="ghost dangerGhost" onClick={signOut}>Đăng xuất</button><button className="ghost" onClick={onClose}>Close</button></div></div>
       <div className="profileGrid">
         <label>Tên<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+        <label>Email<input value={currentAccount.email || ""} readOnly /></label>
         <label>Số điện thoại<input value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></label>
         <label className="fullField">Địa chỉ<input value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} /></label>
         <button className="primary" onClick={saveProfile}>Lưu thông tin</button>
