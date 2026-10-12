@@ -1476,6 +1476,29 @@ section.nailPosPanel .nailPaymentAppName {
   color: #5f586b;
 }
 
+.loginLanguageSelect {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  align-self: flex-end;
+  margin-bottom: 4px;
+  color: #7b7488;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.loginLanguageSelect select {
+  min-width: 132px;
+  height: 40px;
+  padding: 0 34px 0 14px;
+  border-radius: 999px;
+  border: 1px solid #ead4e6;
+  background: rgba(255, 255, 255, 0.86);
+  color: #3f3342;
+  font-weight: 800;
+}
+
 .accountAdminPanel {
   overflow: hidden;
 }
