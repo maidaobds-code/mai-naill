@@ -39,7 +39,8 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
       productType: draft.productType || "Nail Care",
       shortDescription: draft.description || draft.shortDescription || "Salon selected product",
       variantCount: 1,
-      onlineStoreEnabled: true,
+      onlineStoreEnabled: draft.onlineStoreEnabled !== false,
+      featuredOnline: draft.featuredOnline !== false,
       posEnabled: true,
       salePrice: draft.salePrice || null,
       isLowStock: Number(draft.stock) <= Number(draft.lowStockThreshold),
@@ -66,6 +67,8 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
           <label>Giá<input type="number" value={draft.basePrice} onChange={(event) => setDraft({ ...draft, basePrice: Number(event.target.value) })} /></label>
           <label>Tồn kho<input type="number" value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label>
           <label>Cảnh báo thấp<input type="number" value={draft.lowStockThreshold} onChange={(event) => setDraft({ ...draft, lowStockThreshold: Number(event.target.value) })} /></label>
+          <label className="checkLabel"><input type="checkbox" checked={draft.onlineStoreEnabled !== false} onChange={(event) => setDraft({ ...draft, onlineStoreEnabled: event.target.checked })} />Bán trên web</label>
+          <label className="checkLabel"><input type="checkbox" checked={draft.featuredOnline !== false} onChange={(event) => setDraft({ ...draft, featuredOnline: event.target.checked })} />Sản phẩm nổi bật</label>
           <label>Ảnh sản phẩm<input type="file" accept="image/*" onChange={uploadProductImage} /></label>
         </div>
         {draft.mediaUrl && <div className="imagePreview"><img src={draft.mediaUrl} alt={draft.name || "Product preview"} /><span>{draft.mediaFileName || "Ảnh đã chọn từ máy tính"}</span></div>}
@@ -87,9 +90,9 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
               <td><div className="productCell">{product.mediaUrl ? <img className="catalogThumb" src={product.mediaUrl} alt={product.name} /> : <div className="productThumb">{product.name.slice(0, 1)}</div>}<div><strong>{product.name}</strong><span>{product.description || product.shortDescription}</span></div></div></td>
               <td>{yen(product.salePrice || product.basePrice)}</td>
               <td><span className={product.stock <= product.lowStockThreshold ? "pill danger" : "pill"}>{product.stock}</span></td>
-              <td>{product.onlineStoreEnabled ? "Web" : "-"} / {product.posEnabled ? "POS" : "-"}</td>
+              <td>{product.onlineStoreEnabled !== false ? "Web" : "-"} / {product.posEnabled ? "POS" : "-"} {product.featuredOnline !== false ? " / Nổi bật" : ""}</td>
               <td>{product.stock <= product.lowStockThreshold ? "Sắp hết hàng" : "OK"}</td>
-              <td><button className="ghost" onClick={() => setDraft({ ...emptyProduct, ...product })}>Sửa</button> <button className="ghost dangerButton" onClick={() => deleteProduct(product.id)}>Xóa</button></td>
+              <td><button className="ghost" onClick={() => setProducts((current) => current.map((item) => item.id === product.id ? { ...item, featuredOnline: item.featuredOnline === false } : item))}>{product.featuredOnline === false ? "Thêm nổi bật" : "Xóa nổi bật"}</button> <button className="ghost" onClick={() => setDraft({ ...emptyProduct, ...product })}>Sửa</button> <button className="ghost dangerButton" onClick={() => deleteProduct(product.id)}>Xóa</button></td>
             </tr>
           ))}</tbody>
         </table>

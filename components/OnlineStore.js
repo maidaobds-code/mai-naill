@@ -51,7 +51,8 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
   const { orders, addOrder, addChatMessage } = useStoreOrders();
   const { currentAccount } = useAccountStore();
   const [settings, setSettings] = useState(getAppSettings);
-  const featured = products.filter((product) => product.onlineStoreEnabled !== false);
+  const storeProducts = products.filter((product) => product.onlineStoreEnabled !== false);
+  const featured = storeProducts.filter((product) => product.featuredOnline !== false);
   const activeServices = services.length ? services : [];
   const { addBooking } = useBookingStore();
   const [message, setMessage] = useState("");
@@ -139,6 +140,10 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
   }
 
   function openBuy(product) {
+    if (!currentAccount) {
+      window.location.assign("/");
+      return;
+    }
     setSelectedProduct(product);
     const firstPayment = paymentOptions(settings, "pickup", language)[0]?.id || "payAtStore";
     setCheckout({ ...emptyCheckout, ...accountContact, paymentMethod: firstPayment });
@@ -183,6 +188,10 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
 
   function submitProductOrder(event) {
     event.preventDefault();
+    if (!currentAccount) {
+      window.location.assign("/");
+      return;
+    }
     if (!selectedProduct) return;
     if (Number(selectedProduct.stock || 0) <= 0) {
       setMessage(tr("outOfStock"));
@@ -224,6 +233,10 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
 
   function submitBooking(event) {
     event.preventDefault();
+    if (!currentAccount) {
+      window.location.assign("/");
+      return;
+    }
     if (!selectedService) return;
     if (!draft.customer.trim() || !draft.phone.trim() || !draft.email.trim()) {
       setMessage(tr("requiredInfo"));
@@ -265,6 +278,14 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
         {visibleFeatured.length > 1 && <button className="carouselArrow next" type="button" onClick={() => moveFeatured(1)} aria-label="Sản phẩm tiếp theo">›</button>}
       </div>
       {visibleFeatured.length > 1 && <div className="carouselDots">{visibleFeatured.map((product, index) => <button key={product.id} className={index === featuredIndex ? "active" : ""} type="button" onClick={() => setFeaturedIndex(index)} aria-label={`Xem sản phẩm ${index + 1}`} />)}</div>}
+
+      <div className="sectionTitle storeTitle"><div><h2>Danh sách sản phẩm</h2><p>Tất cả sản phẩm đang bật bán trên web.</p></div></div>
+      <div className="productGrid softProductGrid storeProductList">
+        {storeProducts.map((product, index) => {
+          const canBuy = Number(product.stock || 0) > 0 && product.status !== "DRAFT";
+          return <article className="productCard softProductCard" key={product.id}><div className="storeImage softStoreImage">{product.mediaUrl ? <img src={product.mediaUrl} alt={product.name} /> : <span>{product.productType || "Nail"}</span>}</div><div className="productMeta"><span>{product.brandName || `Sản phẩm ${index + 1}`}</span><h3>{product.name}</h3><p>{product.description || product.shortDescription}</p><div><strong>{money(product.salePrice || product.basePrice)}</strong><span className={canBuy ? "pill active" : "pill danger"}>{canBuy ? tr("canBuy", { stock: product.stock }) : tr("outOfStock")}</span></div><button className="primary buyButton" onClick={() => openBuy(product)}>{canBuy ? tr("buy") : tr("viewStatus")}</button></div></article>;
+        })}
+      </div>
 
       {mode === "all" && <section className="card orderTrackerPanel">
         <div className="sectionTitle"><div><h2>{tr("trackerTitle")}</h2><p>{tr("trackerText")}</p></div></div>

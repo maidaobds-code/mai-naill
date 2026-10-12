@@ -87,7 +87,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
   }
 
   if (currentAccount) {
-    return <div className="accountStrip"><span>{currentAccount.role === "owner" ? copy.roleOwner : currentAccount.role === "staff" ? copy.roleStaff : copy.roleCustomer} · {currentAccount.name}</span><button className="ghost" onClick={logout}>{copy.logout}</button></div>;
+    return <div className="accountStrip"><span>{currentAccount.role === "owner" ? copy.roleOwner : currentAccount.role === "staff" ? copy.roleStaff : copy.roleCustomer} · {currentAccount.name}</span><select className="accountLanguageSelect" value={language} onChange={(event) => changeLanguage(event.target.value)} aria-label={copy.language}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select><button className="ghost" onClick={logout}>{copy.logout}</button></div>;
   }
 
   async function submitLogin(event) {

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { platforms, staff as seedStaff } from "../lib/salonData";
 import { useAccountStore } from "../lib/accountStore";
 import { useStaffStore } from "../lib/staffStore";
+import AccountManagement from "./AccountManagement";
 
 const staffColors = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444"];
 
@@ -102,6 +103,7 @@ export default function StaffManagement({ label = "Staff", embedded = false }) {
         <p>Each linked app account should be saved in <code>staff_external_accounts</code>. API tokens/passwords belong in <code>encrypted_credentials</code>, encrypted on the server before insert/update.</p>
         <div className="capabilities">{platforms.filter((platform) => platform.id !== "direct").map((platform) => <span key={platform.id}>{platform.name}</span>)}</div>
       </section>
+      {!embedded && <AccountManagement label="Phân quyền tài khoản" embedded />}
     </>
   );
 }

@@ -14,7 +14,6 @@ import Reports from "../components/Reports";
 import Settings from "../components/Settings";
 import GenericModule from "../components/GenericModule";
 import StaffManagement from "../components/StaffManagement";
-import AccountManagement from "../components/AccountManagement";
 import { AccountGate, CustomerProfile, LoginPage } from "../components/AccountAccess";
 import { permissionsFor, useAccountStore } from "../lib/accountStore";
 import { t } from "../lib/i18nClean";
@@ -43,14 +42,13 @@ export default function Home() {
   else if (activePage === "Reports") content = <Reports language={language} />;
   else if (activePage === "Settings") content = <Settings language={language} />;
   else if (activePage === "Staff") content = <StaffManagement label="Tài khoản nhân viên" />;
-  else if (activePage === "Accounts") content = <AccountManagement label="Quản lý tài khoản" />;
   else if (activePage !== "Dashboard") content = <GenericModule name={activePage} />;
 
   return (
     <div className={isCustomer ? "shell customerShell" : "shell"}>
       {!isCustomer && <Sidebar active={activePage} setActive={setActive} language={language} setLanguage={setLanguage} allowedItems={allowed} />}
       <main>
-        <AccountGate />
+        <AccountGate language={language} setLanguage={setLanguage} />
         {isCustomer && <button className="customerProfileButton" onClick={() => setProfileOpen(true)} title="Trang cá nhân">👤</button>}
         {content}
         {profileOpen && <CustomerProfile onClose={() => setProfileOpen(false)} />}

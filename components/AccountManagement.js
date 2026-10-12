@@ -15,7 +15,7 @@ const roleOptions = [
   { value: "customer", label: "Khách hàng" },
 ];
 
-export default function AccountManagement({ label = "Quản lý tài khoản" }) {
+export default function AccountManagement({ label = "Quản lý tài khoản", embedded = false }) {
   const { accounts, currentAccount, updateAccountRole, deleteAccount } = useAccountStore();
   const [message, setMessage] = useState("");
   const sortedAccounts = useMemo(() => [...accounts].sort((a, b) => {
@@ -37,13 +37,13 @@ export default function AccountManagement({ label = "Quản lý tài khoản" })
 
   return (
     <>
-      <div className="pageHead">
+      {!embedded && <div className="pageHead">
         <div>
           <p className="eyebrow">ADMIN</p>
           <h1>{label}</h1>
           <p>Cấp quyền chủ quán, nhân viên, khách hàng và xóa tài khoản không còn sử dụng.</p>
         </div>
-      </div>
+      </div>}
 
       <section className="card accountAdminPanel">
         <div className="sectionTitle">

@@ -1499,6 +1499,33 @@ section.nailPosPanel .nailPaymentAppName {
   font-weight: 800;
 }
 
+.accountLanguageSelect {
+  min-width: 118px;
+  height: 38px;
+  padding: 0 30px 0 12px;
+  border-radius: 999px;
+  border: 1px solid #ead4e6;
+  background: rgba(255, 255, 255, 0.86);
+  color: #3f3342;
+  font-weight: 800;
+}
+
+.checkLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.checkLabel input {
+  width: 18px;
+  height: 18px;
+}
+
+.storeProductList {
+  margin-bottom: 28px;
+}
+
 .accountAdminPanel {
   overflow: hidden;
 }

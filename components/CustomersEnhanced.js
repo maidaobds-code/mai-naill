@@ -6,6 +6,7 @@ import { useStoreOrders } from "../lib/orderStore";
 import { tx } from "../lib/i18nClean";
 import { customers as seedCustomers } from "../lib/salonData";
 import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
+import { useAccountStore } from "../lib/accountStore";
 
 const CAMPAIGN_KEY = "nail-japan-campaigns";
 
@@ -13,9 +14,14 @@ function yen(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
 }
 
-function uniqueCustomers(seed, bookings, orders) {
+function uniqueCustomers(seed, bookings, orders, accounts = []) {
   const map = new Map();
   seed.forEach((customer) => map.set(customer.phone, { ...customer, email: customer.email || "", source: customer.origin, orderCount: 0, bookingCount: customer.visits || 0 }));
+  accounts.filter((account) => account.role === "customer").forEach((account) => {
+    const key = account.phone || account.email || account.id;
+    const current = map.get(key) || { id: account.id, name: account.name, phone: account.phone || "", email: account.email || "", spend: 0, visits: 0, lastVisit: "", origin: "Customer account", tag: "Account", orderCount: 0, bookingCount: 0 };
+    map.set(key, { ...current, name: current.name || account.name, phone: current.phone || account.phone || "", email: current.email || account.email || "", source: current.source || "Customer account" });
+  });
   bookings.forEach((booking) => {
     const key = booking.phone || booking.email || booking.customer;
     const current = map.get(key) || { id: key, name: booking.customer, phone: booking.phone, email: booking.email || "", spend: 0, visits: 0, lastVisit: `2026-10-${String(booking.day || 6).padStart(2, "0")}`, origin: booking.origin, tag: "Booking", orderCount: 0, bookingCount: 0 };
@@ -34,10 +40,11 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
   const tc = (key) => tx(language, "common", key);
   const { bookings } = useBookingStore();
   const { orders } = useStoreOrders();
+  const { accounts } = useAccountStore();
   const [campaigns, setCampaigns] = useState([]);
   const [hydrated, setHydrated] = useState(false);
   const [draft, setDraft] = useState({ title: "Giảm giá mùa lễ", type: "promotion", target: "old", couponCode: "OLD10", imageUrl: "", imageName: "", message: "Cảm ơn bạn đã ủng hộ Mai Beauty Salon.\n\nTuần này salon có ưu đãi đặc biệt cho khách cũ. Bạn có thể đặt lịch trước để giữ khung giờ đẹp." });
-  const customerList = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders), [bookings, orders]);
+  const customerList = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders, accounts), [bookings, orders, accounts]);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(CAMPAIGN_KEY);
