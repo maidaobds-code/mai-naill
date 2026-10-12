@@ -61,7 +61,7 @@ export function AccountGate() {
           <h1>Đăng nhập</h1>
           <p>Nhập email và mật khẩu tài khoản của bạn.</p>
         </div>
-        <label>Email<span className="loginInputShell mailIcon"><input type="email" value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required placeholder="email@example.com" /></span></label>
+        <label>Email / Admin user<span className="loginInputShell mailIcon"><input value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required placeholder="admin@example.com" /></span></label>
         <label>Mật khẩu<span className="loginInputShell lockIcon"><input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required minLength={6} /></span></label>
         {loginMessage && <p className="storeNote">{loginMessage}</p>}
         <div className="loginButtonRow"><button className="ghost" type="button" onClick={() => setShowRegister(true)}>Tạo tài khoản</button><button className="primary" type="submit">Đăng nhập</button></div>
