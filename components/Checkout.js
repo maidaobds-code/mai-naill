@@ -25,6 +25,12 @@ function yen(value) {
 
 const quickDiscounts = [5, 10, 15, 30];
 
+function discountPercentFromText(value) {
+  const match = String(value || "").match(/\d+(\.\d+)?/);
+  if (!match) return 0;
+  return Math.max(0, Math.min(100, Number(match[0])));
+}
+
 function paymentLabel(id, methods = defaultSettings.paymentMethods) {
   return methods.find((method) => method.id === id)?.label || id || "その他";
 }
@@ -204,7 +210,17 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
 	      ...current,
 	      orderDiscountType: "percent",
 	      orderDiscountValue: percent,
-	      couponCode: `DISC${percent}`,
+	      couponCode: String(percent),
+	    }));
+	  }
+
+	  function updateDiscountInput(value) {
+	    const percent = discountPercentFromText(value);
+	    setOrder((current) => ({
+	      ...current,
+	      couponCode: value,
+	      orderDiscountType: "percent",
+	      orderDiscountValue: percent,
 	    }));
 	  }
 
@@ -327,8 +343,10 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
 
       <div className="nailDivider" />
 	      <h2 className="nailSectionTitle">🎟️ {tr("discountTitle")}</h2>
-	      <div className="nailCouponRow"><input value={order.couponCode} onChange={(event) => updateOrder({ couponCode: event.target.value })} placeholder={tr("couponPlaceholder")} /><button onClick={() => updateOrder({ orderDiscountType: "percent", orderDiscountValue: 10, couponCode: order.couponCode || "NAIL10" })}>{tr("apply")}</button></div>
-	      <div className="nailCouponRow">{quickDiscounts.map((percent) => <button key={percent} className={order.orderDiscountType === "percent" && Number(order.orderDiscountValue) === percent ? "active" : ""} onClick={() => applyQuickDiscount(percent)}>{percent}%</button>)}</div>
+	      <div className="nailDiscountControl">
+	        <div className="nailDiscountInputWrap"><input type="text" inputMode="decimal" value={order.couponCode} onChange={(event) => updateDiscountInput(event.target.value)} placeholder={tr("couponPlaceholder")} /><span>%</span></div>
+	        <div className="nailQuickDiscounts">{quickDiscounts.map((percent) => <button key={percent} type="button" className={order.orderDiscountType === "percent" && Number(order.orderDiscountValue) === percent ? "active" : ""} onClick={() => applyQuickDiscount(percent)}>{percent}%</button>)}</div>
+	      </div>
 	      <p className="mutedText">{tr("discountHint")}</p>
 
       <div className="nailTotals">
