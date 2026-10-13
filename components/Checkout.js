@@ -382,7 +382,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
                     const received = Number(event.target.value);
                     updatePayment(payment.id, { received, amount: Math.min(received, total) });
                   }}
-                  placeholder="Khách đưa"
+                  placeholder={tr("cashReceived")}
                   disabled={!selected}
                 />
 	              ) : <small>{tr("nonCashPayment")}</small>}
@@ -404,7 +404,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
       <div className="nailDivider" />
       <div className="nailReceiptButtons">
 	        <button onClick={() => printDocument("receipt")}>▣ {tr("receipt")}</button>
-        <button onClick={() => printDocument("ryoshusho")}>▣ 領収書</button>
+        <button onClick={() => printDocument("ryoshusho")}>▣ {tr("reprintRyoshusho")}</button>
       </div>
 
       <div className={`printDocument ${printMode === "receipt" ? "active" : ""}`}>

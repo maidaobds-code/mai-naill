@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useRef, useState } from "react";
+import { tx } from "../lib/i18nClean";
 import { platforms, staff } from "../lib/salonData";
 import { useBookingStore } from "../lib/bookingStore";
 
@@ -14,6 +15,12 @@ const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthDays = Array.from({ length: 31 }, (_, index) => index + 1);
 const timelineStart = 9 * 60;
 const timelineEnd = 23 * 60;
+
+const copy = {
+  vi: { desc: "Thời gian nằm ngang. Nhân viên là từng hàng dọc. Khối lịch kéo dài theo thời lượng hẹn.", previous: "Trước", today: "Hôm nay", next: "Sau", day: "Ngày", week: "Tuần", month: "Tháng", checkout: "Tính tiền", newBooking: "+ Lịch mới", selectedDay: "Ngày đã chọn", dayBookings: "Lịch trong ngày", weekTotal: "Tổng tuần", monthTotal: "Tổng tháng", dayView: "Xem theo ngày", staff: "Nhân viên", appointment: "lịch hẹn", noBooking: "Chưa có lịch", more: "+{count} lịch khác", newLabel: "LỊCH MỚI", editLabel: "SỬA LỊCH", customer: "Khách hàng", phone: "Số điện thoại", platform: "Nền tảng", start: "Bắt đầu", end: "Kết thúc", deleteBooking: "Xóa lịch", save: "Lưu và đồng bộ" },
+  ja: { desc: "時間は横軸、スタッフは縦の行です。予約ブロックは所要時間に合わせて表示されます。", previous: "前へ", today: "今日", next: "次へ", day: "日", week: "週", month: "月", checkout: "会計", newBooking: "+ 新規予約", selectedDay: "選択日", dayBookings: "当日の予約", weekTotal: "週合計", monthTotal: "月合計", dayView: "日表示", staff: "スタッフ", appointment: "予約", noBooking: "予約なし", more: "+{count}件", newLabel: "新規予約", editLabel: "予約編集", customer: "顧客", phone: "電話番号", platform: "プラットフォーム", start: "開始", end: "終了", deleteBooking: "予約削除", save: "保存して同期" },
+  en: { desc: "Time runs horizontally. Staff are vertical rows. Booking blocks stretch by appointment duration.", previous: "Previous", today: "Today", next: "Next", day: "Day", week: "Week", month: "Month", checkout: "Checkout", newBooking: "+ New booking", selectedDay: "Selected day", dayBookings: "Day bookings", weekTotal: "Week total", monthTotal: "Month total", dayView: "Day view", staff: "Staff", appointment: "bookings", noBooking: "No bookings", more: "+{count} more", newLabel: "NEW BOOKING", editLabel: "EDIT BOOKING", customer: "Customer", phone: "Phone", platform: "Platform", start: "Start", end: "End", deleteBooking: "Delete booking", save: "Save and sync" },
+};
 
 function platformFor(id) {
   return platforms.find((platform) => platform.id === id) || platforms[0];
@@ -57,7 +64,9 @@ function blankBooking(day, hour, member) {
   };
 }
 
-export default function CalendarResourceTimeline({ label = "Calendar", onCheckout }) {
+export default function CalendarResourceTimeline({ label = "Calendar", language = "vi", onCheckout }) {
+  const c = copy[language] || copy.vi;
+  const tc = (key) => tx(language, "common", key);
   const [view, setView] = useState("day");
   const [selectedDay, setSelectedDay] = useState(6);
   const [selected, setSelected] = useState(blankBooking(6, "10:00", staff[0]));
@@ -154,34 +163,34 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
         <div>
           <p className="eyebrow">BOOKING CALENDAR</p>
           <h1>{label}</h1>
-          <p>Time runs horizontally. Staff are vertical rows. Booking blocks stretch by appointment duration.</p>
+          <p>{c.desc}</p>
         </div>
         <div className="toolbar">
-          <button className="ghost" onClick={() => setSelectedDay(Math.max(1, selectedDay - 1))}>Previous</button>
-          <button className="ghost" onClick={() => setSelectedDay(6)}>Today</button>
-          <button className="ghost" onClick={() => setSelectedDay(Math.min(31, selectedDay + 1))}>Next</button>
-          <button className={view === "day" ? "ghost activeSoft" : "ghost"} onClick={() => setView("day")}>Ngày</button>
-          <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>Tuần</button>
-          <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>Tháng</button>
-          <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>Tính tiền</button>
-          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDay, "10:00", staff[0])); setModalOpen(true); }}>+ Lịch mới</button>
+          <button className="ghost" onClick={() => setSelectedDay(Math.max(1, selectedDay - 1))}>{c.previous}</button>
+          <button className="ghost" onClick={() => setSelectedDay(6)}>{c.today}</button>
+          <button className="ghost" onClick={() => setSelectedDay(Math.min(31, selectedDay + 1))}>{c.next}</button>
+          <button className={view === "day" ? "ghost activeSoft" : "ghost"} onClick={() => setView("day")}>{c.day}</button>
+          <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>{c.week}</button>
+          <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>{c.month}</button>
+          <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
+          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDay, "10:00", staff[0])); setModalOpen(true); }}>{c.newBooking}</button>
         </div>
       </div>
 
       <div className="calendarSummary">
-        <div className="card summaryPill"><span>Selected day</span><strong>2026/10/{String(selectedDay).padStart(2, "0")}</strong></div>
-        <div className="card summaryPill"><span>Day bookings</span><strong>{selectedDayBookings.length}</strong></div>
-        <div className="card summaryPill"><span>Week total</span><strong>{weekTotal}</strong></div>
-        <div className="card summaryPill"><span>Month total</span><strong>{monthTotal}</strong></div>
+        <div className="card summaryPill"><span>{c.selectedDay}</span><strong>2026/10/{String(selectedDay).padStart(2, "0")}</strong></div>
+        <div className="card summaryPill"><span>{c.dayBookings}</span><strong>{selectedDayBookings.length}</strong></div>
+        <div className="card summaryPill"><span>{c.weekTotal}</span><strong>{weekTotal}</strong></div>
+        <div className="card summaryPill"><span>{c.monthTotal}</span><strong>{monthTotal}</strong></div>
       </div>
 
       {view === "day" && (
         <section className="card resourceTimelineShell">
           <div className="calendarHeader">
-              <strong>2026/10/{String(selectedDay).padStart(2, "0")} · Xem theo ngày</strong>
+              <strong>2026/10/{String(selectedDay).padStart(2, "0")} · {c.dayView}</strong>
           </div>
           <div className="resourceTimeline">
-            <div className="resourceHeader">Nhân viên</div>
+            <div className="resourceHeader">{c.staff}</div>
             <div className="timeAxis">{slots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {staff.map((member) => {
               const memberBookings = selectedDayBookings.filter((booking) => booking.staff === member.name);
@@ -243,7 +252,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
               <button className={isSelected ? "weekCol weekDayButton selectedWeekDay" : "weekCol weekDayButton"} key={day} onClick={() => openDay(dayNumber)}>
                 <span className="weekDayTop"><small>{day}</small><em>10/{String(dayNumber).padStart(2, "0")}</em></span>
                 <strong className="weekDayNumber">{dayNumber}</strong>
-                <span className="weekCountBadge">{dayBookings.length} lịch hẹn</span>
+                <span className="weekCountBadge">{dayBookings.length} {c.appointment}</span>
                 <span className="weekBookingList">
                   {dayBookings.slice(0, 3).map((booking) => {
                     const member = staffFor(booking.staff);
@@ -256,8 +265,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
                       </span>
                     );
                   })}
-                  {!dayBookings.length && <span className="weekEmptyState">Chưa có lịch</span>}
-                  {dayBookings.length > 3 && <span className="weekMore">+{dayBookings.length - 3} lịch khác</span>}
+                  {!dayBookings.length && <span className="weekEmptyState">{c.noBooking}</span>}
+                  {dayBookings.length > 3 && <span className="weekMore">{c.more.replace("{count}", dayBookings.length - 3)}</span>}
                 </span>
               </button>
             );
@@ -270,7 +279,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((dayName) => <div className="monthHead" key={dayName}>{dayName}</div>)}
           {monthDays.map((day) => {
             const dayBookings = bookings.filter((booking) => bookingDay(booking) === day);
-            return <button className={day === selectedDay ? "monthDay selectedMonthDay" : "monthDay"} key={day} onClick={() => openDay(day)}><strong>{day}</strong><span>{dayBookings.length} bookings</span><em>{dayBookings.slice(0, 4).map((booking) => <i key={booking.id} style={{ background: staffFor(booking.staff).color }} />)}</em></button>;
+            return <button className={day === selectedDay ? "monthDay selectedMonthDay" : "monthDay"} key={day} onClick={() => openDay(day)}><strong>{day}</strong><span>{dayBookings.length} {c.appointment}</span><em>{dayBookings.slice(0, 4).map((booking) => <i key={booking.id} style={{ background: staffFor(booking.staff).color }} />)}</em></button>;
           })}
         </section>
       )}
@@ -278,21 +287,21 @@ export default function CalendarResourceTimeline({ label = "Calendar", onCheckou
       {modalOpen && (
         <div className="bookingModalBackdrop" onMouseDown={() => setModalOpen(false)}>
           <div className="card bookingModal" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modalHead"><div><p className="eyebrow">{selected.draft ? "NEW BOOKING" : "EDIT BOOKING"}</p><h2>{selected.customer || "New customer"}</h2></div><button className="ghost iconClose" onClick={() => setModalOpen(false)}>Close</button></div>
+            <div className="modalHead"><div><p className="eyebrow">{selected.draft ? c.newLabel : c.editLabel}</p><h2>{selected.customer || c.customer}</h2></div><button className="ghost iconClose" onClick={() => setModalOpen(false)}>{tc("close")}</button></div>
             <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>2026/10/{String(selectedDay).padStart(2, "0")} · {selected.staff}</span></div>
             <div className="formGrid modalForm">
-              <label>Customer<input value={selected.customer} onChange={(event) => setSelected({ ...selected, customer: event.target.value })} placeholder="Customer name" /></label>
-              <label>Phone<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
-              <label>Staff<select value={selected.staff} onChange={(event) => setSelected({ ...selected, staff: event.target.value })}>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label>
-              <label>Platform<select value={selected.source} onChange={(event) => setSelected({ ...selected, source: event.target.value })}>{platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}</select></label>
-              <label>Start<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
-              <label>End<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
+              <label>{c.customer}<input value={selected.customer} onChange={(event) => setSelected({ ...selected, customer: event.target.value })} placeholder={c.customer} /></label>
+              <label>{c.phone}<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
+              <label>{c.staff}<select value={selected.staff} onChange={(event) => setSelected({ ...selected, staff: event.target.value })}>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label>
+              <label>{c.platform}<select value={selected.source} onChange={(event) => setSelected({ ...selected, source: event.target.value })}>{platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}</select></label>
+              <label>{c.start}<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
+              <label>{c.end}<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
             </div>
             <div className="modalActions">
-              <button className="ghost dangerButton" onClick={deleteBooking}>Delete booking</button>
-              <button className="ghost" onClick={() => setModalOpen(false)}>Cancel</button>
-              <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>Tính tiền</button>
-              <button className="primary" onClick={saveBooking}>Save and sync blocks</button>
+              <button className="ghost dangerButton" onClick={deleteBooking}>{c.deleteBooking}</button>
+              <button className="ghost" onClick={() => setModalOpen(false)}>{tc("cancel")}</button>
+              <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
+              <button className="primary" onClick={saveBooking}>{c.save}</button>
             </div>
           </div>
         </div>

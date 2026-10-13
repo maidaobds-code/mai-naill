@@ -38,12 +38,17 @@ function uniqueCustomers(seed, bookings, orders, accounts = []) {
 export default function CustomersEnhanced({ label = "Customers", language = "vi" }) {
   const tr = (key) => tx(language, "customersPage", key);
   const tc = (key) => tx(language, "common", key);
+  const defaultDraft = {
+    vi: { title: "Giảm giá mùa lễ", message: "Cảm ơn bạn đã ủng hộ Mai Beauty Salon.\n\nTuần này salon có ưu đãi đặc biệt cho khách cũ. Bạn có thể đặt lịch trước để giữ khung giờ đẹp." },
+    ja: { title: "季節キャンペーン", message: "Mai Beauty Salonをご利用いただきありがとうございます。\n\n今週はリピーター様向けの特別優待をご用意しています。ご希望の時間を早めにご予約ください。" },
+    en: { title: "Seasonal discount", message: "Thank you for supporting Mai Beauty Salon.\n\nThis week we have a special offer for returning customers. Book early to keep your preferred time." },
+  }[language] || {};
   const { bookings } = useBookingStore();
   const { orders } = useStoreOrders();
   const { accounts } = useAccountStore();
   const [campaigns, setCampaigns] = useState([]);
   const [hydrated, setHydrated] = useState(false);
-  const [draft, setDraft] = useState({ title: "Giảm giá mùa lễ", type: "promotion", target: "old", couponCode: "OLD10", imageUrl: "", imageName: "", message: "Cảm ơn bạn đã ủng hộ Mai Beauty Salon.\n\nTuần này salon có ưu đãi đặc biệt cho khách cũ. Bạn có thể đặt lịch trước để giữ khung giờ đẹp." });
+  const [draft, setDraft] = useState({ title: defaultDraft.title, type: "promotion", target: "old", couponCode: "OLD10", imageUrl: "", imageName: "", message: defaultDraft.message });
   const customerList = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders, accounts), [bookings, orders, accounts]);
 
   useEffect(() => {
@@ -100,15 +105,15 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
           <label>{tr("subject")}<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>{tr("type")}<select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })}><option value="promotion">{tr("promotion")}</option><option value="event">{tr("event")}</option><option value="notice">{tr("notice")}</option></select></label>
           <label>{tr("target")}<select value={draft.target} onChange={(event) => setDraft({ ...draft, target: event.target.value })}><option value="old">{tr("oldCustomers")}</option><option value="buyers">{tr("buyers")}</option><option value="bookers">{tr("bookers")}</option></select></label>
-          <label>Mã giảm giá<input value={draft.couponCode} onChange={(event) => setDraft({ ...draft, couponCode: event.target.value })} /></label>
-          <label>Hình ảnh thông báo<input type="file" accept="image/*" onChange={uploadCampaignImage} /></label>
+          <label>{tr("couponCode")}<input value={draft.couponCode} onChange={(event) => setDraft({ ...draft, couponCode: event.target.value })} /></label>
+          <label>{tr("campaignImage")}<input type="file" accept="image/*" onChange={uploadCampaignImage} /></label>
           <label className="campaignMessage">{tr("message")}<textarea rows={8} value={draft.message} onChange={(event) => setDraft({ ...draft, message: event.target.value })} /></label>
           {draft.imageUrl && <div className="imagePreview"><img src={draft.imageUrl} alt={draft.title || "Campaign"} /><span>{draft.imageName}</span></div>}
         </form>
       </section>
       <div className="customerGrid">
         <section className="card tableWrap"><table><thead><tr><th>{tc("customer")}</th><th>{tc("phone")}</th><th>{tc("email")}</th><th>{tr("bookings")}</th><th>{tr("orders")}</th><th>{tr("spend")}</th><th>{tr("typeCol")}</th></tr></thead><tbody>{customerList.map((customer) => <tr key={customer.phone || customer.id}><td><strong>{customer.name}</strong></td><td>{customer.phone}</td><td>{customer.email || "-"}</td><td>{customer.bookingCount || customer.visits || 0}</td><td>{customer.orderCount || 0}</td><td>{yen(customer.spend)}</td><td><span className="pill">{customer.tag}</span></td></tr>)}</tbody></table></section>
-        <aside className="card campaignLog"><h2>{tr("campaignLog")}</h2>{campaigns.length ? campaigns.map((campaign) => <div className="campaignItem" key={campaign.id}><strong>{campaign.title}</strong><span>{campaign.recipients.length} khach · {new Date(campaign.sentAt).toLocaleString("ja-JP")}</span>{campaign.couponCode && <span className="pill">Coupon {campaign.couponCode}</span>}{campaign.imageUrl && <img className="catalogThumb" src={campaign.imageUrl} alt={campaign.title} />}<small>{campaign.message}</small></div>) : <p>{tr("noCampaign")}</p>}</aside>
+        <aside className="card campaignLog"><h2>{tr("campaignLog")}</h2>{campaigns.length ? campaigns.map((campaign) => <div className="campaignItem" key={campaign.id}><strong>{campaign.title}</strong><span>{tr("recipientCount", { count: campaign.recipients.length })} · {new Date(campaign.sentAt).toLocaleString("ja-JP")}</span>{campaign.couponCode && <span className="pill">{tr("coupon")} {campaign.couponCode}</span>}{campaign.imageUrl && <img className="catalogThumb" src={campaign.imageUrl} alt={campaign.title} />}<small>{campaign.message}</small></div>) : <p>{tr("noCampaign")}</p>}</aside>
       </div>
     </>
   );

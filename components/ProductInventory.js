@@ -3,12 +3,19 @@
 import { useState } from "react";
 import { getInventoryRows } from "../lib/ecommerce/data";
 import { emptyProduct, useProductCatalog } from "../lib/catalogStore";
+import { tx } from "../lib/i18nClean";
 
 function yen(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
 }
 
 export default function ProductInventory({ label = "Sản phẩm & Kho", language = "vi" }) {
+  const tc = (key) => tx(language, "common", key);
+  const copy = {
+    vi: { desc: "Quản lý sản phẩm, tồn kho và ảnh hiển thị đồng bộ trực tiếp lên web bán hàng.", save: "+ Lưu sản phẩm", editor: "Thêm / sửa sản phẩm", editorDesc: "Chọn ảnh từ máy tính. Sau khi lưu, sản phẩm tự động xuất hiện ở trang Web bán hàng.", name: "Tên sản phẩm", low: "Cảnh báo thấp", sellWeb: "Bán trên web", featured: "Sản phẩm nổi bật", image: "Ảnh sản phẩm", selectedImage: "Ảnh đã chọn từ máy tính", search: "Tìm tên sản phẩm hoặc SKU", all: "Tất cả", lowStock: "Sắp hết hàng", active: "Đang bán", draft: "Nháp", headers: ["Sản phẩm", "Giá", "Tồn", "Online/POS", "Cảnh báo", "Thao tác"], addFeatured: "Thêm nổi bật", removeFeatured: "Xóa nổi bật", webSync: "Đồng bộ website bán hàng", webDesc: "Hiện có {products} sản phẩm trong catalog và {rows} dòng inventory. Ảnh lưu dạng data URL để MVP hiển thị ngay trên Web bán hàng.", featuredLabel: "Nổi bật" },
+    ja: { desc: "商品、在庫、表示画像を管理し、オンラインストアへ同期します。", save: "+ 商品を保存", editor: "商品を追加 / 編集", editorDesc: "PCから画像を選択します。保存後、商品はオンラインストアに表示されます。", name: "商品名", low: "低在庫アラート", sellWeb: "Webで販売", featured: "おすすめ商品", image: "商品画像", selectedImage: "選択済み画像", search: "商品名またはSKUを検索", all: "すべて", lowStock: "在庫少", active: "販売中", draft: "下書き", headers: ["商品", "価格", "在庫", "Online/POS", "アラート", "操作"], addFeatured: "おすすめに追加", removeFeatured: "おすすめ解除", webSync: "オンラインストア同期", webDesc: "カタログに{products}商品、在庫に{rows}行あります。画像はMVP表示用にdata URLで保存されます。", featuredLabel: "おすすめ" },
+    en: { desc: "Manage products, inventory, and images synced directly to the online store.", save: "+ Save product", editor: "Add / edit product", editorDesc: "Choose an image from your computer. After saving, the product appears in the online store.", name: "Product name", low: "Low stock alert", sellWeb: "Sell on web", featured: "Featured product", image: "Product image", selectedImage: "Selected image from computer", search: "Search product name or SKU", all: "All", lowStock: "Low stock", active: "Active", draft: "Draft", headers: ["Product", "Price", "Stock", "Online/POS", "Alert", "Actions"], addFeatured: "Add featured", removeFeatured: "Remove featured", webSync: "Online store sync", webDesc: "{products} products in catalog and {rows} inventory rows. Images are stored as data URLs for MVP display.", featuredLabel: "Featured" },
+  }[language] || {};
   const [products, setProducts] = useProductCatalog();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -56,48 +63,48 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
   return (
     <>
       <div className="pageHead">
-        <div><p className="eyebrow">CATALOG SYNC</p><h1>{label}</h1><p>Quản lý sản phẩm, tồn kho và ảnh hiển thị đồng bộ trực tiếp lên web bán hàng.</p></div>
-        <button className="primary" onClick={saveProduct}>+ Lưu sản phẩm</button>
+        <div><p className="eyebrow">CATALOG SYNC</p><h1>{label}</h1><p>{copy.desc}</p></div>
+        <button className="primary" onClick={saveProduct}>{copy.save}</button>
       </div>
       <section className="card staffEditor productEditorPanel">
-        <div className="sectionTitle"><div><h2>Thêm / sửa sản phẩm</h2><p>Chọn ảnh từ máy tính. Sau khi lưu, sản phẩm tự động xuất hiện ở trang Web bán hàng.</p></div></div>
+        <div className="sectionTitle"><div><h2>{copy.editor}</h2><p>{copy.editorDesc}</p></div></div>
         <div className="staffForm">
-          <label>Tên sản phẩm<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-          <label>Mô tả<input value={draft.description || ""} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-          <label>Giá<input type="number" value={draft.basePrice} onChange={(event) => setDraft({ ...draft, basePrice: Number(event.target.value) })} /></label>
-          <label>Tồn kho<input type="number" value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label>
-          <label>Cảnh báo thấp<input type="number" value={draft.lowStockThreshold} onChange={(event) => setDraft({ ...draft, lowStockThreshold: Number(event.target.value) })} /></label>
-          <label className="checkLabel"><input type="checkbox" checked={draft.onlineStoreEnabled !== false} onChange={(event) => setDraft({ ...draft, onlineStoreEnabled: event.target.checked })} />Bán trên web</label>
-          <label className="checkLabel"><input type="checkbox" checked={draft.featuredOnline !== false} onChange={(event) => setDraft({ ...draft, featuredOnline: event.target.checked })} />Sản phẩm nổi bật</label>
-          <label>Ảnh sản phẩm<input type="file" accept="image/*" onChange={uploadProductImage} /></label>
+          <label>{copy.name}<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+          <label>{tc("note")}<input value={draft.description || ""} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+          <label>{tc("price")}<input type="number" value={draft.basePrice} onChange={(event) => setDraft({ ...draft, basePrice: Number(event.target.value) })} /></label>
+          <label>{tc("stock")}<input type="number" value={draft.stock} onChange={(event) => setDraft({ ...draft, stock: Number(event.target.value) })} /></label>
+          <label>{copy.low}<input type="number" value={draft.lowStockThreshold} onChange={(event) => setDraft({ ...draft, lowStockThreshold: Number(event.target.value) })} /></label>
+          <label className="checkLabel"><input type="checkbox" checked={draft.onlineStoreEnabled !== false} onChange={(event) => setDraft({ ...draft, onlineStoreEnabled: event.target.checked })} />{copy.sellWeb}</label>
+          <label className="checkLabel"><input type="checkbox" checked={draft.featuredOnline !== false} onChange={(event) => setDraft({ ...draft, featuredOnline: event.target.checked })} />{copy.featured}</label>
+          <label>{copy.image}<input type="file" accept="image/*" onChange={uploadProductImage} /></label>
         </div>
-        {draft.mediaUrl && <div className="imagePreview"><img src={draft.mediaUrl} alt={draft.name || "Product preview"} /><span>{draft.mediaFileName || "Ảnh đã chọn từ máy tính"}</span></div>}
+        {draft.mediaUrl && <div className="imagePreview"><img src={draft.mediaUrl} alt={draft.name || "Product preview"} /><span>{draft.mediaFileName || copy.selectedImage}</span></div>}
       </section>
       <div className="toolbar productTools">
-        <input className="searchInput" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tim Tên sản phẩm hoac SKU" />
+        <input className="searchInput" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.search} />
         <select className="searchInput" value={filter} onChange={(event) => setFilter(event.target.value)}>
-          <option value="all">Tất cả</option>
-          <option value="low">Sắp hết hàng</option>
-          <option value="ACTIVE">Đang bán</option>
-          <option value="DRAFT">Nháp</option>
+          <option value="all">{copy.all}</option>
+          <option value="low">{copy.lowStock}</option>
+          <option value="ACTIVE">{copy.active}</option>
+          <option value="DRAFT">{copy.draft}</option>
         </select>
       </div>
       <section className="card tableWrap">
         <table>
-          <thead><tr><th>Sản phẩm</th><th>Giá</th><th>Tồn</th><th>Online/POS</th><th>Cảnh báo</th><th>Thao tác</th></tr></thead>
+          <thead><tr>{copy.headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
           <tbody>{visible.map((product) => (
             <tr key={product.id}>
               <td><div className="productCell">{product.mediaUrl ? <img className="catalogThumb" src={product.mediaUrl} alt={product.name} /> : <div className="productThumb">{product.name.slice(0, 1)}</div>}<div><strong>{product.name}</strong><span>{product.description || product.shortDescription}</span></div></div></td>
               <td>{yen(product.salePrice || product.basePrice)}</td>
               <td><span className={product.stock <= product.lowStockThreshold ? "pill danger" : "pill"}>{product.stock}</span></td>
-              <td>{product.onlineStoreEnabled !== false ? "Web" : "-"} / {product.posEnabled ? "POS" : "-"} {product.featuredOnline !== false ? " / Nổi bật" : ""}</td>
-              <td>{product.stock <= product.lowStockThreshold ? "Sắp hết hàng" : "OK"}</td>
-              <td><button className="ghost" onClick={() => setProducts((current) => current.map((item) => item.id === product.id ? { ...item, featuredOnline: item.featuredOnline === false } : item))}>{product.featuredOnline === false ? "Thêm nổi bật" : "Xóa nổi bật"}</button> <button className="ghost" onClick={() => setDraft({ ...emptyProduct, ...product })}>Sửa</button> <button className="ghost dangerButton" onClick={() => deleteProduct(product.id)}>Xóa</button></td>
+              <td>{product.onlineStoreEnabled !== false ? "Web" : "-"} / {product.posEnabled ? "POS" : "-"} {product.featuredOnline !== false ? ` / ${copy.featuredLabel}` : ""}</td>
+              <td>{product.stock <= product.lowStockThreshold ? copy.lowStock : "OK"}</td>
+              <td><button className="ghost" onClick={() => setProducts((current) => current.map((item) => item.id === product.id ? { ...item, featuredOnline: item.featuredOnline === false } : item))}>{product.featuredOnline === false ? copy.addFeatured : copy.removeFeatured}</button> <button className="ghost" onClick={() => setDraft({ ...emptyProduct, ...product })}>{tc("edit")}</button> <button className="ghost dangerButton" onClick={() => deleteProduct(product.id)}>{tc("delete")}</button></td>
             </tr>
           ))}</tbody>
         </table>
       </section>
-      <section className="card integrationHint"><h2>Đồng bộ website bán hàng</h2><p>Hiện có {products.length} sản phẩm trong catalog và {inventoryRows.length} dòng inventory. Ảnh lưu dạng data URL để MVP hiển thị ngay trên Web bán hàng.</p></section>
+      <section className="card integrationHint"><h2>{copy.webSync}</h2><p>{copy.webDesc.replace("{products}", products.length).replace("{rows}", inventoryRows.length)}</p></section>
     </>
   );
 }

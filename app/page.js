@@ -34,7 +34,7 @@ export default function Home() {
   const allowed = permissionsFor(currentAccount);
   const isCustomer = currentAccount?.role === "customer";
   const activePage = allowed.includes(active) ? active : allowed[0] || "Online Store";
-  let content = <Dashboard />;
+  let content = <Dashboard language={language} />;
 
   useEffect(() => {
     window.localStorage.setItem(APP_LANGUAGE_KEY, language);
