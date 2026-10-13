@@ -38,7 +38,7 @@ export default function Home() {
   else if (activePage === "Online Store") content = <OnlineStore language={language} />;
   else if (activePage === "Orders") content = <Orders language={language} />;
   else if (activePage === "Payroll") content = <Payroll label={t(language, "payroll")} language={language} currentAccount={currentAccount} />;
-  else if (activePage === "POS / Checkout") content = <Checkout label={t(language, "checkout")} appointmentId={checkoutAppointmentId} />;
+  else if (activePage === "POS / Checkout") content = <Checkout label={t(language, "checkout")} appointmentId={checkoutAppointmentId} language={language} />;
   else if (activePage === "Reports") content = <Reports language={language} />;
   else if (activePage === "Settings") content = <Settings language={language} />;
   else if (activePage === "Staff") content = <StaffManagement label="Tài khoản nhân viên" />;
@@ -51,7 +51,7 @@ export default function Home() {
         <AccountGate language={language} setLanguage={setLanguage} />
         {isCustomer && <button className="customerProfileButton" onClick={() => setProfileOpen(true)} title="Trang cá nhân">👤</button>}
         {content}
-        {profileOpen && <CustomerProfile onClose={() => setProfileOpen(false)} />}
+        {profileOpen && <CustomerProfile language={language} onClose={() => setProfileOpen(false)} />}
       </main>
     </div>
   );

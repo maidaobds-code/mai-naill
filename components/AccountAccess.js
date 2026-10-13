@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAccountStore } from "../lib/accountStore";
 import { useStoreOrders } from "../lib/orderStore";
-import { languages } from "../lib/i18nClean";
+import { languages, tx } from "../lib/i18nClean";
 
 const LOGIN_LANGUAGE_KEY = "nail-japan-login-language";
 
@@ -164,7 +164,9 @@ export function LoginPage() {
   );
 }
 
-export function CustomerProfile({ onClose }) {
+export function CustomerProfile({ language = "vi", onClose }) {
+  const tc = (key) => tx(language, "common", key);
+  const tr = (key) => tx(language, "customerProfile", key);
   const { currentAccount, logout, updateProfile } = useAccountStore();
   const { orders, addChatMessage } = useStoreOrders();
   const [draft, setDraft] = useState(() => ({ name: currentAccount?.name || "", phone: currentAccount?.phone || "", address: currentAccount?.address || "" }));
@@ -196,18 +198,18 @@ export function CustomerProfile({ onClose }) {
 
   return (
     <div className="customerProfilePanel card">
-      <div className="modalHead"><div><p className="eyebrow">MY PAGE</p><h2>Trang cá nhân</h2></div><div className="profileModalActions"><button className="ghost dangerGhost" onClick={signOut}>Đăng xuất</button><button className="ghost" onClick={onClose}>Close</button></div></div>
+      <div className="modalHead"><div><p className="eyebrow">MY PAGE</p><h2>{tr("title")}</h2></div><div className="profileModalActions"><button className="ghost dangerGhost" onClick={signOut}>{tr("logout")}</button><button className="ghost" onClick={onClose}>{tc("close")}</button></div></div>
       <div className="profileGrid">
-        <label>Tên<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
-        <label>Email<input value={currentAccount.email || ""} readOnly /></label>
-        <label>Số điện thoại<input value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></label>
-        <label className="fullField">Địa chỉ<input value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} /></label>
-        <button className="primary" onClick={saveProfile}>Lưu thông tin</button>
+        <label>{tr("name")}<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
+        <label>{tc("email")}<input value={currentAccount.email || ""} readOnly /></label>
+        <label>{tc("phone")}<input value={draft.phone} onChange={(event) => setDraft({ ...draft, phone: event.target.value })} /></label>
+        <label className="fullField">{tc("address")}<input value={draft.address} onChange={(event) => setDraft({ ...draft, address: event.target.value })} /></label>
+        <button className="primary" onClick={saveProfile}>{tr("saveProfile")}</button>
       </div>
       <div className="profileOrders">
-        <h3>Theo dõi đơn hàng</h3>
-        <div className="profileOrderList">{customerOrders.length ? customerOrders.map((order) => <button key={order.id} className={selectedOrder?.id === order.id ? "active" : ""} onClick={() => setSelectedOrderId(order.id)}><strong>{order.orderNumber}</strong><span>{order.productName}</span><small>{order.status} · {order.paymentStatus}</small></button>) : <p className="storeNote">Chưa có đơn hàng theo tài khoản này.</p>}</div>
-        {selectedOrder && <div className="profileOrderChat"><strong>{selectedOrder.orderNumber}</strong><span>{selectedOrder.status} · {selectedOrder.paymentStatus}</span><small>Thông báo điện thoại: cần bật push notification khi triển khai thật.</small><div>{(selectedOrder.chat || []).map((item) => <p key={item.id} className={item.from === "customer" ? "fromCustomer" : ""}>{item.text}</p>)}</div><div className="chatComposer"><input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder="Nhắn tin với chủ quán" /><button className="primary" onClick={sendMessage}>Gửi</button></div></div>}
+        <h3>{tr("trackOrders")}</h3>
+        <div className="profileOrderList">{customerOrders.length ? customerOrders.map((order) => <button key={order.id} className={selectedOrder?.id === order.id ? "active" : ""} onClick={() => setSelectedOrderId(order.id)}><strong>{order.orderNumber}</strong><span>{order.productName}</span><small>{order.status} · {order.paymentStatus}</small></button>) : <p className="storeNote">{tr("noOrders")}</p>}</div>
+        {selectedOrder && <div className="profileOrderChat"><strong>{selectedOrder.orderNumber}</strong><span>{selectedOrder.status} · {selectedOrder.paymentStatus}</span><small>{tr("pushNote")}</small><div>{(selectedOrder.chat || []).map((item) => <p key={item.id} className={item.from === "customer" ? "fromCustomer" : ""}>{item.text}</p>)}</div><div className="chatComposer"><input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder={tr("chatPlaceholder")} /><button className="primary" onClick={sendMessage}>{tc("send")}</button></div></div>}
       </div>
     </div>
   );

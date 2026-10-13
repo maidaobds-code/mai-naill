@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useBookingStore } from "../lib/bookingStore";
 import { useProductCatalog, useServiceCatalog } from "../lib/catalogStore";
 import { useStaffStore } from "../lib/staffStore";
+import { tx } from "../lib/i18nClean";
 import { defaultSettings, getAppSettings } from "./Settings";
 
 const CHECKOUT_KEY = "nail-japan-pos-sales";
@@ -21,6 +22,8 @@ const extraServices = [
 function yen(value) {
   return `¥${Math.round(Number(value || 0)).toLocaleString("ja-JP")}`;
 }
+
+const quickDiscounts = [5, 10, 15, 30];
 
 function paymentLabel(id, methods = defaultSettings.paymentMethods) {
   return methods.find((method) => method.id === id)?.label || id || "その他";
@@ -53,7 +56,9 @@ export function getStoredPosSales() {
   return readJson(CHECKOUT_KEY, []);
 }
 
-export default function Checkout({ label = "POS / Checkout", appointmentId = "" }) {
+export default function Checkout({ label = "POS / Checkout", appointmentId = "", language = "vi" }) {
+  const tr = (key, vars) => tx(language, "checkoutPage", key, vars);
+  const tc = (key) => tx(language, "common", key);
   const { bookings, setBookings } = useBookingStore();
   const [services] = useServiceCatalog();
   const [products, setProducts] = useProductCatalog();
@@ -190,9 +195,18 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
         if (existing) return current;
         return { ...current, payments: [...current.payments, { id: newId("pay"), method: methodId, amount: 0, received: 0, confirmed: true }] };
       }
-      return { ...current, payments: current.payments.filter((payment) => payment.id !== existing?.id) };
+	      return { ...current, payments: current.payments.filter((payment) => payment.id !== existing?.id) };
     });
   }
+
+	  function applyQuickDiscount(percent) {
+	    setOrder((current) => ({
+	      ...current,
+	      orderDiscountType: "percent",
+	      orderDiscountValue: percent,
+	      couponCode: `DISC${percent}`,
+	    }));
+	  }
 
   function validateOrder() {
     if (!order.lines.length) return "Không thể thanh toán order rỗng.";
@@ -214,6 +228,9 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
       paymentStatus,
       subtotal,
       orderDiscount,
+	      orderDiscountType: order.orderDiscountType,
+	      orderDiscountValue: order.orderDiscountValue,
+	      discountLabel: order.orderDiscountType === "percent" && Number(order.orderDiscountValue || 0) > 0 ? `${order.orderDiscountValue}%` : "",
       tax,
       total,
       paid,
@@ -238,11 +255,11 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
       if (record.appointmentId) setBookings((current) => current.map((booking) => String(booking.id) === String(record.appointmentId) ? { ...booking, paymentStatus: "Paid" } : booking));
     }
     setOrder(record);
-    setError(paymentStatus === "Paid" ? "" : "Order đang Partial/Unpaid vì chưa nhận đủ tiền.");
+	    setError(paymentStatus === "Paid" ? "" : tr("partialNotice"));
     if (paymentStatus === "Paid") {
       const hasCashPayment = record.payments.some((payment) => payment.method === "cash" && payment.confirmed !== false && Number(payment.amount || 0) > 0);
       if (hasCashPayment) {
-        setDrawerNotice(`Đã gửi lệnh mở hòm tiền mặt. Tiền trả lại khách: ${yen(change)}.`);
+	        setDrawerNotice(tr("drawerNotice", { change: yen(change) }));
         window.dispatchEvent(new CustomEvent("nail-japan-cash-drawer-open", { detail: { orderNumber: record.orderNumber, change } }));
       } else {
         setDrawerNotice("");
@@ -264,9 +281,9 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
 
   return (
     <section className="card nailPosPanel">
-      <div className="nailPosHeader">
-        <div><h1>💰 Nail POS</h1><p>Thanh toán · お会計</p></div>
-        <div className="nailPosHeaderActions"><button className="ghost" onClick={() => setHistoryOpen(true)}>Lịch sử thanh toán</button><span className="pill active">{order.paymentStatus === "Paid" ? "Đã thanh toán" : "Đang tạo đơn"}</span></div>
+	      <div className="nailPosHeader">
+	        <div><h1>{label}</h1><p>{tr("subtitle")}</p></div>
+	        <div className="nailPosHeaderActions"><button className="ghost" onClick={() => setHistoryOpen(true)}>{tr("paymentHistory")}</button><span className="pill active">{order.paymentStatus === "Paid" ? tr("paid") : tr("draft")}</span></div>
       </div>
 
       {error && <div className="orderToast card"><strong>POS</strong><span>{error}</span></div>}
@@ -275,53 +292,54 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
         <div>
           <strong>👤 {order.customer || "Nguyễn A"}</strong>
           <span>🗓️ 08/10/2026 · 14:00-15:30</span>
-          <span>💅 Nhân viên: {order.employee || staff[0]?.name || "Mai"} · Khách cũ</span>
+	          <span>💅 {tc("staff")}: {order.employee || staff[0]?.name || "Mai"} · {tr("returningCustomer")}</span>
         </div>
         <select value={order.appointmentId} onChange={(event) => chooseAppointment(event.target.value)}>
-          <option value="">Đặt từ Nailie</option>
+	          <option value="">{tr("chooseAppointment")}</option>
           {bookings.map((booking) => <option key={booking.id} value={booking.id}>{booking.customer} - {booking.service}</option>)}
         </select>
       </div>
 
-      <h2 className="nailSectionTitle">Thêm dịch vụ và sản phẩm</h2>
+	      <h2 className="nailSectionTitle">{tr("addItems")}</h2>
       <div className="nailTabs">
-        <button className={activeTab === "services" ? "active" : ""} onClick={() => setActiveTab("services")}>💅 Dịch vụ</button>
-        <button className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}>🛍️ Sản phẩm</button>
+	        <button className={activeTab === "services" ? "active" : ""} onClick={() => setActiveTab("services")}>💅 {tc("service")}</button>
+	        <button className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}>🛍️ {tr("products")}</button>
       </div>
       <div className="nailItemGrid">
         {activeTab === "services" && visibleServices.slice(0, 8).map((service) => <button className="nailMenuItem" key={service.id} onClick={() => addLine(service, "service")}><strong>{service.name}</strong><span>⊕</span><small>{yen(service.price)}</small></button>)}
-        {activeTab === "services" && <button className="nailMenuItem" onClick={() => addOtherLine("service")}><strong>Khoản khác / その他</strong><span>⊕</span><small>Ghi chú sau khi thêm</small></button>}
+	        {activeTab === "services" && <button className="nailMenuItem" onClick={() => addOtherLine("service")}><strong>{tr("otherItem")}</strong><span>⊕</span><small>{tr("noteAfterAdd")}</small></button>}
         {activeTab === "products" && visibleProducts.slice(0, 8).map((product) => <button className="nailMenuItem" key={product.id} onClick={() => addLine(product, "product")} disabled={Number(product.stock || 0) <= 0}><strong>{product.name}</strong><span>⊕</span><small>{yen(product.salePrice || product.basePrice)}</small></button>)}
-        {activeTab === "products" && <button className="nailMenuItem" onClick={() => addOtherLine("product")}><strong>Khoản khác / その他</strong><span>⊕</span><small>Ghi chú sau khi thêm</small></button>}
+	        {activeTab === "products" && <button className="nailMenuItem" onClick={() => addOtherLine("product")}><strong>{tr("otherItem")}</strong><span>⊕</span><small>{tr("noteAfterAdd")}</small></button>}
       </div>
 
       <div className="nailDivider" />
-      <div className="nailOrderTitle"><strong>🛒 Chi tiết đơn hàng</strong><span>{order.lines.length} mục</span></div>
+	      <div className="nailOrderTitle"><strong>🛒 {tr("orderDetail")}</strong><span>{tr("itemCount", { count: order.lines.length })}</span></div>
       <div className="nailOrderLines">
         {order.lines.map((line) => <div className="nailOrderLine" key={line.id}>
-          <div><strong>{line.name}</strong><small>{yen(line.unitPrice)} / mục · {line.note || "Không ghi chú"}</small></div>
+	          <div><strong>{line.name}</strong><small>{yen(line.unitPrice)} / {tr("itemUnit")} · {line.note || tr("noNote")}</small></div>
           <div className="nailQty"><button onClick={() => updateLine(line.id, { quantity: Math.max(1, Number(line.quantity || 1) - 1) })}>−</button><span>{line.quantity}</span><button onClick={() => updateLine(line.id, { quantity: Number(line.quantity || 1) + 1 })}>＋</button></div>
-          <input className="nailLineInput" type="number" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: Number(event.target.value) })} aria-label="Giá" />
-          <input className="nailLineNote" value={line.note || ""} onChange={(event) => updateLine(line.id, { note: event.target.value })} placeholder="Ghi chú / その他" />
+	          <input className="nailLineInput" type="number" value={line.unitPrice} onChange={(event) => updateLine(line.id, { unitPrice: Number(event.target.value) })} aria-label={tc("price")} />
+	          <input className="nailLineNote" value={line.note || ""} onChange={(event) => updateLine(line.id, { note: event.target.value })} placeholder={tc("note")} />
           <strong>{yen(lineTotal(line))}</strong>
         </div>)}
-        {!order.lines.length && <p className="mutedText">Chưa có mục nào trong đơn.</p>}
+	        {!order.lines.length && <p className="mutedText">{tr("emptyOrder")}</p>}
       </div>
 
       <div className="nailDivider" />
-      <h2 className="nailSectionTitle">🎟️ Mã giảm giá</h2>
-      <div className="nailCouponRow"><input value={order.couponCode} onChange={(event) => updateOrder({ couponCode: event.target.value })} placeholder="VD: NAIL10" /><button onClick={() => updateOrder({ orderDiscountType: "percent", orderDiscountValue: 10, couponCode: order.couponCode || "NAIL10" })}>Áp dụng</button></div>
-      <p className="mutedText">Thử mã NAIL10 để xem cách giảm 10% trong bản mẫu.</p>
+	      <h2 className="nailSectionTitle">🎟️ {tr("discountTitle")}</h2>
+	      <div className="nailCouponRow"><input value={order.couponCode} onChange={(event) => updateOrder({ couponCode: event.target.value })} placeholder={tr("couponPlaceholder")} /><button onClick={() => updateOrder({ orderDiscountType: "percent", orderDiscountValue: 10, couponCode: order.couponCode || "NAIL10" })}>{tr("apply")}</button></div>
+	      <div className="nailCouponRow">{quickDiscounts.map((percent) => <button key={percent} className={order.orderDiscountType === "percent" && Number(order.orderDiscountValue) === percent ? "active" : ""} onClick={() => applyQuickDiscount(percent)}>{percent}%</button>)}</div>
+	      <p className="mutedText">{tr("discountHint")}</p>
 
       <div className="nailTotals">
-        <button className="nailSubtotalButton" type="button"><span>小計 / Tạm tính</span><strong>{yen(subtotal)}</strong></button>
-        <div><span>Giảm giá</span><strong>- {yen(orderDiscount)}</strong></div>
-        <div><span>Thuế {taxRate}% {taxMode === "inclusive" ? "(đã gồm trong giá)" : ""}</span><strong>{yen(tax)}</strong></div>
-        <div className="grand"><span>Tổng thanh toán</span><strong>{yen(total)}</strong></div>
+	        <button className="nailSubtotalButton" type="button"><span>{tr("subtotal")}</span><strong>{yen(subtotal)}</strong></button>
+	        <div><span>{tr("discount")} {order.orderDiscountType === "percent" && Number(order.orderDiscountValue || 0) > 0 ? `(${order.orderDiscountValue}%)` : ""}</span><strong>- {yen(orderDiscount)}</strong></div>
+	        <div><span>{tr("tax")} {taxRate}% {taxMode === "inclusive" ? tr("taxIncluded") : ""}</span><strong>{yen(tax)}</strong></div>
+	        <div className="grand"><span>{tr("grandTotal")}</span><strong>{yen(total)}</strong></div>
       </div>
 
       <div className="nailDivider" />
-      <h2 className="nailSectionTitle">💳 Phương thức thanh toán</h2>
+	      <h2 className="nailSectionTitle">💳 {tr("paymentMethods")}</h2>
       <div className="nailPaymentMethodList">
         {paymentMethods.map((method) => {
           const payment = paymentForMethod(method.id);
@@ -334,7 +352,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
                 type="number"
                 value={payment?.amount || ""}
                 onChange={(event) => payment && updatePayment(payment.id, { amount: Number(event.target.value) })}
-                placeholder="Số tiền"
+	                placeholder={tr("amount")}
                 disabled={!selected}
               />
               {method.id === "cash" ? (
@@ -349,25 +367,25 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
                   placeholder="Khách đưa"
                   disabled={!selected}
                 />
-              ) : <small>Thanh toán app/thẻ/chuyển khoản</small>}
+	              ) : <small>{tr("nonCashPayment")}</small>}
             </label>
           );
         })}
       </div>
-      <p className="mutedText">Danh sách phương thức lấy từ Cài đặt. Có thể chọn nhiều ô để tách thanh toán app và phần còn thiếu.</p>
+	      <p className="mutedText">{tr("paymentHint")}</p>
       <div className="nailPaymentSummary">
-        <div><span>Đã nhận</span><strong>{yen(paid)}</strong></div>
-        <div><span>Số tiền còn phải trả</span><strong>{yen(remaining)}</strong></div>
-        <div className={change > 0 ? "changeDue active" : "changeDue"}><span>Tiền trả lại khách</span><strong>{yen(change)}</strong></div>
-        <div><span>Phương thức thanh toán</span><strong>{paymentMethodText || "-"}</strong></div>
+	        <div><span>{tr("paidAmount")}</span><strong>{yen(paid)}</strong></div>
+	        <div><span>{tr("remaining")}</span><strong>{yen(remaining)}</strong></div>
+	        <div className={change > 0 ? "changeDue active" : "changeDue"}><span>{tr("change")}</span><strong>{yen(change)}</strong></div>
+	        <div><span>{tr("paymentMethods")}</span><strong>{paymentMethodText || "-"}</strong></div>
       </div>
       {drawerNotice && <div className="nailDrawerNotice">{drawerNotice}</div>}
-      <button className="nailComplete" onClick={completePayment}>◎ Thanh toán & in hóa đơn</button>
-      <p className="nailDemoNote">Nhập đủ số tiền thanh toán để mở bản xem trước. Đây là bản demo, không lưu giao dịch thật.</p>
+	      <button className="nailComplete" onClick={completePayment}>◎ {tr("payAndPrint")}</button>
+	      <p className="nailDemoNote">{tr("demoNote")}</p>
 
       <div className="nailDivider" />
       <div className="nailReceiptButtons">
-        <button onClick={() => printDocument("receipt")}>▣ Hóa đơn</button>
+	        <button onClick={() => printDocument("receipt")}>▣ {tr("receipt")}</button>
         <button onClick={() => printDocument("ryoshusho")}>▣ 領収書</button>
       </div>
 
@@ -383,13 +401,15 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
           <h3>お支払い</h3>
           <div className="printItems">{order.lines.map((line) => <p key={line.id}><span>{line.name} × {line.quantity}</span><strong>{yen(lineTotal(line))}</strong></p>)}</div>
           <div className="printRule" />
-          <p><span>合計</span><strong>{yen(total)}</strong></p>
-          <p><span>お預り</span><strong>{yen(cashReceived)}</strong></p>
-          <p><span>残額</span><strong>{yen(remaining)}</strong></p>
-          <p><span>{paymentMethodText || "お支払い"}</span><strong>{yen(paid)}</strong></p>
-          <p><span>お釣り</span><strong>{yen(change)}</strong></p>
+	          <p><span>{tr("subtotal")}</span><strong>{yen(subtotal)}</strong></p>
+	          <p><span>{tr("discount")} {order.orderDiscountType === "percent" && Number(order.orderDiscountValue || 0) > 0 ? `(${order.orderDiscountValue}%)` : ""}</span><strong>- {yen(orderDiscount)}</strong></p>
+	          <p><span>{tr("grandTotal")}</span><strong>{yen(total)}</strong></p>
+	          <p><span>{tr("cashReceived")}</span><strong>{yen(cashReceived)}</strong></p>
+	          <p><span>{tr("remaining")}</span><strong>{yen(remaining)}</strong></p>
+	          <p><span>{paymentMethodText || tr("paymentMethods")}</span><strong>{yen(paid)}</strong></p>
+	          <p><span>{tr("change")}</span><strong>{yen(change)}</strong></p>
           <div className="printRule" />
-          <p><span>税率 10%</span><span>税抜 {yen(Math.max(0, taxableSubtotal - tax))}</span><strong>税額 {yen(tax)}</strong></p>
+	          <p><span>{tr("tax")} {taxRate}%</span><span>{tr("taxBase")} {yen(Math.max(0, taxableSubtotal - tax))}</span><strong>{tr("taxAmount")} {yen(tax)}</strong></p>
         </div>
       </div>
 
@@ -406,16 +426,18 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "" 
           <div className="printRule" />
           <p><span>{new Date().toLocaleDateString("ja-JP")}</span><strong>{paymentMethodText || "現金"}</strong></p>
           <div className="printRule" />
-          <p className="printTotal"><span>合計</span><strong>{yen(total)}</strong></p>
-          <p><span>お預り</span><strong>{yen(cashReceived)}</strong></p>
-          <p><span>残額</span><strong>{yen(remaining)}</strong></p>
+	          <p><span>{tr("subtotal")}</span><strong>{yen(subtotal)}</strong></p>
+	          <p><span>{tr("discount")} {order.orderDiscountType === "percent" && Number(order.orderDiscountValue || 0) > 0 ? `(${order.orderDiscountValue}%)` : ""}</span><strong>- {yen(orderDiscount)}</strong></p>
+	          <p className="printTotal"><span>{tr("grandTotal")}</span><strong>{yen(total)}</strong></p>
+	          <p><span>{tr("cashReceived")}</span><strong>{yen(cashReceived)}</strong></p>
+	          <p><span>{tr("remaining")}</span><strong>{yen(remaining)}</strong></p>
           <p><span>但し書き</span><strong>ネイルサービス代として</strong></p>
-          <div className="printTaxGrid"><span>税率</span><span>税抜</span><span>税額</span><span>合計</span><span>10%</span><span>{yen(Math.max(0, taxableSubtotal - tax))}</span><span>{yen(tax)}</span><span>{yen(total)}</span></div>
+	          <div className="printTaxGrid"><span>{tr("taxRate")}</span><span>{tr("taxBase")}</span><span>{tr("taxAmount")}</span><span>{tr("grandTotal")}</span><span>{taxRate}%</span><span>{yen(Math.max(0, taxableSubtotal - tax))}</span><span>{yen(tax)}</span><span>{yen(total)}</span></div>
           <small>領収書番号: {order.receiptNumber || order.orderNumber || "POS"}</small>
         </div>
       </div>
 
-      {historyOpen && <div className="posHistoryOverlay"><div className="posHistoryModal"><div className="posHistoryHeader"><div><span>PAYMENT HISTORY</span><h2>Lịch sử thanh toán</h2></div><button onClick={() => setHistoryOpen(false)}>Close</button></div><div className="posHistoryList">{posHistory.length ? posHistory.map((sale) => <div className="posHistoryItem" key={sale.id}><button type="button" onClick={() => { setOrder({ ...sale, status: "Reopened" }); setHistoryOpen(false); }}><strong>{sale.customer || "-"}</strong><span>{sale.orderNumber || sale.receiptNumber} · {new Date(sale.issuedAt || Date.now()).toLocaleString("ja-JP")}</span><em>{yen(sale.total)}</em></button><div className="posHistoryActions"><button type="button" onClick={() => printHistorySale(sale, "receipt")}>In lại hóa đơn</button><button type="button" onClick={() => printHistorySale(sale, "ryoshusho")}>In lại 領収書</button></div></div>) : <p className="mutedText">Chưa có lịch sử thanh toán.</p>}</div></div></div>}
+	      {historyOpen && <div className="posHistoryOverlay"><div className="posHistoryModal"><div className="posHistoryHeader"><div><span>PAYMENT HISTORY</span><h2>{tr("paymentHistory")}</h2></div><button onClick={() => setHistoryOpen(false)}>{tc("close")}</button></div><div className="posHistoryList">{posHistory.length ? posHistory.map((sale) => <div className="posHistoryItem" key={sale.id}><button type="button" onClick={() => { setOrder({ ...sale, status: "Reopened" }); setHistoryOpen(false); }}><strong>{sale.customer || "-"}</strong><span>{sale.orderNumber || sale.receiptNumber} · {new Date(sale.issuedAt || Date.now()).toLocaleString("ja-JP")}</span><em>{yen(sale.total)}</em></button><div className="posHistoryActions"><button type="button" onClick={() => printHistorySale(sale, "receipt")}>{tr("reprintReceipt")}</button><button type="button" onClick={() => printHistorySale(sale, "ryoshusho")}>{tr("reprintRyoshusho")}</button></div></div>) : <p className="mutedText">{tr("emptyHistory")}</p>}</div></div></div>}
     </section>
   );
 }
