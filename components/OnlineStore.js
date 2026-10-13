@@ -42,7 +42,7 @@ function paymentOptions(settings, fulfillmentType, language = "vi") {
   ].filter(Boolean);
 }
 
-export default function OnlineStore({ language: initialLanguage = "vi", mode = "all" }) {
+export default function OnlineStore({ language: initialLanguage = "vi", setLanguage: externalSetLanguage, mode = "all" }) {
   const [language, setLanguage] = useState(() => storedLanguage(initialLanguage));
   const tr = (key, vars) => tx(language, "online", key, vars);
   const tc = (key) => tx(language, "common", key);
@@ -92,8 +92,20 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
   }, []);
 
   useEffect(() => {
+    if (externalSetLanguage) setLanguage(initialLanguage);
+  }, [externalSetLanguage, initialLanguage]);
+
+  useEffect(() => {
     window.localStorage.setItem(LANGUAGE_KEY, language);
   }, [language]);
+
+  function changeLanguage(value) {
+    setLanguage(value);
+    externalSetLanguage?.(value);
+    window.localStorage.setItem(LANGUAGE_KEY, value);
+    window.localStorage.setItem("nail-japan-login-language", value);
+    window.localStorage.setItem("nail-japan-language", value);
+  }
 
   useEffect(() => {
     if (!currentAccount) return;
@@ -258,7 +270,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
         </nav>
         <div className="storeToolbarTools">
           <button className="storeProfileButton" type="button" onClick={() => currentAccount ? setProfileOpen(true) : window.location.assign("/")}>{currentAccount?.name || tc("customer")}</button>
-          <select className="storeLanguageSelect" value={language} onChange={(event) => setLanguage(event.target.value)} aria-label={t(language, "language")}>
+          <select className="storeLanguageSelect" value={language} onChange={(event) => changeLanguage(event.target.value)} aria-label={t(language, "language")}>
             {languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
           </select>
         </div>
@@ -294,7 +306,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", mode = "
       </section>}</>}
 
       {showBooking && <section id="online-booking" className="card storeBooking bookingSurface softBookingPanel"><div className="sectionTitle"><div><h2>{tr("bookingTitle")}</h2><p>{tr("bookingText")}</p></div></div><div className="serviceChoiceRail">{activeServices.map((service) => <button type="button" key={service.id} className={draft.service === service.name ? "serviceChoice active" : "serviceChoice"} onClick={() => chooseService(service)}>{service.imageUrl ? <img src={service.imageUrl} alt={service.name} /> : <span>{service.name.slice(0, 1)}</span>}<strong>{service.name}</strong><small>{service.duration} min · {money(service.price)}</small></button>)}</div><form onSubmit={submitBooking}><div className="bookingFormGrid softBookingGrid"><label>{tc("service")}<select value={draft.service} onChange={(event) => updateDraft("service", event.target.value)}>{activeServices.map((service) => <option key={service.id}>{service.name}</option>)}</select></label><label>Branch<select value={draft.branch} onChange={(event) => updateDraft("branch", event.target.value)}><option>Mai Beauty Salon Tokyo</option><option>Mai Beauty Salon Osaka</option></select></label><label>{tc("date")}<input type="date" value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} /></label><label>{tc("time")}<select value={draft.time} onChange={(event) => updateDraft("time", event.target.value)}>{timeSlots.map((time) => <option key={time}>{time}</option>)}</select></label><label>{tc("staff")}<select value={draft.staff} onChange={(event) => updateDraft("staff", event.target.value)}><option value="">{tr("autoStaff")}</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label><label>{tc("email")}<input required type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="name@gmail.com" /></label><label>{tc("customer")}<input required value={draft.customer} onChange={(event) => updateDraft("customer", event.target.value)} placeholder="Nguyen Van A" /></label><label>{tc("phone")}<input required value={draft.phone} onChange={(event) => updateDraft("phone", event.target.value)} placeholder="090-0000-0000" /></label></div><div className="bookingCheckoutBar"><span>{selectedService ? `${selectedService.duration} min · ${money(selectedService.price)}` : tr("chooseService")}</span><button className="primary" type="submit">{tr("confirmBooking")}</button></div></form>{message && <p className="storeNote successNote">{message}</p>}</section>}
-      {profileOpen && <CustomerProfile onClose={() => setProfileOpen(false)} />}
+      {profileOpen && <CustomerProfile language={language} onClose={() => setProfileOpen(false)} />}
 
       {selectedProduct && <div className="bookingModalBackdrop" onMouseDown={() => setSelectedProduct(null)}><form className="card bookingModal productCheckoutModal" onSubmit={submitProductOrder} onMouseDown={(event) => event.stopPropagation()}><div className="modalHead"><div><p className="eyebrow">{tr("checkoutTitle")}</p><h2>{selectedProduct.name}</h2><p>{Number(selectedProduct.stock || 0) > 0 ? tr("canBuy", { stock: selectedProduct.stock }) : tr("outOfStock")}</p></div><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("close")}</button></div><div className="checkoutProductLine">{selectedProduct.mediaUrl && <img src={selectedProduct.mediaUrl} alt={selectedProduct.name} />}<div><strong>{money(selectedProduct.salePrice || selectedProduct.basePrice)}</strong><span>{selectedProduct.description || selectedProduct.shortDescription}</span></div></div><div className="fulfillmentTabs"><button type="button" className={checkout.fulfillmentType === "pickup" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "pickup")}>{tr("pickup")}</button><button type="button" className={checkout.fulfillmentType === "shipping" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "shipping")}>{tr("shipping")}</button></div><div className="formGrid modalForm"><label>{tc("customer")}<input required value={checkout.customer} onChange={(event) => updateCheckout("customer", event.target.value)} /></label><label>{tc("phone")}<input required value={checkout.phone} onChange={(event) => updateCheckout("phone", event.target.value)} /></label><label>{tc("email")}<input required type="email" value={checkout.email} onChange={(event) => updateCheckout("email", event.target.value)} /></label>{checkout.fulfillmentType === "shipping" && <><label>{tr("paymentMethod")}<select value={checkout.paymentMethod} onChange={(event) => updateCheckout("paymentMethod", event.target.value)}>{availablePayments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="fullField">{tr("deliveryAddress")}<input required value={checkout.address} onChange={(event) => updateCheckout("address", event.target.value)} /></label><label className="fullField">{tr("deliveryNote")}<input value={checkout.note} onChange={(event) => updateCheckout("note", event.target.value)} /></label>{checkout.paymentMethod === "bankTransfer" && <div className="bankTransferBox fullField"><strong>{settings.bankName} · {settings.bankAccount}</strong><span>{settings.bankHolder}</span><small>{settings.paymentNote}</small><label>{tr("uploadBill")}<input type="file" accept="image/*" onChange={uploadTransferBill} /></label>{checkout.transferBillUrl && <img src={checkout.transferBillUrl} alt="Transfer bill preview" />}</div>}</>}</div><div className="modalActions"><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("cancel")}</button><button className="primary" type="submit" disabled={Number(selectedProduct.stock || 0) <= 0}>{tr("createOrder")}</button></div></form></div>}
     </div>
