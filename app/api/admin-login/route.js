@@ -13,7 +13,8 @@ export async function POST(request) {
     return Response.json({ ok: false, message: "Sai tài khoản hoặc mật khẩu admin." }, { status: 401 });
   }
 
-  return Response.json({
+  const sessionToken = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${adminUser}:${adminPass}`)).then((digest) => Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+  const response = Response.json({
     ok: true,
     account: {
       id: "owner",
@@ -25,4 +26,6 @@ export async function POST(request) {
       staffName: "",
     },
   });
+  response.headers.set("Set-Cookie", `nail_admin_session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
+  return response;
 }
