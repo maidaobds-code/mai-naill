@@ -97,7 +97,12 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
 
   useEffect(() => {
     setSettings(getAppSettings());
-    getPublicKv("nail-japan-settings").then((remote) => { if (remote) setSettings((current) => ({ ...current, ...remote, qrImageUrl: publicStorageUrl(remote.qrImageUrl) })); }).catch(() => {});
+    fetch("/api/settings", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result) => {
+        if (result.value) setSettings((current) => ({ ...current, ...result.value, qrImageUrl: publicStorageUrl(result.value.qrImageUrl) }));
+      })
+      .catch(() => getPublicKv("nail-japan-settings").then((remote) => { if (remote) setSettings((current) => ({ ...current, ...remote, qrImageUrl: publicStorageUrl(remote.qrImageUrl) })); }).catch(() => {}));
   }, []);
 
   useEffect(() => {

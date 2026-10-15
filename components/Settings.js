@@ -66,7 +66,18 @@ export default function Settings({ language = "vi" }) {
     ["staff", tr("staffPanel"), tr("staffPanelDesc")],
   ];
 
-  useEffect(() => { let mounted = true; async function load() { setSettings(getAppSettings()); if (supabaseReady()) { try { const remote = await getKv("nail-japan-settings"); if (mounted && remote) { setSettings({ ...defaultSettings, ...remote }); window.localStorage.setItem("nail-japan-settings", JSON.stringify({ ...defaultSettings, ...remote })); } } catch {} } } load(); return () => { mounted = false; }; }, []);
+  useEffect(() => { let mounted = true; async function load() { setSettings(getAppSettings()); try { const response = await fetch("/api/settings", { cache: "no-store" }); const result = await response.json(); const remote = result.value || (supabaseReady() ? await getKv("nail-japan-settings") : null); if (mounted && remote) { const next = { ...defaultSettings, ...remote }; setSettings(next); window.localStorage.setItem("nail-japan-settings", JSON.stringify(next)); } } catch {} } load(); return () => { mounted = false; }; }, []);
+
+  async function saveServerSettings(value) {
+    const response = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(value),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.message || "Không thể lưu cài đặt lên Supabase.");
+    return result.value || value;
+  }
 
   function update(field, value) {
     setSaved(false);
@@ -93,7 +104,11 @@ export default function Settings({ language = "vi" }) {
         const response = await fetch("/api/qr-upload", { method: "POST", body });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.url) throw new Error(result.message || "Không thể tải ảnh QR lên Supabase.");
-        update("qrImageUrl", result.url);
+        const nextSettings = { ...settings, qrImageUrl: result.url };
+        setSettings(nextSettings);
+        window.localStorage.setItem("nail-japan-settings", JSON.stringify(nextSettings));
+        await saveServerSettings(nextSettings);
+        setSaved(true);
       } catch (error) {
         setQrUploadError(error.message || "Không thể tải ảnh QR lên Supabase.");
       }
@@ -125,11 +140,18 @@ export default function Settings({ language = "vi" }) {
     }));
   }
 
-  function saveSettings(event) {
+  async function saveSettings(event) {
     event.preventDefault();
+    setQrUploadError("");
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(settings));
-    if (supabaseReady()) saveKv("nail-japan-settings", settings).catch(() => {});
-    setSaved(true);
+    try {
+      await saveServerSettings(settings);
+      if (supabaseReady()) saveKv("nail-japan-settings", settings).catch(() => {});
+      setSaved(true);
+    } catch (error) {
+      setSaved(false);
+      setQrUploadError(error.message || "Không thể lưu cài đặt lên Supabase.");
+    }
   }
 
   return (
