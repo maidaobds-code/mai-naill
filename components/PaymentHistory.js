@@ -79,7 +79,7 @@ const copy = {
 
 export default function PaymentHistory({ language = "vi" }) {
   const c = copy[language] || copy.vi;
-  const actionText = language === "en" ? { edit: "Edit payment", save: "Save payment", staff: "Staff", choose: "Select staff", cancelled: "Cancelled - excluded from revenue" } : language === "ja" ? { edit: "支払いを修正", save: "支払いを保存", staff: "スタッフ", choose: "スタッフを選択", cancelled: "キャンセル済み - 売上対象外" } : { edit: "Sửa thanh toán", save: "Lưu thanh toán", staff: "Nhân viên", choose: "Chọn nhân viên", cancelled: "Đã hủy - không tính doanh số" };
+  const actionText = language === "en" ? { edit: "Edit payment", save: "Save payment", staff: "Staff", choose: "Select staff", cancelled: "Cancelled - excluded from revenue", receipt: "Print receipt" } : language === "ja" ? { edit: "支払いを修正", save: "支払いを保存", staff: "スタッフ", choose: "スタッフを選択", cancelled: "キャンセル済み - 売上対象外", receipt: "領収書を印刷" } : { edit: "Sửa thanh toán", save: "Lưu thanh toán", staff: "Nhân viên", choose: "Chọn nhân viên", cancelled: "Đã hủy - không tính doanh số", receipt: "In 領収書" };
   const [sales, setSales] = useState(() => getStoredPosSales());
   const [selectedId, setSelectedId] = useState("");
   const [printing, setPrinting] = useState(false);
@@ -226,7 +226,7 @@ export default function PaymentHistory({ language = "vi" }) {
             >
               {printing ? c.printing : c.reprint}
             </button>
-            {!selected.voided && <div className="paymentHistoryActions"><button type="button" className="ghost" onClick={() => setEditing((value) => !value)}>{actionText.edit}</button></div>}
+            {!selected.voided && <div className="paymentHistoryActions"><button type="button" className="ghost" onClick={() => { setNotice(""); window.print(); }}>{actionText.receipt}</button><button type="button" className="ghost" onClick={() => setEditing((value) => !value)}>{actionText.edit}</button></div>}
             {editing && !selected.voided && <div className="paymentEditBox"><label>{actionText.staff}<select value={editStaff} onChange={(event) => setEditStaff(event.target.value)}><option value="">{actionText.choose}</option>{staff.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label><label>{c.total}<input type="number" min="0" value={editTotal} onChange={(event) => setEditTotal(event.target.value)} /></label><button type="button" className="primary" onClick={saveEditedPayment}>{actionText.save}</button></div>}
             {notice && <p className="printerNotice">{notice}</p>}
             <div className="orderInfoGrid">
