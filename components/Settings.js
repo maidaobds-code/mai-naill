@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { tx } from "../lib/i18nClean";
 import { bookingProviders } from "../lib/booking-providers/registry";
 import { platforms, syncEvents } from "../lib/salonData";
-import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
+import { getKv, saveKv, supabaseReady, uploadDataUrl } from "../lib/supabaseBrowser";
 import StaffManagement from "./StaffManagement";
 
 export const defaultSettings = {
@@ -80,11 +80,16 @@ export default function Settings({ language = "vi" }) {
     reader.readAsDataURL(file);
   }
 
-  function uploadQr(event) {
+  async function uploadQr(event) {
     const file = event.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => update("qrImageUrl", reader.result);
+    reader.onload = async () => {
+      try {
+        const uploaded = supabaseReady() ? await uploadDataUrl(reader.result, "qr", file.name || "qr-code") : reader.result;
+        update("qrImageUrl", uploaded);
+      } catch { update("qrImageUrl", reader.result); }
+    };
     reader.readAsDataURL(file);
   }
 
