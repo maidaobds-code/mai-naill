@@ -6,6 +6,8 @@ import { useProductCatalog, useServiceCatalog } from "../lib/catalogStore";
 import { useStaffStore } from "../lib/staffStore";
 import { tx } from "../lib/i18nClean";
 import { defaultSettings, getAppSettings } from "./Settings";
+import PrinterManager from "./PrinterManager";
+import { getPrinterSettings, printStarReceipt } from "../lib/starPrinter";
 
 const CHECKOUT_KEY = "nail-japan-pos-sales";
 const DRAFT_KEY = "nail-japan-pos-draft";
@@ -280,12 +282,16 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
       } else {
         setDrawerNotice("");
       }
-      printDocument("receipt");
+      printDocument("receipt", record, hasCashPayment);
     }
   }
 
-  function printDocument(type) {
+  async function printDocument(type, sale = order, openDrawer = false) {
     setPrintMode(type);
+    if (type === "receipt" && getPrinterSettings().mode === "star-usb") {
+      try { await printStarReceipt(sale, settings, { openDrawer }); setDrawerNotice("Star mPOP: OK"); return; }
+      catch (printError) { setError(`Star mPOP: ${printError?.message || "Print failed"}`); }
+    }
     window.setTimeout(() => window.print(), 120);
   }
 
@@ -299,7 +305,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
     <section className="card nailPosPanel">
 	      <div className="nailPosHeader">
 	        <div><h1>{label}</h1><p>{tr("subtitle")}</p></div>
-	        <div className="nailPosHeaderActions"><button className="ghost" onClick={() => setHistoryOpen(true)}>{tr("paymentHistory")}</button><span className="pill active">{order.paymentStatus === "Paid" ? tr("paid") : tr("draft")}</span></div>
+	        <div className="nailPosHeaderActions"><PrinterManager language={language} /><button className="ghost" onClick={() => setHistoryOpen(true)}>{tr("paymentHistory")}</button><span className="pill active">{order.paymentStatus === "Paid" ? tr("paid") : tr("draft")}</span></div>
       </div>
 
       {error && <div className="orderToast card"><strong>POS</strong><span>{error}</span></div>}
