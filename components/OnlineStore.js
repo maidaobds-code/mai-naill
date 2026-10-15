@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBookingStore } from "../lib/bookingStore";
@@ -15,7 +15,7 @@ const timeSlots = Array.from({ length: 29 }, (_, index) => {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 });
 
-const emptyCheckout = { fulfillmentType: "pickup", paymentMethod: "payAtStore", customer: "", phone: "", email: "", address: "", note: "", transferBillUrl: "", transferBillName: "" };
+const emptyCheckout = { fulfillmentType: "pickup", paymentMethod: "payAtStore", customer: "", phone: "", email: "", postalCode: "", address: "", note: "", transferBillUrl: "", transferBillName: "" };
 const LANGUAGE_KEY = "nail-japan-store-language";
 
 function storedLanguage(fallback) {
@@ -59,6 +59,8 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   const [message, setMessage] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [checkout, setCheckout] = useState(emptyCheckout);
+  const [paymentReview, setPaymentReview] = useState(false);
+  const [postalLoading, setPostalLoading] = useState(false);
   const [trackingId, setTrackingId] = useState("");
   const [chatDraft, setChatDraft] = useState("");
   const [productSearch, setProductSearch] = useState("");
@@ -199,6 +201,20 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     reader.readAsDataURL(file);
   }
 
+  async function lookupPostalCode() {
+    const postal = checkout.postalCode.replace(/[^0-9]/g, "");
+    if (postal.length !== 7) { setMessage(language === "ja" ? "郵便番号は7桁で入力してください。" : language === "en" ? "Enter a 7-digit postal code." : "Vui lòng nhập mã bưu điện 7 số."); return; }
+    setPostalLoading(true);
+    try {
+      const response = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${postal}`);
+      const data = await response.json();
+      const result = data.results?.[0];
+      if (!result) throw new Error("not-found");
+      updateCheckout("address", `${result.address1}${result.address2}${result.address3}`);
+    } catch { setMessage(language === "ja" ? "郵便番号が見つかりません。" : language === "en" ? "Postal code not found." : "Không tìm thấy mã bưu điện."); }
+    finally { setPostalLoading(false); }
+  }
+
   function submitProductOrder(event) {
     event.preventDefault();
     if (!currentAccount) {
@@ -216,6 +232,10 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     }
     if (checkout.fulfillmentType === "shipping" && !checkout.address.trim()) {
       setMessage(tr("requiredAddress"));
+      return;
+    }
+    if (checkout.fulfillmentType === "shipping" && !checkout.postalCode.trim()) {
+      setMessage(language === "ja" ? "郵便番号を入力してください。" : language === "en" ? "Please enter a postal code." : "Vui lòng nhập mã bưu điện.");
       return;
     }
     if (checkout.fulfillmentType === "shipping" && !checkout.paymentMethod) {
@@ -309,7 +329,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
       {showBooking && <section id="online-booking" className="card storeBooking bookingSurface softBookingPanel"><div className="sectionTitle"><div><h2>{tr("bookingTitle")}</h2><p>{tr("bookingText")}</p></div></div><div className="serviceChoiceRail">{activeServices.map((service) => <button type="button" key={service.id} className={draft.service === service.name ? "serviceChoice active" : "serviceChoice"} onClick={() => chooseService(service)}>{service.imageUrl ? <img src={service.imageUrl} alt={service.name} /> : <span>{service.name.slice(0, 1)}</span>}<strong>{service.name}</strong><small>{service.duration} {localCopy.minutes} · {money(service.price)}</small></button>)}</div><form onSubmit={submitBooking}><div className="bookingFormGrid softBookingGrid"><label>{tc("service")}<select value={draft.service} onChange={(event) => updateDraft("service", event.target.value)}>{activeServices.map((service) => <option key={service.id}>{service.name}</option>)}</select></label><label>{localCopy.branch}<select value={draft.branch} onChange={(event) => updateDraft("branch", event.target.value)}><option>Mai Beauty Salon Tokyo</option><option>Mai Beauty Salon Osaka</option></select></label><label>{tc("date")}<input type="date" value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} /></label><label>{tc("time")}<select value={draft.time} onChange={(event) => updateDraft("time", event.target.value)}>{timeSlots.map((time) => <option key={time}>{time}</option>)}</select></label><label>{tc("staff")}<select value={draft.staff} onChange={(event) => updateDraft("staff", event.target.value)}><option value="">{tr("autoStaff")}</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label><label>{tc("email")}<input required type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="name@gmail.com" /></label><label>{tc("customer")}<input required value={draft.customer} onChange={(event) => updateDraft("customer", event.target.value)} placeholder="Nguyen Van A" /></label><label>{tc("phone")}<input required value={draft.phone} onChange={(event) => updateDraft("phone", event.target.value)} placeholder="090-0000-0000" /></label></div><div className="bookingCheckoutBar"><span>{selectedService ? `${selectedService.duration} ${localCopy.minutes} · ${money(selectedService.price)}` : tr("chooseService")}</span><button className="primary" type="submit">{tr("confirmBooking")}</button></div></form>{message && <p className="storeNote successNote">{message}</p>}</section>}
       {profileOpen && <CustomerProfile language={language} onClose={() => setProfileOpen(false)} />}
 
-      {selectedProduct && <div className="bookingModalBackdrop" onMouseDown={() => setSelectedProduct(null)}><form className="card bookingModal productCheckoutModal" onSubmit={submitProductOrder} onMouseDown={(event) => event.stopPropagation()}><div className="modalHead"><div><p className="eyebrow">{tr("checkoutTitle")}</p><h2>{selectedProduct.name}</h2><p>{Number(selectedProduct.stock || 0) > 0 ? tr("canBuy", { stock: selectedProduct.stock }) : tr("outOfStock")}</p></div><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("close")}</button></div><div className="checkoutProductLine">{selectedProduct.mediaUrl && <img src={selectedProduct.mediaUrl} alt={selectedProduct.name} />}<div><strong>{money(selectedProduct.salePrice || selectedProduct.basePrice)}</strong><span>{selectedProduct.description || selectedProduct.shortDescription}</span></div></div><div className="fulfillmentTabs"><button type="button" className={checkout.fulfillmentType === "pickup" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "pickup")}>{tr("pickup")}</button><button type="button" className={checkout.fulfillmentType === "shipping" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "shipping")}>{tr("shipping")}</button></div><div className="formGrid modalForm"><label>{tc("customer")}<input required value={checkout.customer} onChange={(event) => updateCheckout("customer", event.target.value)} /></label><label>{tc("phone")}<input required value={checkout.phone} onChange={(event) => updateCheckout("phone", event.target.value)} /></label><label>{tc("email")}<input required type="email" value={checkout.email} onChange={(event) => updateCheckout("email", event.target.value)} /></label>{checkout.fulfillmentType === "shipping" && <><label>{tr("paymentMethod")}<select value={checkout.paymentMethod} onChange={(event) => updateCheckout("paymentMethod", event.target.value)}>{availablePayments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="fullField">{tr("deliveryAddress")}<input required value={checkout.address} onChange={(event) => updateCheckout("address", event.target.value)} /></label><label className="fullField">{tr("deliveryNote")}<input value={checkout.note} onChange={(event) => updateCheckout("note", event.target.value)} /></label>{checkout.paymentMethod === "bankTransfer" && <div className="bankTransferBox fullField"><strong>{settings.bankName} · {settings.bankAccount}</strong><span>{settings.bankHolder}</span><small>{settings.paymentNote}</small><label>{tr("uploadBill")}<input type="file" accept="image/*" onChange={uploadTransferBill} /></label>{checkout.transferBillUrl && <img src={checkout.transferBillUrl} alt="Transfer bill preview" />}</div>}</>}</div><div className="modalActions"><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("cancel")}</button><button className="primary" type="submit" disabled={Number(selectedProduct.stock || 0) <= 0}>{tr("createOrder")}</button></div></form></div>}
+      {selectedProduct && <div className="bookingModalBackdrop" onMouseDown={() => setSelectedProduct(null)}><form className="card bookingModal productCheckoutModal" onSubmit={submitProductOrder} onMouseDown={(event) => event.stopPropagation()}><div className="modalHead"><div><p className="eyebrow">{tr("checkoutTitle")}</p><h2>{selectedProduct.name}</h2><p>{Number(selectedProduct.stock || 0) > 0 ? tr("canBuy", { stock: selectedProduct.stock }) : tr("outOfStock")}</p></div><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("close")}</button></div><div className="checkoutProductLine">{selectedProduct.mediaUrl && <img src={selectedProduct.mediaUrl} alt={selectedProduct.name} />}<div><strong>{money(selectedProduct.salePrice || selectedProduct.basePrice)}</strong><span>{selectedProduct.description || selectedProduct.shortDescription}</span></div></div><div className="fulfillmentTabs"><button type="button" className={checkout.fulfillmentType === "pickup" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "pickup")}>{tr("pickup")}</button><button type="button" className={checkout.fulfillmentType === "shipping" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "shipping")}>{tr("shipping")}</button></div><div className="formGrid modalForm"><label>{tc("customer")}<input required value={checkout.customer} onChange={(event) => updateCheckout("customer", event.target.value)} /></label><label>{tc("phone")}<input required value={checkout.phone} onChange={(event) => updateCheckout("phone", event.target.value)} /></label><label>{tc("email")}<input required type="email" value={checkout.email} onChange={(event) => updateCheckout("email", event.target.value)} /></label>{checkout.fulfillmentType === "shipping" && <><label>{tr("paymentMethod")}<select value={checkout.paymentMethod} onChange={(event) => updateCheckout("paymentMethod", event.target.value)}>{availablePayments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><div className="postalLookup"><label>{language === "ja" ? "郵便番号" : language === "en" ? "Postal code" : "Mã bưu điện"}<input required value={checkout.postalCode} onChange={(event) => updateCheckout("postalCode", event.target.value)} placeholder="1234567" /></label><button type="button" className="ghost" onClick={lookupPostalCode} disabled={postalLoading}>{postalLoading ? "…" : (language === "ja" ? "検索" : language === "en" ? "Find" : "Tìm kiếm")}</button></div><label className="fullField">{tr("deliveryAddress")}<input required value={checkout.address} onChange={(event) => updateCheckout("address", event.target.value)} /></label><label className="fullField">{tr("deliveryNote")}<input value={checkout.note} onChange={(event) => updateCheckout("note", event.target.value)} /></label>{checkout.paymentMethod === "bankTransfer" && <div className="bankTransferBox fullField"><strong>{settings.bankName} · {settings.bankAccount}</strong><span>{settings.bankHolder}</span><small>{settings.paymentNote}</small><label>{tr("uploadBill")}<input type="file" accept="image/*" onChange={uploadTransferBill} /></label>{checkout.transferBillUrl && <img src={checkout.transferBillUrl} alt="Transfer bill preview" />}</div>}</>}</div><div className="modalActions"><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("cancel")}</button><button className="primary" type="submit" disabled={Number(selectedProduct.stock || 0) <= 0}>{tr("createOrder")}</button></div></form></div>}
     </div>
   );
 }
