@@ -1706,6 +1706,8 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .paymentReviewGrid strong,.paymentReviewGrid span { display:block; }
 .paymentReviewGrid span { margin-top:5px; color:var(--muted); }
 .paymentReviewModal .bankTransferBox img { max-width:180px; max-height:180px; object-fit:contain; display:block; margin-top:10px; }
+.bookingModalBackdrop:has(.paymentReviewModal) { z-index: 30; }
+.productCheckoutModal .bankTransferBox { display:none; }
 @media(max-width:600px){.paymentReviewGrid{grid-template-columns:1fr;}}
 
 /* Keep the appointment time axis on one compact horizontal row. */
