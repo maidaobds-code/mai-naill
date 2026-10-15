@@ -72,8 +72,10 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [selected, setSelected] = useState(blankBooking(6, "10:00", staff[0]));
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
+  const [paintRange, setPaintRange] = useState(null);
   const { bookings, setBookings } = useBookingStore();
   const pressRef = useRef(null);
+  const paintRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => bookingDay(booking) === selectedDay);
   const weekTotal = bookings.filter((booking) => bookingDay(booking) >= 6 && bookingDay(booking) <= 12).length;
   const monthTotal = bookings.length;
@@ -111,6 +113,48 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       return;
     }
     openSelection(hour, member);
+  }
+
+  function beginPaint(event, hour, member) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    paintRef.current = { pointerId: event.pointerId, member, startHour: hour, endHour: hour };
+    setPaintRange({ memberId: member.id, startHour: hour, endHour: hour });
+  }
+
+  function movePaint(event) {
+    const painting = paintRef.current;
+    if (!painting || painting.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".slotHit");
+    const hour = target?.dataset?.hour;
+    const memberId = target?.dataset?.member;
+    if (!hour || memberId !== painting.member.id || hour === painting.endHour) return;
+    painting.endHour = hour;
+    setPaintRange({ memberId, startHour: painting.startHour, endHour: hour });
+  }
+
+  function finishPaint(event) {
+    const painting = paintRef.current;
+    if (!painting || painting.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const startIndex = intervalSlots.indexOf(painting.startHour);
+    const endIndex = intervalSlots.indexOf(painting.endHour);
+    const firstIndex = Math.min(startIndex, endIndex);
+    const lastIndex = Math.max(startIndex, endIndex);
+    setSelected({ ...blankBooking(selectedDay, slots[firstIndex], painting.member), end: slots[Math.min(lastIndex + 1, slots.length - 1)] });
+    paintRef.current = null;
+    setPaintRange(null);
+    setModalOpen(true);
+  }
+
+  function isPainted(hour, memberId) {
+    if (!paintRange || paintRange.memberId !== memberId) return false;
+    const slotIndex = intervalSlots.indexOf(hour);
+    const startIndex = intervalSlots.indexOf(paintRange.startHour);
+    const endIndex = intervalSlots.indexOf(paintRange.endHour);
+    return slotIndex >= Math.min(startIndex, endIndex) && slotIndex <= Math.max(startIndex, endIndex);
   }
 
   function openBookingAfterHold(booking) {
@@ -204,12 +248,15 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div className="slotHitGrid">
                       {intervalSlots.map((hour) => (
                         <button
-                          className="slotHit"
+                          className={isPainted(hour, member.id) ? "slotHit painting" : "slotHit"}
                           key={`${member.id}-${hour}`}
-                          onMouseDown={() => beginSelect(hour, member)}
-                          onMouseUp={() => finishSelect(hour, member)}
-                          onTouchStart={() => beginSelect(hour, member)}
-                          onTouchEnd={() => finishSelect(hour, member)}
+                          data-hour={hour}
+                          data-member={member.id}
+                          style={{ "--paint-color": member.color }}
+                          onPointerDown={(event) => beginPaint(event, hour, member)}
+                          onPointerMove={movePaint}
+                          onPointerUp={finishPaint}
+                          onPointerCancel={() => { paintRef.current = null; setPaintRange(null); }}
                           onDoubleClick={() => { setSelected(blankBooking(selectedDay, hour, member)); setModalOpen(true); }}
                         />
                       ))}
