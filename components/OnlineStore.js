@@ -43,6 +43,10 @@ function paymentOptions(settings, fulfillmentType, language = "vi") {
   ].filter(Boolean);
 }
 
+function notifyByEmail(payload) {
+  return fetch("/api/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
+}
+
 export default function OnlineStore({ language: initialLanguage = "vi", setLanguage: externalSetLanguage, mode = "all" }) {
   const [language, setLanguage] = useState(() => storedLanguage(initialLanguage));
   const tr = (key, vars) => tx(language, "online", key, vars);
@@ -261,6 +265,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
       transferBillName: checkout.transferBillName,
     });
     setTrackingId(order.orderNumber);
+    notifyByEmail({ to: [checkout.email].filter(Boolean), subject: `Đơn hàng ${order.orderNumber} - Mai Beauty Salon`, html: `<h2>Đơn hàng ${order.orderNumber}</h2><p>Khách hàng: ${checkout.customer}</p><p>Sản phẩm: ${selectedProduct.name}</p><p>Tổng tiền: ${money(order.total)}</p>` });
     setMessage(tr("orderCreated", { order: order.orderNumber }));
     setSelectedProduct(null);
   }
@@ -283,6 +288,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     }
 
     const saved = addBooking({ day: draft.day, start: draft.time, end: addMinutes(draft.time, selectedService.duration), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: selectedService.name, staff: draft.staff || selectedService.staff?.[0] || staff[0].name, source: "direct", origin: localCopy.websiteBooking, price: selectedService.price, commissionRule: localCopy.websiteBooking });
+    notifyByEmail({ to: [draft.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách hàng: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
     setMessage(tr("bookingCreated", { time: saved.start, date: draft.date }));
     setDraft((current) => ({ ...current, customer: accountContact.customer, phone: accountContact.phone, email: accountContact.email }));
   }
