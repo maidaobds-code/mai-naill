@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { tx } from "../lib/i18nClean";
 import { bookingProviders } from "../lib/booking-providers/registry";
 import { platforms, syncEvents } from "../lib/salonData";
-import { getKv, saveKv, supabaseReady, uploadDataUrl } from "../lib/supabaseBrowser";
+import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
 import StaffManagement from "./StaffManagement";
 
 export const defaultSettings = {
@@ -88,9 +88,12 @@ export default function Settings({ language = "vi" }) {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        if (!supabaseReady()) throw new Error("Vui lòng đăng nhập Supabase trước khi tải ảnh QR lên.");
-        const uploaded = await uploadDataUrl(reader.result, "qr", file.name || "qr-code");
-        update("qrImageUrl", uploaded);
+        const body = new FormData();
+        body.append("file", file);
+        const response = await fetch("/api/qr-upload", { method: "POST", body });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.url) throw new Error(result.message || "Không thể tải ảnh QR lên Supabase.");
+        update("qrImageUrl", result.url);
       } catch (error) {
         setQrUploadError(error.message || "Không thể tải ảnh QR lên Supabase.");
       }
