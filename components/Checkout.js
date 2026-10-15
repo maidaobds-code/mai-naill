@@ -380,6 +380,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
 	          <label><span>{tr("amount")}</span><input type="number" value={paymentForMethod("cash")?.amount || ""} onChange={(event) => { const payment = paymentForMethod("cash"); if (payment) updatePayment(payment.id, { amount: Number(event.target.value) }); }} /></label>
 	          <label><span>{tr("cashReceived")}</span><input type="number" value={paymentForMethod("cash")?.received || ""} onChange={(event) => { const payment = paymentForMethod("cash"); if (!payment) return; const received = Number(event.target.value); updatePayment(payment.id, { received, amount: Math.min(received, total) }); }} /></label>
 	        </div>
+        <div className={change > 0 ? "nailCashChange active" : "nailCashChange"}><span>{tr("change")}</span><strong>{yen(change)}</strong></div>
 	      </div>
 	      <button type="button" className={paymentOpen ? "nailDisclosure active" : "nailDisclosure"} onClick={() => setPaymentOpen((value) => !value)} aria-expanded={paymentOpen}><span>💳 {tr("paymentMethods")}</span><span className="nailDisclosureValue">{paymentMethodText || paymentLabel("cash", paymentMethods)}</span><strong>{paymentOpen ? "−" : "+"}</strong></button>
       {paymentOpen && <div className="nailCollapsible"><div className="nailPaymentMethodList">

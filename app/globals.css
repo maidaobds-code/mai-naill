@@ -1251,6 +1251,8 @@ section.nailPosPanel .nailPaymentAppName {
 .nailCashFixedInputs { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .nailCashFixedInputs label { display:grid; gap:6px; color:var(--muted); font-size:12px; font-weight:800; }
 .nailCashFixedInputs input { width:100%; min-width:0; border:1px solid var(--line); border-radius:13px; padding:11px; background:#fff; color:var(--ink); font:inherit; }
+.nailCashChange { display:flex; justify-content:space-between; margin-top:10px; padding:10px 12px; border-radius:12px; background:#f8fafc; color:var(--muted); font-weight:800; }
+.nailCashChange.active { background:#dcfce7; color:#166534; }
 @keyframes nailReveal { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
 @media (max-width:560px) { .nailDisclosureValue { max-width:125px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .nailCashFixedInputs { grid-template-columns:1fr; } }
 
@@ -1813,6 +1815,12 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .paymentHistoryLines p { display:flex; justify-content:space-between; gap:12px; margin:0; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.68); }
 .paymentHistoryEmpty { padding:24px; text-align:center; color:var(--muted); }
 .paymentHistoryPrint { width:100%; margin:16px 0 4px; }
+.paymentHistoryActions { display:flex; gap:8px; margin:8px 0 12px; }
+.paymentHistoryActions button { flex:1; min-height:42px; }
+.paymentEditBox { display:grid; gap:10px; margin:12px 0; padding:14px; border:1px solid #fed7aa; border-radius:16px; background:#fff7ed; }
+.paymentEditBox label { display:grid; gap:6px; font-size:12px; font-weight:800; color:#5b5364; }
+.paymentEditBox input,.paymentEditBox select { width:100%; border:1px solid var(--line); border-radius:11px; padding:10px; background:#fff; font:inherit; }
+.voidedPaymentRow { opacity:.55; text-decoration:line-through; }
 .printerNotice { margin:8px 0; color:#15803d; font-size:13px; }
 .paymentHistoryPrintDocument { display:none; }
 @media (max-width: 1000px) { .paymentHistoryWorkspace { grid-template-columns:1fr; } .paymentHistoryDetail { position:static; } }
