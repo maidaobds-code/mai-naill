@@ -287,6 +287,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
       customer: checkout.customer.trim(),
       phone: checkout.phone.trim(),
       email: checkout.email.trim(),
+      customerAccountId: currentAccount?.id || "",
       fulfillmentType: checkout.fulfillmentType,
       paymentMethod: checkout.paymentMethod,
       address: checkout.address.trim(),
@@ -301,7 +302,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   }
 
   function confirmProductPayment() {
-    const order = addOrder({ productId: selectedProduct.id, productName: selectedProduct.name, quantity: 1, total: selectedProduct.salePrice || selectedProduct.basePrice, stockAtOrder: selectedProduct.stock, customer: checkout.customer.trim(), phone: checkout.phone.trim(), email: checkout.email.trim(), fulfillmentType: checkout.fulfillmentType, paymentMethod: checkout.paymentMethod, address: checkout.address.trim(), postalCode: checkout.postalCode.trim(), note: checkout.note.trim(), transferBillUrl: checkout.transferBillUrl, transferBillName: checkout.transferBillName });
+    const order = addOrder({ productId: selectedProduct.id, productName: selectedProduct.name, quantity: 1, total: selectedProduct.salePrice || selectedProduct.basePrice, stockAtOrder: selectedProduct.stock, customer: checkout.customer.trim(), phone: checkout.phone.trim(), email: checkout.email.trim(), customerAccountId: currentAccount?.id || "", fulfillmentType: checkout.fulfillmentType, paymentMethod: checkout.paymentMethod, address: checkout.address.trim(), postalCode: checkout.postalCode.trim(), note: checkout.note.trim(), transferBillUrl: checkout.transferBillUrl, transferBillName: checkout.transferBillName });
     setTrackingId(order.orderNumber); setMessage(tr("orderCreated", { order: order.orderNumber })); setPaymentReview(false); setSelectedProduct(null);
   }
 

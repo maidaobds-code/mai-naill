@@ -179,7 +179,13 @@ export function CustomerProfile({ language = "vi", onClose }) {
     en: { send: "Send image", uploading: "Sending image…", sent: "Image sent to the salon owner.", error: "Unable to send image." },
     ja: { send: "画像を送信", uploading: "画像を送信中…", sent: "店舗に画像を送信しました。", error: "画像を送信できません。" },
   }[language] || { send: "Gửi ảnh", uploading: "Đang gửi ảnh…", sent: "Đã gửi ảnh cho chủ quán.", error: "Không thể gửi ảnh." };
-  const customerOrders = orders.filter((order) => order.email?.toLowerCase() === currentAccount?.email?.toLowerCase() || order.phone === currentAccount?.phone);
+  const customerEmail = currentAccount?.email?.trim().toLowerCase();
+  const customerPhone = currentAccount?.phone?.replace(/\D/g, "");
+  const customerOrders = orders.filter((order) =>
+    (order.customerAccountId && order.customerAccountId === currentAccount?.id) ||
+    (customerEmail && order.email?.trim().toLowerCase() === customerEmail) ||
+    (customerPhone && order.phone?.replace(/\D/g, "") === customerPhone)
+  );
   const selectedOrder = customerOrders.find((order) => order.id === selectedOrderId) || customerOrders[0];
 
   useEffect(() => {
