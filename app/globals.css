@@ -1779,12 +1779,17 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
   .slotHitGrid { grid-template-columns: repeat(24, 44px); }
 }
 
-.printerOverlay { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; padding:18px; background:rgba(15,23,42,.48); backdrop-filter:blur(12px); }
-.printerModal { width:min(520px,100%); padding:22px; border-radius:26px; }
-.printerModal h2 { margin:4px 0 0; }
-.printerChoices { display:grid; gap:10px; margin:20px 0; }
-.printerChoices button { min-height:48px; }
-.printerStatus { display:grid; gap:6px; padding:14px; border-radius:16px; background:#f8fafc; }
+.printerOverlay { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; padding:18px; background:rgba(15,23,42,.56); backdrop-filter:blur(12px); }
+.printerModal { width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 36px); overflow:auto; padding:24px; border-radius:26px; background:#f8f7fb!important; border:1px solid rgba(255,255,255,.9); box-shadow:0 28px 80px rgba(15,23,42,.28); }
+.printerModal .sectionTitle { align-items:flex-start; gap:18px; margin-bottom:22px; }
+.printerModal .sectionTitle > div:first-child { min-width:0; flex:1; }
+.printerModal .sectionTitle .ghost { flex:0 0 auto; white-space:nowrap; }
+.printerModal h2 { margin:5px 0 0; max-width:300px; font-size:24px; line-height:1.15; overflow-wrap:anywhere; }
+.printerChoices { display:grid; gap:12px; margin:20px 0; }
+.printerChoices button { min-height:56px; width:100%; border-radius:15px; font-weight:800; }
+.printerChoices button:disabled { opacity:.55; cursor:not-allowed; }
+.printerStatus { display:grid; gap:7px; padding:16px; border:1px solid rgba(148,163,184,.22); border-radius:18px; background:#fff; }
+.printerStatus strong { font-size:16px; }
 .printerStatus span { color:#15803d; }
 .printerStatus small { color:var(--muted); line-height:1.45; }
 .printerSettingsPanel { align-content:start; }
@@ -1797,7 +1802,7 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .profileBookingList article > div { display:flex; justify-content:space-between; gap:10px; }
 .profileBookingList article p { margin:0; font-weight:750; }
 .profileBookingList article span,.profileBookingList article small { color:var(--muted); font-size:12px; }
-@media (max-width:700px) { .printerOverlay { padding:0; place-items:stretch; } .printerModal { width:100%; min-height:100dvh; border-radius:0; padding:calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom)); } .nailPosHeaderActions { flex-wrap:wrap; } }
+@media (max-width:700px) { .printerOverlay { padding:0; place-items:stretch; } .printerModal { width:100%; min-height:100dvh; max-height:none; border-radius:0; padding:calc(22px + env(safe-area-inset-top)) 16px calc(22px + env(safe-area-inset-bottom)); } .printerModal h2 { max-width:none; font-size:22px; } .nailPosHeaderActions { flex-wrap:wrap; } }
 
 .paymentHistoryStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .paymentHistoryWorkspace { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr); gap:14px; align-items:start; }
