@@ -53,7 +53,7 @@ export default function Home() {
   else if (activePage === "Orders") content = <Orders language={language} />;
   else if (activePage === "Payment History") content = <PaymentHistory language={language} />;
   else if (activePage === "Payroll") content = <Payroll label={t(language, "payroll")} language={language} currentAccount={currentAccount} />;
-  else if (activePage === "POS / Checkout") content = <Checkout label={t(language, "checkout")} appointmentId={checkoutAppointmentId} language={language} />;
+  else if (activePage === "POS / Checkout") content = <Checkout label={t(language, "checkout")} appointmentId={checkoutAppointmentId} language={language} onOpenPaymentHistory={() => setActive("Payment History")} />;
   else if (activePage === "Reports") content = <Reports language={language} />;
   else if (activePage === "Settings") content = <Settings language={language} />;
   else if (activePage === "Staff") content = <StaffManagement label={t(language, "staff")} language={language} />;

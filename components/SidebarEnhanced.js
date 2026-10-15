@@ -5,9 +5,9 @@ import { useStoreOrders } from "../lib/orderStore";
 const items = [
   ["calendar", "▦", "Calendar", "calendar", "#7dd3fc"],
   ["orders", "◕", "Orders", "orders", "#eab308"],
-  ["payment-history", "¥", "Payment History", "paymentHistory", "#22c55e"],
   ["services", "✦", "Services", "services", "#f9a8d4"],
   ["checkout", "¥", "POS / Checkout", "checkout", "#fbbf24"],
+  ["payment-history", "▤", "Payment History", "paymentHistory", "#22c55e"],
   ["payroll", "円", "Payroll", "payroll", "#86efac"],
   ["store", "◇", "Online Store", "onlineStore", "#f0abfc"],
   ["inventory", "▣", "ProductsInventory", "productsInventory", "#93c5fd"],

@@ -1779,6 +1779,9 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .paymentHistoryLines { display:grid; gap:8px; }
 .paymentHistoryLines p { display:flex; justify-content:space-between; gap:12px; margin:0; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.68); }
 .paymentHistoryEmpty { padding:24px; text-align:center; color:var(--muted); }
+.paymentHistoryPrint { width:100%; margin:16px 0 4px; }
+.printerNotice { margin:8px 0; color:#15803d; font-size:13px; }
+.paymentHistoryPrintDocument { display:none; }
 @media (max-width: 1000px) { .paymentHistoryWorkspace { grid-template-columns:1fr; } .paymentHistoryDetail { position:static; } }
 @media (max-width: 760px) { .paymentHistoryStats { grid-template-columns:1fr 1fr!important; } .paymentHistoryTable table { min-width:760px; } .paymentHistoryWorkspace { margin-bottom:20px; } }
 

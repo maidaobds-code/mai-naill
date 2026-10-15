@@ -64,7 +64,7 @@ export function getStoredPosSales() {
   return readJson(CHECKOUT_KEY, []);
 }
 
-export default function Checkout({ label = "POS / Checkout", appointmentId = "", language = "vi" }) {
+export default function Checkout({ label = "POS / Checkout", appointmentId = "", language = "vi", onOpenPaymentHistory }) {
   const tr = (key, vars) => tx(language, "checkoutPage", key, vars);
   const tc = (key) => tx(language, "common", key);
   const { bookings, setBookings } = useBookingStore();
@@ -305,7 +305,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
     <section className="card nailPosPanel">
 	      <div className="nailPosHeader">
 	        <div><h1>{label}</h1><p>{tr("subtitle")}</p></div>
-	        <div className="nailPosHeaderActions"><PrinterManager language={language} /><button className="ghost" onClick={() => setHistoryOpen(true)}>{tr("paymentHistory")}</button><span className="pill active">{order.paymentStatus === "Paid" ? tr("paid") : tr("draft")}</span></div>
+	        <div className="nailPosHeaderActions"><PrinterManager language={language} /><button className="ghost" onClick={() => onOpenPaymentHistory ? onOpenPaymentHistory() : setHistoryOpen(true)}>{tr("paymentHistory")}</button><span className="pill active">{order.paymentStatus === "Paid" ? tr("paid") : tr("draft")}</span></div>
       </div>
 
       {error && <div className="orderToast card"><strong>POS</strong><span>{error}</span></div>}
