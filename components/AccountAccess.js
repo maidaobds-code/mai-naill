@@ -87,7 +87,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
   }
 
   if (currentAccount) {
-    return <div className="accountStrip"><span>{currentAccount.role === "owner" ? copy.roleOwner : currentAccount.role === "staff" ? copy.roleStaff : copy.roleCustomer} · {currentAccount.name}</span><select className="accountLanguageSelect" value={language} onChange={(event) => changeLanguage(event.target.value)} aria-label={copy.language}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select><button className="ghost" onClick={logout}>{copy.logout}</button></div>;
+    return <div className="accountStrip"><span>{currentAccount.role === "owner" ? copy.roleOwner : currentAccount.role === "staff" ? copy.roleStaff : copy.roleCustomer} · {currentAccount.name}</span><select data-language={language} className="accountLanguageSelect" value={language} onChange={(event) => changeLanguage(event.target.value)} aria-label={copy.language}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select><button className="ghost" onClick={logout}>{copy.logout}</button></div>;
   }
 
   async function submitLogin(event) {
@@ -111,7 +111,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
     return (
       <section className="accountAuthSplit singleAuth">
         <form onSubmit={submitCustomer} className="accountAuth card accountRegisterCard">
-          <div className="loginLanguageSelect"><span>{copy.language}</span><select value={language} onChange={(event) => changeLanguage(event.target.value)}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></div>
+          <div className="loginLanguageSelect"><span>{copy.language}</span><select data-language={language} aria-label={copy.language} value={language} onChange={(event) => changeLanguage(event.target.value)}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></div>
           <div>
             <p className="eyebrow">CUSTOMER ACCOUNT</p>
             <h1>{copy.customerAccount}</h1>
@@ -131,7 +131,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
   return (
     <section className="accountAuthSplit singleAuth">
       <form onSubmit={submitLogin} className="accountAuth card accountLoginCard">
-        <div className="loginLanguageSelect"><span>{copy.language}</span><select value={language} onChange={(event) => changeLanguage(event.target.value)}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></div>
+        <div className="loginLanguageSelect"><span>{copy.language}</span><select data-language={language} aria-label={copy.language} value={language} onChange={(event) => changeLanguage(event.target.value)}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></div>
         <div>
           <p className="eyebrow">LOGIN</p>
           <h1>{copy.login}</h1>

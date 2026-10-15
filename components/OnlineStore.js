@@ -270,7 +270,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
         </nav>
         <div className="storeToolbarTools">
           <button className="storeProfileButton" type="button" onClick={() => currentAccount ? setProfileOpen(true) : window.location.assign("/")}>{currentAccount?.name || tc("customer")}</button>
-          <select className="storeLanguageSelect" value={language} onChange={(event) => changeLanguage(event.target.value)} aria-label={t(language, "language")}>
+          <select data-language={language} className="storeLanguageSelect" value={language} onChange={(event) => changeLanguage(event.target.value)} aria-label={t(language, "language")}>
             {languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
           </select>
         </div>

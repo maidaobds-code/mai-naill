@@ -30,7 +30,7 @@ export default function SidebarEnhanced({ active, setActive, language, setLangua
           </button>
         ))}
       </nav>
-      <div className="languageBox"><span>{t(language, "language")}</span><select value={language} onChange={(event) => setLanguage(event.target.value)}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></div>
+      <div className="languageBox"><span>{t(language, "language")}</span><select data-language={language} aria-label={t(language, "language")} value={language} onChange={(event) => setLanguage(event.target.value)}>{languages.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}</select></div>
       <div className="sidebarFoot"><div className="salonAvatar">MB</div><div><strong>{tx(language, "brand", "name")}</strong><span>{tx(language, "brand", "foot")}</span></div></div>
     </aside>
   );

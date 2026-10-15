@@ -1674,3 +1674,20 @@ section.nailPosPanel .nailPaymentAppName {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Country flag beneath the selected language, with a readable text overlay. */
+select[data-language] {
+ background-color: #fff;
+ background-image: linear-gradient(90deg, rgba(255,255,255,.90), rgba(255,255,255,.48)), var(--language-flag);
+ background-size: cover, 100% 100%;
+ background-position: center;
+ background-repeat: no-repeat;
+ color: #302537;
+ font-weight: 800;
+ text-shadow: 0 1px 2px #fff;
+}
+select[data-language="vi"] { --language-flag: url('/flags/vi.svg'); }
+select[data-language="ja"] { --language-flag: url('/flags/ja.svg'); }
+select[data-language="en"] { --language-flag: url('/flags/en.svg'); }
+select[data-language]:focus-visible { outline: 2px solid #9061b0; outline-offset: 3px; }
+select[data-language] option { background: #fff; color: #302537; text-shadow: none; }
