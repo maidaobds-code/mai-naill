@@ -1761,6 +1761,17 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
   .slotHitGrid { grid-template-columns: repeat(24, 44px); }
 }
 
+.paymentHistoryStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.paymentHistoryWorkspace { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr); gap:14px; align-items:start; }
+.paymentHistoryTable tbody tr { cursor:pointer; }
+.paymentHistoryDetail { position:sticky; top:20px; padding:20px; border-radius:24px; }
+.paymentHistoryDetail h3 { margin:18px 0 10px; }
+.paymentHistoryLines { display:grid; gap:8px; }
+.paymentHistoryLines p { display:flex; justify-content:space-between; gap:12px; margin:0; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.68); }
+.paymentHistoryEmpty { padding:24px; text-align:center; color:var(--muted); }
+@media (max-width: 1000px) { .paymentHistoryWorkspace { grid-template-columns:1fr; } .paymentHistoryDetail { position:static; } }
+@media (max-width: 760px) { .paymentHistoryStats { grid-template-columns:1fr 1fr!important; } .paymentHistoryTable table { min-width:760px; } .paymentHistoryWorkspace { margin-bottom:20px; } }
+
 .resourceTimelineShell,
 .resourceTimeline,
 .resourceLane,

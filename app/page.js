@@ -8,6 +8,7 @@ import ProductInventory from "../components/ProductInventory";
 import ServiceMenu from "../components/ServiceMenu";
 import OnlineStore from "../components/OnlineStore";
 import Orders from "../components/Orders";
+import PaymentHistory from "../components/PaymentHistory";
 import Payroll from "../components/Payroll";
 import Checkout from "../components/Checkout";
 import Reports from "../components/Reports";
@@ -50,6 +51,7 @@ export default function Home() {
   else if (activePage === "ProductsInventory") content = <ProductInventory label={t(language, "productsInventory")} language={language} />;
   else if (activePage === "Online Store") content = <OnlineStore language={language} setLanguage={setLanguage} />;
   else if (activePage === "Orders") content = <Orders language={language} />;
+  else if (activePage === "Payment History") content = <PaymentHistory language={language} />;
   else if (activePage === "Payroll") content = <Payroll label={t(language, "payroll")} language={language} currentAccount={currentAccount} />;
   else if (activePage === "POS / Checkout") content = <Checkout label={t(language, "checkout")} appointmentId={checkoutAppointmentId} language={language} />;
   else if (activePage === "Reports") content = <Reports language={language} />;

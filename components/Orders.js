@@ -69,7 +69,8 @@ export default function Orders({ language = "vi" }) {
   const [printMode, setPrintMode] = useState("");
   const previousCount = useRef(0);
   const posHistory = useMemo(() => posSales.map(normalizePosSale), [posSales]);
-  const allOrders = useMemo(() => [...posHistory, ...orders, ...seedOrders.map(normalizeSeedOrder)], [posHistory, orders]);
+  // Customer orders stay separate from POS payment history to avoid operational mistakes.
+  const allOrders = useMemo(() => [...orders], [orders]);
   const selected = allOrders.find((order) => order.id === selectedId) || allOrders[0];
   const revenue = allOrders.reduce((total, order) => total + Number(order.total || 0), 0);
   const unreadCount = orders.filter((order) => order.unread).length;
