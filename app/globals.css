@@ -1707,6 +1707,7 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .paymentReviewGrid span { margin-top:5px; color:var(--muted); }
 .paymentReviewModal .bankTransferBox img { max-width:180px; max-height:180px; object-fit:contain; display:block; margin-top:10px; }
 .bookingModalBackdrop:has(.paymentReviewModal) { z-index: 30; }
+.paymentReviewBackdrop { position:fixed !important; inset:0 !important; z-index:9999 !important; display:flex !important; align-items:center; justify-content:center; overflow:auto; }
 .productCheckoutModal .bankTransferBox { display:none; }
 @media(max-width:600px){.paymentReviewGrid{grid-template-columns:1fr;}}
 
