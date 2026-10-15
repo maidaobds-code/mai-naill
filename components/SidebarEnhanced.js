@@ -4,15 +4,15 @@ import { useStoreOrders } from "../lib/orderStore";
 
 const items = [
   ["calendar", "▦", "Calendar", "calendar", "#7dd3fc"],
-  ["customers", "●●", "Customers", "customers", "#c4b5fd"],
+  ["orders", "◕", "Orders", "orders", "#eab308"],
   ["services", "✦", "Services", "services", "#f9a8d4"],
   ["checkout", "¥", "POS / Checkout", "checkout", "#fbbf24"],
   ["payroll", "円", "Payroll", "payroll", "#86efac"],
   ["store", "◇", "Online Store", "onlineStore", "#f0abfc"],
   ["inventory", "▣", "ProductsInventory", "productsInventory", "#93c5fd"],
   ["reports", "⌁", "Reports", "reports", "#fb7185"],
-  ["notice", "◕", "Orders", "orders", "#facc15"],
-  ["customers", "◎", "Staff", "staff", "#67e8f9"],
+  ["customers", "●●", "Customers", "customers", "#c4b5fd"],
+  ["staff", "◎", "Staff", "staff", "#06b6d4"],
   ["settings", "⚙", "Settings", "settings", "#a7f3d0"],
 ];
 

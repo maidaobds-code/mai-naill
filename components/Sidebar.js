@@ -3,7 +3,7 @@
 const items = [
   ["D", "Dashboard"],
   ["C", "Calendar"],
-  ["U", "Customers"],
+  ["N", "Orders"],
   ["S", "Staff"],
   ["P", "POS / Checkout"],
   ["Y", "Payroll"],
@@ -11,7 +11,7 @@ const items = [
   ["B", "Products"],
   ["I", "Inventory"],
   ["O", "Online Store"],
-  ["N", "Orders"],
+  ["U", "Customers"],
   ["T", "Settings"],
 ];
 
