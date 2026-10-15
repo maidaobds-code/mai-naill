@@ -362,7 +362,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
         })}
       </div>
 
-      {mode === "all" && <section className="card orderTrackerPanel">
+      {false && mode === "all" && <section className="card orderTrackerPanel">
         <div className="sectionTitle"><div><h2>{tr("trackerTitle")}</h2><p>{tr("trackerText")}</p></div></div>
         <div className="trackerSearch"><input value={trackingId} onChange={(event) => setTrackingId(event.target.value)} placeholder="WEB-123456" /><button className="ghost" onClick={() => setTrackingId(orders[0]?.orderNumber || "")}>{tr("latestOrder")}</button></div>
         {trackedOrder ? <div className="trackingCard"><div><strong>{trackedOrder.orderNumber}</strong><span>{trackedOrder.productName} · {money(trackedOrder.total)}</span><small>{trackedOrder.status} · {trackedOrder.paymentStatus}</small></div>{trackedOrder.transferBillUrl && <img src={trackedOrder.transferBillUrl} alt="Transfer bill" />}<div className="chatBox">{(trackedOrder.chat || []).map((item) => <p key={item.id}>{item.text}</p>)}<div><input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder={tr("chatPlaceholder")} /><button className="primary" onClick={() => { addChatMessage(trackedOrder.id, chatDraft); setChatDraft(""); }}>{tc("send")}</button></div></div></div> : <p className="storeNote">{tr("noOrders")}</p>}
