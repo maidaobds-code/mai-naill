@@ -1728,3 +1728,95 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
   .resourceLane { background-size: 44px 100%; }
   .slotHitGrid { grid-template-columns: repeat(24, 44px); }
 }
+
+/* Mobile overlays behave like dedicated pages instead of cramped dialogs. */
+@media (max-width: 700px) {
+  .bookingModalBackdrop,
+  .paymentReviewBackdrop,
+  .posHistoryOverlay {
+    inset: 0 !important;
+    display: block !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #f5f3f7 !important;
+    backdrop-filter: none !important;
+  }
+
+  .bookingModal,
+  .productCheckoutModal,
+  .paymentReviewModal,
+  .posHistoryModal {
+    width: 100% !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #f5f3f7 !important;
+  }
+
+  .bookingModal .modalHead,
+  .paymentReviewModal .modalHead,
+  .posHistoryHeader {
+    position: sticky;
+    top: calc(-16px - env(safe-area-inset-top));
+    z-index: 12;
+    margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 14px;
+    background: rgba(245,243,247,.97);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(16px);
+  }
+
+  .bookingModal .modalActions,
+  .paymentReviewModal .modalActions {
+    position: sticky;
+    bottom: calc(-96px - env(safe-area-inset-bottom));
+    z-index: 12;
+    margin: 20px -16px calc(-96px - env(safe-area-inset-bottom));
+    padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+    background: rgba(245,243,247,.97);
+    border-top: 1px solid var(--line);
+    backdrop-filter: blur(16px);
+  }
+
+  .customerProfilePanel {
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100dvh !important;
+    max-height: none !important;
+    padding: calc(16px + env(safe-area-inset-top)) 16px calc(92px + env(safe-area-inset-bottom)) !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #f5f3f7 !important;
+  }
+
+  .customerProfilePanel > .modalHead {
+    position: sticky;
+    top: calc(-16px - env(safe-area-inset-top));
+    z-index: 12;
+    margin: calc(-16px - env(safe-area-inset-top)) -16px 18px;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 14px;
+    background: rgba(245,243,247,.97);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .profileModalActions { flex-wrap: wrap; justify-content: flex-end; }
+  .profileGrid,
+  .modalForm,
+  .paymentReviewGrid,
+  .fulfillmentTabs { grid-template-columns: 1fr !important; }
+  .checkoutProductLine { align-items: flex-start; }
+  .checkoutProductLine img { flex: 0 0 72px; }
+  .bankTransferBox img,
+  .paymentReviewModal .bankTransferBox img[alt="QR code"] { max-width: 100% !important; height: auto !important; }
+}
