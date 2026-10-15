@@ -168,7 +168,7 @@ export function CustomerProfile({ language = "vi", onClose }) {
   const tc = (key) => tx(language, "common", key);
   const tr = (key) => tx(language, "customerProfile", key);
   const { currentAccount, logout, updateProfile } = useAccountStore();
-  const { orders, updateOrder, addChatMessage } = useStoreOrders();
+  const { orders, updateOrder, cancelOrder, addChatMessage } = useStoreOrders();
   const [draft, setDraft] = useState(() => ({ name: currentAccount?.name || "", phone: currentAccount?.phone || "", address: currentAccount?.address || "" }));
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [chatDraft, setChatDraft] = useState("");
@@ -179,6 +179,11 @@ export function CustomerProfile({ language = "vi", onClose }) {
     en: { send: "Send image", uploading: "Sending image…", sent: "Image sent to the salon owner.", error: "Unable to send image." },
     ja: { send: "画像を送信", uploading: "画像を送信中…", sent: "店舗に画像を送信しました。", error: "画像を送信できません。" },
   }[language] || { send: "Gửi ảnh", uploading: "Đang gửi ảnh…", sent: "Đã gửi ảnh cho chủ quán.", error: "Không thể gửi ảnh." };
+  const orderActionCopy = {
+    vi: { cancel: "Hủy đơn", cannotCancel: "Đơn đã gửi, không thể hủy", cancelConfirm: "Bạn có chắc muốn hủy đơn này?" },
+    en: { cancel: "Cancel order", cannotCancel: "Shipped orders cannot be cancelled", cancelConfirm: "Are you sure you want to cancel this order?" },
+    ja: { cancel: "注文をキャンセル", cannotCancel: "発送済みの注文はキャンセルできません", cancelConfirm: "この注文をキャンセルしますか？" },
+  }[language] || { cancel: "Hủy đơn", cannotCancel: "Đơn đã gửi, không thể hủy", cancelConfirm: "Bạn có chắc muốn hủy đơn này?" };
   const customerEmail = currentAccount?.email?.trim().toLowerCase();
   const customerPhone = currentAccount?.phone?.replace(/\D/g, "");
   const customerOrders = orders.filter((order) =>
@@ -187,6 +192,7 @@ export function CustomerProfile({ language = "vi", onClose }) {
     (customerPhone && order.phone?.replace(/\D/g, "") === customerPhone)
   );
   const selectedOrder = customerOrders.find((order) => order.id === selectedOrderId) || customerOrders[0];
+  const canCancelSelectedOrder = selectedOrder && !["Shipping", "Delivered", "Completed", "Cancelled"].includes(selectedOrder.status);
 
   useEffect(() => {
     setDraft({ name: currentAccount?.name || "", phone: currentAccount?.phone || "", address: currentAccount?.address || "" });
@@ -230,6 +236,10 @@ export function CustomerProfile({ language = "vi", onClose }) {
     }
   }
 
+  function cancelSelectedOrder() {
+    if (canCancelSelectedOrder && window.confirm(orderActionCopy.cancelConfirm)) cancelOrder(selectedOrder.id);
+  }
+
   return (
     <div className="customerProfilePanel card">
       <div className="modalHead"><div><p className="eyebrow">MY PAGE</p><h2>{tr("title")}</h2></div><div className="profileModalActions"><button className="ghost dangerGhost" onClick={signOut}>{tr("logout")}</button><button className="ghost" onClick={onClose}>{tc("close")}</button></div></div>
@@ -242,6 +252,7 @@ export function CustomerProfile({ language = "vi", onClose }) {
       </div>
       <div className="profileOrders">
         <h3>{tr("trackOrders")}</h3>
+        {selectedOrder && <div className="profileOrderActions"><button className="ghost" onClick={cancelSelectedOrder} disabled={!canCancelSelectedOrder}>{canCancelSelectedOrder ? orderActionCopy.cancel : orderActionCopy.cannotCancel}</button></div>}
         <div className="profileOrderList">{customerOrders.length ? customerOrders.map((order) => <button key={order.id} className={selectedOrder?.id === order.id ? "active" : ""} onClick={() => setSelectedOrderId(order.id)}><strong>{order.orderNumber}</strong><span>{order.productName}</span><small>{order.status} · {order.paymentStatus}</small></button>) : <p className="storeNote">{tr("noOrders")}</p>}</div>
         {selectedOrder && <div className="profileOrderChat"><strong>{selectedOrder.orderNumber}</strong><span>{selectedOrder.status} · {selectedOrder.paymentStatus}</span><small>{tr("pushNote")}</small>{selectedOrder.transferBillUrl && <img className="profileTransferImage" src={selectedOrder.transferBillUrl} alt={imageCopy.send} />}<div>{(selectedOrder.chat || []).map((item) => <p key={item.id} className={item.from === "customer" ? "fromCustomer" : ""}>{item.text}</p>)}</div><div className="chatComposer"><input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder={tr("chatPlaceholder")} /><button className="primary" onClick={sendMessage}>{tc("send")}</button></div><div className="profileImageUpload"><label className="ghost">{imageUploading ? imageCopy.uploading : imageCopy.send}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={sendImage} disabled={imageUploading} /></label>{imageUploadError && <p className="errorNote">{imageUploadError}</p>}</div></div>}
       </div>

@@ -51,3 +51,22 @@ export async function POST(request) {
     return Response.json({ ok: false, message: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id")?.trim();
+  if (!id) return Response.json({ ok: false, message: "Order id is required" }, { status: 400 });
+  try {
+    const currentRows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=eq.${ORDERS_KEY}&select=value&limit=1`);
+    const currentOrders = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
+    const nextOrders = currentOrders.filter((order) => order?.id !== id);
+    await supabaseRest("app_kv?on_conflict=owner_id,key", {
+      method: "POST",
+      headers: { prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify([{ owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: nextOrders, updated_at: new Date().toISOString() }]),
+    });
+    return Response.json({ ok: true, value: nextOrders });
+  } catch (error) {
+    return Response.json({ ok: false, message: error.message }, { status: 500 });
+  }
+}
