@@ -1242,8 +1242,16 @@ section.nailPosPanel .nailPaymentAppName {
 .nailDisclosure.active { border-color:rgba(124,58,237,.42); background:#faf8ff; }
 .nailDisclosureValue { color:var(--muted); font-size:13px; font-weight:700; text-align:right; }
 .nailCollapsible { margin-bottom:16px; padding:4px; animation:nailReveal .16s ease-out; }
+.nailCashFixed { margin:8px 0 12px; padding:15px; border:1px solid rgba(34,197,94,.3); border-radius:18px; background:linear-gradient(145deg,#f0fdf4,#fff); box-shadow:0 8px 22px rgba(22,163,74,.07); }
+.nailCashFixedTitle { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; margin-bottom:12px; }
+.nailCashFixedTitle > span:first-child { width:38px; height:38px; display:grid; place-items:center; border-radius:12px; background:#dcfce7; font-size:20px; }
+.nailCashFixedTitle div { display:grid; gap:2px; }
+.nailCashFixedTitle small { color:var(--muted); }
+.nailCashFixedInputs { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.nailCashFixedInputs label { display:grid; gap:6px; color:var(--muted); font-size:12px; font-weight:800; }
+.nailCashFixedInputs input { width:100%; min-width:0; border:1px solid var(--line); border-radius:13px; padding:11px; background:#fff; color:var(--ink); font:inherit; }
 @keyframes nailReveal { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
-@media (max-width:560px) { .nailDisclosureValue { max-width:125px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } }
+@media (max-width:560px) { .nailDisclosureValue { max-width:125px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .nailCashFixedInputs { grid-template-columns:1fr; } }
 
 .nailPaymentOption {
   display: grid;

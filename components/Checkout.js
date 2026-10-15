@@ -104,6 +104,12 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
   }, [order]);
 
   useEffect(() => {
+    setOrder((current) => current.payments?.some((payment) => payment.method === "cash" && payment.confirmed !== false)
+      ? current
+      : { ...current, payments: [{ id: newId("pay"), method: "cash", amount: 0, received: 0, confirmed: true }, ...(current.payments || [])] });
+  }, []);
+
+  useEffect(() => {
     const nextAppointmentId = appointmentId || (typeof window !== "undefined" ? window.localStorage.getItem("nail-japan-checkout-appointment") : "");
     if (nextAppointmentId && String(nextAppointmentId) !== String(order.appointmentId)) chooseAppointment(nextAppointmentId);
   }, [appointmentId, bookings]);
@@ -368,9 +374,16 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
       </div>
 
       <div className="nailDivider" />
+	      <div className="nailCashFixed">
+	        <div className="nailCashFixedTitle"><span>💴</span><div><strong>{paymentLabel("cash", paymentMethods)}</strong><small>{tr("cashReceived")}</small></div><span className="pill active">{tr("paid")}</span></div>
+	        <div className="nailCashFixedInputs">
+	          <label><span>{tr("amount")}</span><input type="number" value={paymentForMethod("cash")?.amount || ""} onChange={(event) => { const payment = paymentForMethod("cash"); if (payment) updatePayment(payment.id, { amount: Number(event.target.value) }); }} /></label>
+	          <label><span>{tr("cashReceived")}</span><input type="number" value={paymentForMethod("cash")?.received || ""} onChange={(event) => { const payment = paymentForMethod("cash"); if (!payment) return; const received = Number(event.target.value); updatePayment(payment.id, { received, amount: Math.min(received, total) }); }} /></label>
+	        </div>
+	      </div>
 	      <button type="button" className={paymentOpen ? "nailDisclosure active" : "nailDisclosure"} onClick={() => setPaymentOpen((value) => !value)} aria-expanded={paymentOpen}><span>💳 {tr("paymentMethods")}</span><span className="nailDisclosureValue">{paymentMethodText || paymentLabel("cash", paymentMethods)}</span><strong>{paymentOpen ? "−" : "+"}</strong></button>
       {paymentOpen && <div className="nailCollapsible"><div className="nailPaymentMethodList">
-        {paymentMethods.map((method) => {
+        {paymentMethods.filter((method) => method.id !== "cash").map((method) => {
           const payment = paymentForMethod(method.id);
           const selected = Boolean(payment);
           return (
