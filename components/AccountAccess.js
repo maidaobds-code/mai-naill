@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAccountStore } from "../lib/accountStore";
 import { useStoreOrders } from "../lib/orderStore";
+import { useBookingStore } from "../lib/bookingStore";
 import { languages, tx } from "../lib/i18nClean";
 
 const LOGIN_LANGUAGE_KEY = "nail-japan-login-language";
@@ -169,6 +170,7 @@ export function CustomerProfile({ language = "vi", onClose }) {
   const tr = (key) => tx(language, "customerProfile", key);
   const { currentAccount, logout, updateProfile } = useAccountStore();
   const { orders, updateOrder, cancelOrder, addChatMessage } = useStoreOrders();
+  const { bookings } = useBookingStore();
   const [draft, setDraft] = useState(() => ({ name: currentAccount?.name || "", phone: currentAccount?.phone || "", address: currentAccount?.address || "" }));
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [chatDraft, setChatDraft] = useState("");
@@ -190,6 +192,11 @@ export function CustomerProfile({ language = "vi", onClose }) {
     (order.customerAccountId && order.customerAccountId === currentAccount?.id) ||
     (customerEmail && order.email?.trim().toLowerCase() === customerEmail) ||
     (customerPhone && order.phone?.replace(/\D/g, "") === customerPhone)
+  );
+  const customerBookings = bookings.filter((booking) =>
+    (booking.customerAccountId && booking.customerAccountId === currentAccount?.id) ||
+    (customerEmail && booking.email?.trim().toLowerCase() === customerEmail) ||
+    (customerPhone && booking.phone?.replace(/\D/g, "") === customerPhone)
   );
   const selectedOrder = customerOrders.find((order) => order.id === selectedOrderId) || customerOrders[0];
   const canCancelSelectedOrder = selectedOrder && !["Shipping", "Delivered", "Completed", "Cancelled"].includes(selectedOrder.status);
@@ -251,6 +258,8 @@ export function CustomerProfile({ language = "vi", onClose }) {
         <button className="primary" onClick={saveProfile}>{tr("saveProfile")}</button>
       </div>
       <div className="profileOrders">
+        <h3>{language === "ja" ? "予約履歴" : language === "en" ? "Appointments" : "Lịch hẹn của tôi"}</h3>
+        <div className="profileBookingList">{customerBookings.length ? customerBookings.map((booking) => <article key={booking.id}><div><strong>{booking.service}</strong><span>{booking.status}</span></div><p>{booking.date || `Day ${booking.day}`} · {booking.start}–{booking.end}</p><small>{booking.staff} · {booking.origin}</small></article>) : <p className="storeNote">{language === "ja" ? "予約はまだありません。" : language === "en" ? "No appointments yet." : "Chưa có lịch hẹn nào."}</p>}</div>
         <h3>{tr("trackOrders")}</h3>
         {selectedOrder && <div className="profileOrderActions"><button className="ghost" onClick={cancelSelectedOrder} disabled={!canCancelSelectedOrder}>{canCancelSelectedOrder ? orderActionCopy.cancel : orderActionCopy.cannotCancel}</button></div>}
         <div className="profileOrderList">{customerOrders.length ? customerOrders.map((order) => <button key={order.id} className={selectedOrder?.id === order.id ? "active" : ""} onClick={() => setSelectedOrderId(order.id)}><strong>{order.orderNumber}</strong><span>{order.productName}</span><small>{order.status} · {order.paymentStatus}</small></button>) : <p className="storeNote">{tr("noOrders")}</p>}</div>

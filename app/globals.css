@@ -1791,6 +1791,11 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .printerSettingsAction { margin:18px 0 10px; }
 .printerSettingsAction .printerButton { min-height:48px; width:100%; border-color:rgba(124,58,237,.28); background:#f5f3ff; color:#6d28d9; font-weight:800; }
 .printerSupportNote { margin:0; padding:14px; border-radius:16px; background:#f8fafc; color:var(--muted); line-height:1.5; }
+.profileBookingList { display:grid; gap:8px; }
+.profileBookingList article { display:grid; gap:5px; padding:12px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.72); }
+.profileBookingList article > div { display:flex; justify-content:space-between; gap:10px; }
+.profileBookingList article p { margin:0; font-weight:750; }
+.profileBookingList article span,.profileBookingList article small { color:var(--muted); font-size:12px; }
 @media (max-width:700px) { .printerOverlay { padding:0; place-items:stretch; } .printerModal { width:100%; min-height:100dvh; border-radius:0; padding:calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom)); } .nailPosHeaderActions { flex-wrap:wrap; } }
 
 .paymentHistoryStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
