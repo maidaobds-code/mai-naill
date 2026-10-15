@@ -54,7 +54,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   const tc = (key) => tx(language, "common", key);
   const [products] = useProductCatalog();
   const [services] = useServiceCatalog();
-  const { orders, addOrder, addChatMessage } = useStoreOrders();
+  const { orders, addOrder, updateOrder, addChatMessage } = useStoreOrders();
   const { currentAccount } = useAccountStore();
   const [settings, setSettings] = useState(() => ({ ...getAppSettings(), qrImageUrl: "/api/qr-image" }));
   const storeProducts = products.filter((product) => product.onlineStoreEnabled !== false);
@@ -68,6 +68,8 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   const [postalLoading, setPostalLoading] = useState(false);
   const [trackingId, setTrackingId] = useState("");
   const [chatDraft, setChatDraft] = useState("");
+  const [transferUploading, setTransferUploading] = useState(false);
+  const [transferUploadError, setTransferUploadError] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -119,6 +121,27 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     window.localStorage.setItem(LANGUAGE_KEY, value);
     window.localStorage.setItem("nail-japan-login-language", value);
     window.localStorage.setItem("nail-japan-language", value);
+  }
+
+  async function uploadChatTransfer(event) {
+    const file = event.target.files?.[0];
+    if (!file || !trackedOrder) return;
+    setTransferUploading(true);
+    setTransferUploadError("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch("/api/transfer-upload", { method: "POST", body });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.url) throw new Error(result.message || "Không thể gửi ảnh chuyển khoản.");
+      updateOrder(trackedOrder.id, { transferBillUrl: result.url, paymentStatus: "Payment checking" });
+      addChatMessage(trackedOrder.id, "Đã gửi ảnh chuyển khoản cho chủ quán.", "customer");
+    } catch (error) {
+      setTransferUploadError(error.message || "Không thể gửi ảnh chuyển khoản.");
+    } finally {
+      setTransferUploading(false);
+      event.target.value = "";
+    }
   }
 
   useEffect(() => {
@@ -343,6 +366,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
         <div className="sectionTitle"><div><h2>{tr("trackerTitle")}</h2><p>{tr("trackerText")}</p></div></div>
         <div className="trackerSearch"><input value={trackingId} onChange={(event) => setTrackingId(event.target.value)} placeholder="WEB-123456" /><button className="ghost" onClick={() => setTrackingId(orders[0]?.orderNumber || "")}>{tr("latestOrder")}</button></div>
         {trackedOrder ? <div className="trackingCard"><div><strong>{trackedOrder.orderNumber}</strong><span>{trackedOrder.productName} · {money(trackedOrder.total)}</span><small>{trackedOrder.status} · {trackedOrder.paymentStatus}</small></div>{trackedOrder.transferBillUrl && <img src={trackedOrder.transferBillUrl} alt="Transfer bill" />}<div className="chatBox">{(trackedOrder.chat || []).map((item) => <p key={item.id}>{item.text}</p>)}<div><input value={chatDraft} onChange={(event) => setChatDraft(event.target.value)} placeholder={tr("chatPlaceholder")} /><button className="primary" onClick={() => { addChatMessage(trackedOrder.id, chatDraft); setChatDraft(""); }}>{tc("send")}</button></div></div></div> : <p className="storeNote">{tr("noOrders")}</p>}
+        {trackedOrder && <div className="chatTransferUpload"><label className="ghost">{transferUploading ? "Đang gửi ảnh…" : "Gửi ảnh chuyển khoản cho chủ quán"}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadChatTransfer} disabled={transferUploading} /></label>{transferUploadError && <p className="errorNote">{transferUploadError}</p>}</div>}
       </section>}</>}
 
       {showBooking && <section id="online-booking" className="card storeBooking bookingSurface softBookingPanel"><div className="sectionTitle"><div><h2>{tr("bookingTitle")}</h2><p>{tr("bookingText")}</p></div></div><div className="serviceChoiceRail">{activeServices.map((service) => <button type="button" key={service.id} className={draft.service === service.name ? "serviceChoice active" : "serviceChoice"} onClick={() => chooseService(service)}>{service.imageUrl ? <img src={service.imageUrl} alt={service.name} /> : <span>{service.name.slice(0, 1)}</span>}<strong>{service.name}</strong><small>{service.duration} {localCopy.minutes} · {money(service.price)}</small></button>)}</div><form onSubmit={submitBooking}><div className="bookingFormGrid softBookingGrid"><label>{tc("service")}<select value={draft.service} onChange={(event) => updateDraft("service", event.target.value)}>{activeServices.map((service) => <option key={service.id}>{service.name}</option>)}</select></label><label>{localCopy.branch}<select value={draft.branch} onChange={(event) => updateDraft("branch", event.target.value)}><option>Mai Beauty Salon Tokyo</option><option>Mai Beauty Salon Osaka</option></select></label><label>{tc("date")}<input type="date" value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} /></label><label>{tc("time")}<select value={draft.time} onChange={(event) => updateDraft("time", event.target.value)}>{timeSlots.map((time) => <option key={time}>{time}</option>)}</select></label><label>{tc("staff")}<select value={draft.staff} onChange={(event) => updateDraft("staff", event.target.value)}><option value="">{tr("autoStaff")}</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label><label>{tc("email")}<input required type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="name@gmail.com" /></label><label>{tc("customer")}<input required value={draft.customer} onChange={(event) => updateDraft("customer", event.target.value)} placeholder="Nguyen Van A" /></label><label>{tc("phone")}<input required value={draft.phone} onChange={(event) => updateDraft("phone", event.target.value)} placeholder="090-0000-0000" /></label></div><div className="bookingCheckoutBar"><span>{selectedService ? `${selectedService.duration} ${localCopy.minutes} · ${money(selectedService.price)}` : tr("chooseService")}</span><button className="primary" type="submit">{tr("confirmBooking")}</button></div></form>{message && <p className="storeNote successNote">{message}</p>}</section>}
