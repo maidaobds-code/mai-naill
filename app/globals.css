@@ -1700,6 +1700,13 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .postalLookup { display:flex; align-items:end; gap:8px; }
 .postalLookup label { flex:1; }
 .postalLookup button { min-height:42px; white-space:nowrap; }
+.paymentReviewModal { width:min(720px, calc(100vw - 32px)); max-height:calc(100vh - 32px); overflow:auto; }
+.paymentReviewGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:16px 0; }
+.paymentReviewGrid p { margin:0; padding:12px; border:1px solid var(--line); border-radius:12px; background:#faf9fc; }
+.paymentReviewGrid strong,.paymentReviewGrid span { display:block; }
+.paymentReviewGrid span { margin-top:5px; color:var(--muted); }
+.paymentReviewModal .bankTransferBox img { max-width:180px; max-height:180px; object-fit:contain; display:block; margin-top:10px; }
+@media(max-width:600px){.paymentReviewGrid{grid-template-columns:1fr;}}
 
 /* Keep the appointment time axis on one compact horizontal row. */
 .resourceTimeline { grid-template-columns: 120px 1fr; }
