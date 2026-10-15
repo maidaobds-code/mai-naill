@@ -1706,10 +1706,12 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .paymentReviewGrid strong,.paymentReviewGrid span { display:block; }
 .paymentReviewGrid span { margin-top:5px; color:var(--muted); }
 .paymentReviewModal .bankTransferBox img { width:min(260px,100%); height:auto; max-height:260px; object-fit:contain; display:block; margin-top:10px; }
+.paymentReviewModal .bankTransferBox img[alt="QR code"] { width:min(300px, 100%); height:auto; max-height:none; object-fit:contain; }
 .bookingModalBackdrop:has(.paymentReviewModal) { z-index: 30; }
 .paymentReviewBackdrop { position:fixed !important; inset:0 !important; z-index:9999 !important; display:flex !important; align-items:center; justify-content:center; overflow:auto; }
 .productCheckoutModal .bankTransferBox { display:none; }
 @media(max-width:600px){.paymentReviewGrid{grid-template-columns:1fr;}}
+@media(max-width:600px){.paymentReviewModal{width:calc(100vw - 20px);padding:16px}.paymentReviewModal .bankTransferBox img[alt="QR code"]{width:100%;max-width:280px;margin-inline:auto}}
 
 /* Keep the appointment time axis on one compact horizontal row. */
 .resourceTimeline { grid-template-columns: 120px 1fr; }
