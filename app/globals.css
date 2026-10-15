@@ -1695,3 +1695,16 @@ select[data-language="ja"] { --language-flag: url('/flags/ja.svg'); }
 select[data-language="en"] { --language-flag: url('/flags/en.svg'); }
 select[data-language]:focus-visible { outline: 2px solid #9061b0; outline-offset: 2px; }
 select[data-language] option { background: #fff; color: #302537; text-shadow: none; }
+
+/* Keep the appointment time axis on one compact horizontal row. */
+.resourceTimeline { grid-template-columns: 120px 1fr; }
+.timeAxis { grid-template-columns: repeat(25, 56px); }
+.timeAxis span { white-space: nowrap; line-height: 1; padding: 11px 2px; }
+.resourceLane { background-size: 56px 100%; }
+.slotHitGrid { grid-template-columns: repeat(24, 56px); }
+@media (max-width: 700px) {
+  .timeAxis { grid-template-columns: repeat(25, 44px); }
+  .timeAxis span { padding: 10px 1px; }
+  .resourceLane { background-size: 44px 100%; }
+  .slotHitGrid { grid-template-columns: repeat(24, 44px); }
+}
