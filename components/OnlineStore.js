@@ -9,7 +9,7 @@ import { languages, t, tx } from "../lib/i18nClean";
 import { staff } from "../lib/salonData";
 import { CustomerProfile } from "./AccountAccess";
 import { useAccountStore } from "../lib/accountStore";
-import { getPublicKv, publicStorageUrl } from "../lib/supabaseBrowser";
+import { getPublicKv } from "../lib/supabaseBrowser";
 
 const timeSlots = Array.from({ length: 29 }, (_, index) => {
   const minutes = 9 * 60 + index * 30;
@@ -100,9 +100,9 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     fetch("/api/settings", { cache: "no-store" })
       .then((response) => response.json())
       .then((result) => {
-        if (result.value) setSettings((current) => ({ ...current, ...result.value, qrImageUrl: publicStorageUrl(result.value.qrImageUrl) }));
+        if (result.value) setSettings((current) => ({ ...current, ...result.value, qrImageUrl: "/api/qr-image" }));
       })
-      .catch(() => getPublicKv("nail-japan-settings").then((remote) => { if (remote) setSettings((current) => ({ ...current, ...remote, qrImageUrl: publicStorageUrl(remote.qrImageUrl) })); }).catch(() => {}));
+      .catch(() => getPublicKv("nail-japan-settings").then((remote) => { if (remote) setSettings((current) => ({ ...current, ...remote, qrImageUrl: "/api/qr-image" })); }).catch(() => {}));
   }, []);
 
   useEffect(() => {
