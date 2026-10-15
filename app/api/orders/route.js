@@ -34,12 +34,19 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   if (!Array.isArray(body.orders)) return Response.json({ ok: false, message: "Invalid orders" }, { status: 400 });
   try {
+    const currentRows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=eq.${ORDERS_KEY}&select=value&limit=1`);
+    const currentOrders = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
+    const incomingIds = new Set(body.orders.map((order) => order?.id).filter(Boolean));
+    const mergedOrders = [
+      ...body.orders,
+      ...currentOrders.filter((order) => order?.id && !incomingIds.has(order.id)),
+    ].sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {
       method: "POST",
       headers: { prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify([{ owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: body.orders, updated_at: new Date().toISOString() }]),
+      body: JSON.stringify([{ owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: mergedOrders, updated_at: new Date().toISOString() }]),
     });
-    return Response.json({ ok: true, value: rows?.[0]?.value || body.orders });
+    return Response.json({ ok: true, value: rows?.[0]?.value || mergedOrders });
   } catch (error) {
     return Response.json({ ok: false, message: error.message }, { status: 500 });
   }
