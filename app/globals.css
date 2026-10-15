@@ -1872,3 +1872,50 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
   .bankTransferBox img,
   .paymentReviewModal .bankTransferBox img[alt="QR code"] { max-width: 100% !important; height: auto !important; }
 }
+
+/* Keep the mobile icon dock clear of page and modal actions. */
+@media (max-width: 760px) {
+  :root {
+    --mobile-nav-height: 64px;
+    --mobile-nav-gap: 18px;
+    --mobile-nav-clearance: calc(var(--mobile-nav-height) + var(--mobile-nav-gap) + env(safe-area-inset-bottom));
+  }
+
+  html {
+    scroll-padding-bottom: var(--mobile-nav-clearance);
+  }
+
+  .shell {
+    padding-bottom: var(--mobile-nav-clearance);
+  }
+
+  .sidebar {
+    inset: auto 10px calc(8px + env(safe-area-inset-bottom)) 10px;
+    height: var(--mobile-nav-height);
+  }
+
+  main,
+  .customerShell main {
+    padding-bottom: calc(var(--mobile-nav-clearance) + 22px) !important;
+    scroll-padding-bottom: calc(var(--mobile-nav-clearance) + 22px);
+  }
+
+  .ordersWorkspace,
+  .settingsGrid,
+  .settingsGridWide,
+  .payrollStudio,
+  .calendarBoard,
+  .nailPosPanel {
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 700px) {
+  /* Dedicated mobile pages must sit above the persistent icon dock. */
+  .bookingModalBackdrop,
+  .paymentReviewBackdrop,
+  .posHistoryOverlay,
+  .customerProfilePanel {
+    z-index: 120 !important;
+  }
+}
