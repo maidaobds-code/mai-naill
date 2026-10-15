@@ -9,7 +9,7 @@ import { languages, t, tx } from "../lib/i18nClean";
 import { staff } from "../lib/salonData";
 import { CustomerProfile } from "./AccountAccess";
 import { useAccountStore } from "../lib/accountStore";
-import { getPublicKv } from "../lib/supabaseBrowser";
+import { getPublicKv, publicStorageUrl } from "../lib/supabaseBrowser";
 
 const timeSlots = Array.from({ length: 29 }, (_, index) => {
   const minutes = 9 * 60 + index * 30;
@@ -97,7 +97,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
 
   useEffect(() => {
     setSettings(getAppSettings());
-    getPublicKv("nail-japan-settings").then((remote) => { if (remote) setSettings((current) => ({ ...current, ...remote })); }).catch(() => {});
+    getPublicKv("nail-japan-settings").then((remote) => { if (remote) setSettings((current) => ({ ...current, ...remote, qrImageUrl: publicStorageUrl(remote.qrImageUrl) })); }).catch(() => {});
   }, []);
 
   useEffect(() => {
