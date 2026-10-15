@@ -21,7 +21,19 @@ export async function GET() {
   });
   if (!settingsResponse.ok) return new Response("Cannot load QR settings", { status: 502 });
   const rows = await settingsResponse.json();
-  const path = objectPath(rows?.[0]?.value?.qrImageUrl);
+  let path = objectPath(rows?.[0]?.value?.qrImageUrl);
+  if (!path) {
+    const listResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET}`, {
+      method: "POST",
+      cache: "no-store",
+      headers: { apikey: SERVICE_ROLE_KEY, authorization: `Bearer ${SERVICE_ROLE_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ prefix: "public/qr", limit: 1, offset: 0, sortBy: { column: "created_at", order: "desc" } }),
+    });
+    if (listResponse.ok) {
+      const files = await listResponse.json();
+      if (files?.[0]?.name) path = `public/qr/${files[0].name}`;
+    }
+  }
   if (!path) return new Response("QR image is not configured", { status: 404 });
   const imageResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
     cache: "no-store",
