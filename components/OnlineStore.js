@@ -56,7 +56,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   const [services] = useServiceCatalog();
   const { orders, addOrder, addChatMessage } = useStoreOrders();
   const { currentAccount } = useAccountStore();
-  const [settings, setSettings] = useState(getAppSettings);
+  const [settings, setSettings] = useState(() => ({ ...getAppSettings(), qrImageUrl: "/api/qr-image" }));
   const storeProducts = products.filter((product) => product.onlineStoreEnabled !== false);
   const featured = storeProducts.filter((product) => product.featuredOnline !== false);
   const activeServices = services.length ? services : [];
@@ -96,7 +96,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   });
 
   useEffect(() => {
-    setSettings(getAppSettings());
+    setSettings({ ...getAppSettings(), qrImageUrl: "/api/qr-image" });
     fetch("/api/settings", { cache: "no-store" })
       .then((response) => response.json())
       .then((result) => {
