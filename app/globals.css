@@ -1679,10 +1679,10 @@ section.nailPosPanel .nailPaymentAppName {
 select[data-language] {
  appearance: none;
  -webkit-appearance: none;
- background-color: #f8f4fa !important;
- background-image: var(--language-flag) !important;
- background-size: 100% 100% !important;
- background-blend-mode: soft-light;
+ background-color: transparent !important;
+ background-image: linear-gradient(90deg, rgba(255,255,255,.30), rgba(255,255,255,.12)), var(--language-flag) !important;
+ background-size: 100% 100%, 100% 100% !important;
+ background-blend-mode: normal;
  background-position: center;
  background-repeat: no-repeat;
  border-color: rgba(255,255,255,.38);
