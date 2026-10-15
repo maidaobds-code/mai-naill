@@ -73,6 +73,8 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
   const { staff } = useStaffStore();
   const [settings] = useState(getAppSettings);
   const [activeTab, setActiveTab] = useState("services");
+  const [itemsOpen, setItemsOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [drawerNotice, setDrawerNotice] = useState("");
@@ -157,6 +159,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
   function addLine(item, type) {
     const line = type === "product" ? lineFromProduct(item) : lineFromService(item, null, order.employee || staff[0]?.name);
     setOrder((current) => ({ ...current, lines: [...current.lines, line] }));
+    setItemsOpen(false);
   }
 
   function addOtherLine(type) {
@@ -178,6 +181,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
       snapshot: { name: "その他", price: 0 },
     };
     setOrder((current) => ({ ...current, lines: [...current.lines, line] }));
+    setItemsOpen(false);
   }
 
   function updateLine(id, patch) {
@@ -205,6 +209,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
       }
 	      return { ...current, payments: current.payments.filter((payment) => payment.id !== existing?.id) };
     });
+    setPaymentOpen(false);
   }
 
 	  function applyQuickDiscount(percent) {
@@ -322,8 +327,8 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
         </select>
       </div>
 
-	      <h2 className="nailSectionTitle">{tr("addItems")}</h2>
-      <div className="nailTabs">
+	      <button type="button" className={itemsOpen ? "nailDisclosure active" : "nailDisclosure"} onClick={() => setItemsOpen((value) => !value)} aria-expanded={itemsOpen}><span>{tr("addItems")}</span><strong>{itemsOpen ? "−" : "+"}</strong></button>
+      {itemsOpen && <div className="nailCollapsible"><div className="nailTabs">
 	        <button className={activeTab === "services" ? "active" : ""} onClick={() => setActiveTab("services")}>💅 {tc("service")}</button>
 	        <button className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}>🛍️ {tr("products")}</button>
       </div>
@@ -332,7 +337,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
 	        {activeTab === "services" && <button className="nailMenuItem" onClick={() => addOtherLine("service")}><strong>{tr("otherItem")}</strong><span>⊕</span><small>{tr("noteAfterAdd")}</small></button>}
         {activeTab === "products" && visibleProducts.slice(0, 8).map((product) => <button className="nailMenuItem" key={product.id} onClick={() => addLine(product, "product")} disabled={Number(product.stock || 0) <= 0}><strong>{product.name}</strong><span>⊕</span><small>{yen(product.salePrice || product.basePrice)}</small></button>)}
 	        {activeTab === "products" && <button className="nailMenuItem" onClick={() => addOtherLine("product")}><strong>{tr("otherItem")}</strong><span>⊕</span><small>{tr("noteAfterAdd")}</small></button>}
-      </div>
+      </div></div>}
 
       <div className="nailDivider" />
 	      <div className="nailOrderTitle"><strong>🛒 {tr("orderDetail")}</strong><span>{tr("itemCount", { count: order.lines.length })}</span></div>
@@ -363,8 +368,8 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
       </div>
 
       <div className="nailDivider" />
-	      <h2 className="nailSectionTitle">💳 {tr("paymentMethods")}</h2>
-      <div className="nailPaymentMethodList">
+	      <button type="button" className={paymentOpen ? "nailDisclosure active" : "nailDisclosure"} onClick={() => setPaymentOpen((value) => !value)} aria-expanded={paymentOpen}><span>💳 {tr("paymentMethods")}</span><span className="nailDisclosureValue">{paymentMethodText || paymentLabel("cash", paymentMethods)}</span><strong>{paymentOpen ? "−" : "+"}</strong></button>
+      {paymentOpen && <div className="nailCollapsible"><div className="nailPaymentMethodList">
         {paymentMethods.map((method) => {
           const payment = paymentForMethod(method.id);
           const selected = Boolean(payment);
@@ -396,7 +401,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
           );
         })}
       </div>
-	      <p className="mutedText">{tr("paymentHint")}</p>
+	      <p className="mutedText">{tr("paymentHint")}</p></div>}
       <div className="nailPaymentSummary">
 	        <div><span>{tr("paidAmount")}</span><strong>{yen(paid)}</strong></div>
 	        <div><span>{tr("remaining")}</span><strong>{yen(remaining)}</strong></div>

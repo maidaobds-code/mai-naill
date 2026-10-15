@@ -1236,6 +1236,15 @@ section.nailPosPanel .nailPaymentAppName {
   gap: 12px;
 }
 
+.nailDisclosure { width:100%; min-height:58px; display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:12px; margin:8px 0 12px; padding:13px 16px; border:1px solid rgba(124,58,237,.18); border-radius:17px; background:rgba(255,255,255,.82); color:var(--ink); text-align:left; cursor:pointer; box-shadow:0 8px 22px rgba(76,29,149,.06); }
+.nailDisclosure > span:first-child { font-size:17px; font-weight:850; }
+.nailDisclosure > strong { width:30px; height:30px; display:grid; place-items:center; border-radius:10px; background:#ede9fe; color:#6d28d9; font-size:20px; }
+.nailDisclosure.active { border-color:rgba(124,58,237,.42); background:#faf8ff; }
+.nailDisclosureValue { color:var(--muted); font-size:13px; font-weight:700; text-align:right; }
+.nailCollapsible { margin-bottom:16px; padding:4px; animation:nailReveal .16s ease-out; }
+@keyframes nailReveal { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width:560px) { .nailDisclosureValue { max-width:125px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } }
+
 .nailPaymentOption {
   display: grid;
   grid-template-columns: 28px minmax(150px, 1fr) minmax(180px, 240px) minmax(160px, 220px);
@@ -1769,6 +1778,11 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .printerStatus { display:grid; gap:6px; padding:14px; border-radius:16px; background:#f8fafc; }
 .printerStatus span { color:#15803d; }
 .printerStatus small { color:var(--muted); line-height:1.45; }
+.printerSettingsPanel { align-content:start; }
+.printerSettingsPanel h2 { margin:4px 0 8px; }
+.printerSettingsAction { margin:18px 0 10px; }
+.printerSettingsAction .printerButton { min-height:48px; width:100%; border-color:rgba(124,58,237,.28); background:#f5f3ff; color:#6d28d9; font-weight:800; }
+.printerSupportNote { margin:0; padding:14px; border-radius:16px; background:#f8fafc; color:var(--muted); line-height:1.5; }
 @media (max-width:700px) { .printerOverlay { padding:0; place-items:stretch; } .printerModal { width:100%; min-height:100dvh; border-radius:0; padding:calc(18px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom)); } .nailPosHeaderActions { flex-wrap:wrap; } }
 
 .paymentHistoryStats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
