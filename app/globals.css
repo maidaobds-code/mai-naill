@@ -1248,7 +1248,7 @@ section.nailPosPanel .nailPaymentAppName {
 .nailCashFixedTitle > span:first-child { width:38px; height:38px; display:grid; place-items:center; border-radius:12px; background:#dcfce7; font-size:20px; }
 .nailCashFixedTitle div { display:grid; gap:2px; }
 .nailCashFixedTitle small { color:var(--muted); }
-.nailCashFixedInputs { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.nailCashFixedInputs { display:grid; grid-template-columns:minmax(0,1fr); gap:10px; }
 .nailCashFixedInputs label { display:grid; gap:6px; color:var(--muted); font-size:12px; font-weight:800; }
 .nailCashFixedInputs input { width:100%; min-width:0; border:1px solid var(--line); border-radius:13px; padding:11px; background:#fff; color:var(--ink); font:inherit; }
 .nailCashChange { display:flex; justify-content:space-between; margin-top:10px; padding:10px 12px; border-radius:12px; background:#f8fafc; color:var(--muted); font-weight:800; }

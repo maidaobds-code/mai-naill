@@ -377,8 +377,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
 	      <div className="nailCashFixed">
 	        <div className="nailCashFixedTitle"><span>💴</span><div><strong>{paymentLabel("cash", paymentMethods)}</strong><small>{tr("cashReceived")}</small></div><span className="pill active">{tr("paid")}</span></div>
 	        <div className="nailCashFixedInputs">
-	          <label><span>{tr("amount")}</span><input type="number" value={paymentForMethod("cash")?.amount || ""} onChange={(event) => { const payment = paymentForMethod("cash"); if (payment) updatePayment(payment.id, { amount: Number(event.target.value) }); }} /></label>
-	          <label><span>{tr("cashReceived")}</span><input type="number" value={paymentForMethod("cash")?.received || ""} onChange={(event) => { const payment = paymentForMethod("cash"); if (!payment) return; const received = Number(event.target.value); updatePayment(payment.id, { received, amount: Math.min(received, total) }); }} /></label>
+          <label><span>{tr("amount")}</span><input type="number" value={paymentForMethod("cash")?.amount || ""} onChange={(event) => { const payment = paymentForMethod("cash"); if (payment) { const amount = Number(event.target.value); updatePayment(payment.id, { amount, received: amount }); } }} /></label>
 	        </div>
         <div className={change > 0 ? "nailCashChange active" : "nailCashChange"}><span>{tr("change")}</span><strong>{yen(change)}</strong></div>
 	      </div>
