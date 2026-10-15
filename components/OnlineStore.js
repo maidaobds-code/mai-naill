@@ -37,6 +37,7 @@ function paymentOptions(settings, fulfillmentType, language = "vi") {
   if (fulfillmentType === "pickup") return settings.payAtStoreEnabled ? [{ id: "payAtStore", label: tx(language, "settingsPage", "payAtStore") }] : [];
   return [
     settings.bankTransferEnabled && { id: "bankTransfer", label: tx(language, "settingsPage", "bankTransfer") },
+    settings.qrEnabled && { id: "qr", label: language === "ja" ? "QRコード決済" : language === "en" ? "QR code payment" : "Thanh toán bằng mã QR", image: settings.qrImageUrl },
     settings.cardEnabled && { id: "card", label: tx(language, "settingsPage", "card") },
     settings.codEnabled && { id: "cod", label: tx(language, "settingsPage", "cod") },
   ].filter(Boolean);
