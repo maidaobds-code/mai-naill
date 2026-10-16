@@ -54,9 +54,10 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
   async function resetStaffPassword(member) {
     const password = resetDraft[member.id];
-    const account = accounts.find((item) => item.id === `staff-${member.id}` || item.staffName === member.name);
-    if (!password || !account) return;
-    await resetPassword(account.id, password);
+    if (!password || password.length < 6) return;
+    // Re-upsert using the current staff identity so legacy records with duplicate IDs
+    // are repaired instead of silently updating the wrong account.
+    await upsertStaffAccount(member, password);
     setResetDraft((current) => ({ ...current, [member.id]: "" }));
     setStaff((current) => current.map((item) => item.id === member.id ? { ...item, credentialStatus: c.passwordReset } : item));
   }
