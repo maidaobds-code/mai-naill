@@ -9,7 +9,7 @@ const staffColors = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f59e0b", "#ef
 
 function newStaff(nextId) {
   return {
-    id: nextId,
+    id: `draft-${nextId}`,
     name: "",
     role: "Nailist",
     status: "Working",
@@ -45,15 +45,16 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
   async function addStaff() {
     if (!draft.name.trim()) return;
-    const record = { ...draft, credentialStatus: draft.accountPassword ? c.accountReady : c.needsPassword };
+    const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const record = { ...draft, id: uniqueId, credentialStatus: draft.accountPassword ? c.accountReady : c.needsPassword };
     await upsertStaffAccount(record, draft.accountPassword);
     setStaff((current) => [...current, record]);
-    setDraft(newStaff(draft.id + 1));
+    setDraft(newStaff(Date.now()));
   }
 
   async function resetStaffPassword(member) {
     const password = resetDraft[member.id];
-    const account = accounts.find((item) => item.id === `staff-${member.id}`);
+    const account = accounts.find((item) => item.id === `staff-${member.id}` || item.staffName === member.name);
     if (!password || !account) return;
     await resetPassword(account.id, password);
     setResetDraft((current) => ({ ...current, [member.id]: "" }));
