@@ -274,7 +274,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
             <div className="resourceHeader">{c.staff}</div>
             <div className="timeAxis">{slots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {staff.map((member) => {
-              const memberBookings = selectedDayBookings.filter((booking) => booking.staff === member.name);
+              const memberBookings = selectedDayBookings.filter((booking) => booking.staff === member.name || String(booking.staffId || "") === String(member.id));
               return (
                 <div className="resourceRow" key={member.id}>
                   <div className="resourceStaff">
