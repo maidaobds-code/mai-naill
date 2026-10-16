@@ -14,20 +14,6 @@ function catalogKey(value) {
   return keys[String(value || "").trim()] || "";
 }
 
-async function adminSessionToken() {
-  const adminUser = process.env.ADMIN_USER || "";
-  const adminPass = process.env.ADMIN_PASS || "";
-  if (!adminUser || !adminPass) return "";
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${adminUser}:${adminPass}`));
-  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-async function hasAdminCookie(request) {
-  const cookie = request.headers.get("cookie") || "";
-  const token = cookie.split(";").map((item) => item.trim()).find((item) => item.startsWith("nail_admin_session="))?.split("=")[1] || "";
-  return token && token === await adminSessionToken();
-}
-
 async function supabaseRest(path, options = {}, service = false) {
   const token = service ? SERVICE_ROLE_KEY : ANON_KEY;
   if (!SUPABASE_URL || !ANON_KEY || !token) throw new Error("Supabase catalog env is missing");
@@ -60,7 +46,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  if (!await hasAdminCookie(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+  if (!isAdminRequest(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   if (!SERVICE_ROLE_KEY) return Response.json({ ok: false, message: "Missing SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY" }, { status: 503 });
 
   const body = await request.json().catch(() => ({}));
@@ -79,3 +65,5 @@ export async function POST(request) {
     return Response.json({ ok: false, message: error.message }, { status: 500 });
   }
 }
+import { isAdminRequest } from "../../../lib/serverAuth";
+

@@ -3,16 +3,6 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SU
 const SETTINGS_OWNER_ID = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
 const SETTINGS_KEY = "nail-japan-settings";
 
-async function hasAdminCookie(request) {
-  const adminUser = process.env.ADMIN_USER || "";
-  const adminPass = process.env.ADMIN_PASS || "";
-  const cookie = request.headers.get("cookie") || "";
-  const token = cookie.split(";").map((item) => item.trim()).find((item) => item.startsWith("nail_admin_session="))?.split("=")[1] || "";
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${adminUser}:${adminPass}`));
-  const expected = Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
-  return Boolean(adminUser && adminPass && token && token === expected);
-}
-
 async function supabaseRest(path, options = {}) {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) throw new Error("Supabase server configuration is missing");
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -41,7 +31,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  if (!await hasAdminCookie(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+  if (!isAdminRequest(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => null);
   if (!body || Array.isArray(body) || typeof body !== "object") return Response.json({ ok: false, message: "Invalid settings" }, { status: 400 });
   try {
@@ -55,3 +45,5 @@ export async function POST(request) {
     return Response.json({ ok: false, message: error.message }, { status: 500 });
   }
 }
+import { isAdminRequest } from "../../../lib/serverAuth";
+

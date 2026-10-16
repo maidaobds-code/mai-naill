@@ -1,3 +1,5 @@
+import { adminCookie, createAdminSession } from "../../../lib/serverAuth";
+
 export async function POST(request) {
   const { email = "", password = "" } = await request.json().catch(() => ({}));
   const adminUser = process.env.ADMIN_USER || "";
@@ -13,7 +15,7 @@ export async function POST(request) {
     return Response.json({ ok: false, message: "Sai tài khoản hoặc mật khẩu admin." }, { status: 401 });
   }
 
-  const sessionToken = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${adminUser}:${adminPass}`)).then((digest) => Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+  const sessionToken = createAdminSession();
   const response = Response.json({
     ok: true,
     account: {
@@ -26,6 +28,6 @@ export async function POST(request) {
       staffName: "",
     },
   });
-  response.headers.set("Set-Cookie", `nail_admin_session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000`);
+  response.headers.set("Set-Cookie", adminCookie(sessionToken));
   return response;
 }
