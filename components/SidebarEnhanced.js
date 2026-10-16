@@ -27,7 +27,7 @@ export default function SidebarEnhanced({ active, setActive, language, setLangua
       <nav>
         {visibleItems.map(([iconType, icon, label, key, accent]) => (
           <button key={label} className={active === label ? "navItem active" : "navItem"} style={{ "--nav-accent": accent }} onClick={() => setActive(label)}>
-            <span className={`navIcon navIcon-${iconType}`}>{icon}</span>{t(language, key)}{label === "Orders" && unread > 0 && <b className="navBadge">{unread}</b>}
+            <span className={`navIcon navIcon-${iconType}`}>{icon}</span>{t(language, key)}{label === "Orders" && orders.length > 0 && <b className="navBadge">{unread || orders.length}</b>}
           </button>
         ))}
       </nav>
