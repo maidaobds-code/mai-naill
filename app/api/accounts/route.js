@@ -25,12 +25,24 @@ export async function POST(request) {
   if (!isAdminRequest(request)) return Response.json({ ok: false, message: "Phiên chủ quán không hợp lệ. Hãy đăng nhập lại bằng ADMIN_USER." }, { status: 401 });
   const body = await request.json().catch(() => null);
   const account = body?.account;
-  if (!account?.id || !account?.email || account.role !== "staff" || !account.passwordHash) return Response.json({ ok: false, message: "Dữ liệu tài khoản nhân viên không hợp lệ" }, { status: 400 });
+  const fullValue = Array.isArray(body?.value) ? body.value : null;
+  if (!fullValue && (!account?.id || !account?.email || account.role !== "staff" || !account.passwordHash)) return Response.json({ ok: false, message: "Dữ liệu tài khoản nhân viên không hợp lệ" }, { status: 400 });
   try {
     const rows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${KV}&select=value&limit=1`);
     const current = Array.isArray(rows?.[0]?.value) ? rows[0].value : [];
-    const email = account.email.trim().toLowerCase();
-    const value = [...current.filter((item) => item?.id !== account.id && item?.email?.trim().toLowerCase() !== email), { ...account, email }];
+    let value;
+    if (fullValue) {
+      const byId = new Map(current.map((item) => [item.id, item]));
+      for (const item of fullValue) {
+        if (!item?.id || !item?.email) continue;
+        const previous = byId.get(item.id);
+        byId.set(item.id, { ...previous, ...item, passwordHash: item.passwordHash || previous?.passwordHash || "", email: item.email.trim().toLowerCase() });
+      }
+      value = [...byId.values()];
+    } else {
+      const email = account.email.trim().toLowerCase();
+      value = [...current.filter((item) => item?.id !== account.id && item?.email?.trim().toLowerCase() !== email), { ...account, email }];
+    }
     await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
     return Response.json({ ok: true, value });
   } catch (error) { return Response.json({ ok: false, message: error.message }, { status: 500 }); }
