@@ -45,5 +45,4 @@ export async function POST(request) {
     return Response.json({ ok: false, message: error.message }, { status: 500 });
   }
 }
-import { isAdminRequest } from "../../../lib/serverAuth";
 

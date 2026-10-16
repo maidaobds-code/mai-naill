@@ -21,5 +21,4 @@ export async function POST(request) {
   if (!uploadResponse.ok) return Response.json({ ok: false, message: await uploadResponse.text() }, { status: 502 });
   return Response.json({ ok: true, url: `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}` });
 }
-import { isAdminRequest } from "../../../lib/serverAuth";
 
