@@ -34,6 +34,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const { accounts, upsertStaffAccount, resetPassword, updateAccountRole } = useAccountStore();
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
   const [resetDraft, setResetDraft] = useState({});
+  const [accountMessage, setAccountMessage] = useState("");
 
   function updateDraft(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -44,13 +45,16 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   }
 
   async function addStaff() {
-    if (!draft.name.trim()) return;
-    if (!draft.accountPassword || draft.accountPassword.length < 6) return;
+    if (!draft.name.trim() || !draft.email.trim()) return setAccountMessage("Vui lòng nhập tên và email đăng nhập.");
+    if (!draft.accountPassword || draft.accountPassword.length < 6) return setAccountMessage("Mật khẩu phải có ít nhất 6 ký tự.");
     const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const record = { ...draft, id: uniqueId, credentialStatus: draft.accountPassword ? c.accountReady : c.needsPassword };
-    await upsertStaffAccount(record, draft.accountPassword);
-    setStaff((current) => [...current, record]);
-    setDraft(newStaff(Date.now()));
+    try {
+      await upsertStaffAccount(record, draft.accountPassword);
+      setStaff((current) => [...current, record]);
+      setDraft(newStaff(Date.now()));
+      setAccountMessage("Đã tạo và đồng bộ tài khoản nhân viên.");
+    } catch (error) { setAccountMessage(`Không thể tạo tài khoản: ${error.message}`); }
   }
 
   async function resetStaffPassword(member) {
@@ -58,9 +62,12 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     if (!password || password.length < 6) return;
     // Re-upsert using the current staff identity so legacy records with duplicate IDs
     // are repaired instead of silently updating the wrong account.
-    await upsertStaffAccount(member, password);
-    setResetDraft((current) => ({ ...current, [member.id]: "" }));
-    setStaff((current) => current.map((item) => item.id === member.id ? { ...item, credentialStatus: c.passwordReset } : item));
+    try {
+      await upsertStaffAccount(member, password);
+      setResetDraft((current) => ({ ...current, [member.id]: "" }));
+      setStaff((current) => current.map((item) => item.id === member.id ? { ...item, credentialStatus: c.passwordReset } : item));
+      setAccountMessage("Đã đổi và đồng bộ mật khẩu.");
+    } catch (error) { setAccountMessage(`Không thể đổi mật khẩu: ${error.message}`); }
   }
 
   function deleteStaff(id) {
@@ -90,6 +97,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <label>{c.loginEmail}<input type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="staff@example.com" /></label>
           <label>{c.password}<input type="password" value={draft.accountPassword} onChange={(event) => updateDraft("accountPassword", event.target.value)} placeholder={c.passwordPlaceholder} /></label>
         </div>
+        {accountMessage && <p className="storeNote">{accountMessage}</p>}
       </section>
 
       <section className="card tableWrap">

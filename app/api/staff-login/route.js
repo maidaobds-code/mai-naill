@@ -11,10 +11,15 @@ async function hash(value) {
 
 export async function POST(request) {
   const { email = "", password = "" } = await request.json().catch(() => ({}));
-  if (!URL || !KEY || !email || !password) return Response.json({ ok: false }, { status: 401 });
+  if (!URL || !KEY) return Response.json({ ok: false, message: "Server chưa cấu hình Supabase." }, { status: 503 });
+  if (!email || !password) return Response.json({ ok: false, message: "Vui lòng nhập email và mật khẩu." }, { status: 400 });
   const response = await fetch(`${URL}/rest/v1/app_kv?owner_id=eq.${OWNER}&key=eq.${KV}&select=value&limit=1`, { cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}` } });
+  if (!response.ok) return Response.json({ ok: false, message: "Không thể đọc tài khoản từ Supabase." }, { status: 503 });
   const rows = await response.json().catch(() => []);
-  const account = rows?.[0]?.value?.find((item) => item.role === "staff" && item.email?.toLowerCase() === email.trim().toLowerCase());
+  const normalizedEmail = email.trim().toLowerCase();
+  const account = rows?.[0]?.value?.find((item) => item.role === "staff" && item.email?.trim().toLowerCase() === normalizedEmail);
+  if (!account) return Response.json({ ok: false, code: "ACCOUNT_NOT_SYNCED", message: "Tài khoản nhân viên chưa được đồng bộ lên server." }, { status: 404 });
+  if (!account.passwordHash) return Response.json({ ok: false, code: "PASSWORD_MISSING", message: "Tài khoản chưa có mật khẩu trên server." }, { status: 409 });
   if (!account?.passwordHash || account.passwordHash !== await hash(password)) return Response.json({ ok: false, message: "Sai email hoặc mật khẩu." }, { status: 401 });
   const { passwordHash, ...safe } = account;
   return Response.json({ ok: true, account: safe });
