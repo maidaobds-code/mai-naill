@@ -213,7 +213,7 @@ export default function Orders({ language = "vi" }) {
       !orders.some((order) => order.id === selected.id)
     )
       return;
-    updateOrder(selected.id, { [field]: value });
+    updateOrder(selected.id, field === "status" && ["FULFILLED", "Completed", "Delivered"].includes(value) ? { [field]: value, unread: false, completedAt: new Date().toISOString() } : { [field]: value });
   }
 
   function cancelSelected() {
