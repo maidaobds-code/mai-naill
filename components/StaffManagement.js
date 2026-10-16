@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useState } from "react";
-import { platforms, staff as seedStaff } from "../lib/salonData";
+import { staff as seedStaff } from "../lib/salonData";
 import { useAccountStore } from "../lib/accountStore";
 import { useStaffStore } from "../lib/staffStore";
 import { tx } from "../lib/i18nClean";

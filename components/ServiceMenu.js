@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { emptyService, useServiceCatalog } from "../lib/catalogStore";
 import { tx } from "../lib/i18nClean";
-import { staff } from "../lib/salonData";
+import { useStaffStore } from "../lib/staffStore";
 
 const copy = {
   vi: { desc: "Ảnh menu sẽ đồng bộ sang form đặt lịch hẹn trên website.", save: "+ Lưu dịch vụ", name: "Tên dịch vụ", duration: "Thời lượng phút", owner: "Chủ sở hữu", image: "Ảnh mẫu nail", selectedImage: "Ảnh đã chọn từ máy tính", headers: ["Dịch vụ", "Giá", "Thời lượng", "Nhân viên làm được", "Thao tác"], minutes: "phút" },
@@ -14,6 +14,7 @@ const copy = {
 export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi" }) {
   const c = copy[language] || copy.vi;
   const tc = (key) => tx(language, "common", key);
+  const { staff } = useStaffStore();
   const [services, setServices] = useServiceCatalog();
   const [draft, setDraft] = useState(emptyService);
 
