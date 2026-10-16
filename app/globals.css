@@ -1037,6 +1037,21 @@ section.nailPosPanel .nailPaymentRow {
 }
 
 @media print {
+  html,
+  body {
+    width: 58mm !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
   @page {
     size: 58mm auto;
     margin: 0;
@@ -1053,13 +1068,18 @@ section.nailPosPanel .nailPaymentRow {
 
   .printDocument.active {
     display: block !important;
-    position: absolute;
-    inset: 0 auto auto 0;
+    position: static;
     width: 58mm;
     max-width: 58mm;
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0;
     padding: 0;
     background: #fff;
+    page-break-before: avoid;
+    page-break-after: avoid;
+    break-before: avoid;
+    break-after: avoid;
   }
 
   .printPaper {
@@ -1067,6 +1087,8 @@ section.nailPosPanel .nailPaymentRow {
     max-width: 58mm;
     margin: 0;
     box-shadow: none;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 }
 
