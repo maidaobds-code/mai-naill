@@ -55,7 +55,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
         </div>
 
         {draft.imageUrl && <div className="imagePreview"><img src={draft.imageUrl} alt={draft.name || "Nail sample"} /><span>{draft.imageFileName || c.selectedImage}</span></div>}
-        <div className="staffPicker">{staff.map((member) => <button key={member.id} className={draft.staff.includes(member.name) ? "ghost activeSoft" : "ghost"} onClick={() => toggleStaff(member.name)}>{member.name}</button>)}</div>
+        <div className="staffPicker">{staff.map((member) => <button type="button" key={member.id} className={draft.staff.includes(member.name) ? "ghost activeSoft" : "ghost"} onClick={() => toggleStaff(member.name)}>{member.name}</button>)}</div>
       </section>
 
       <section className="card tableWrap">
