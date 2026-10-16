@@ -7,6 +7,7 @@ import { platforms, syncEvents } from "../lib/salonData";
 import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
 import StaffManagement from "./StaffManagement";
 import PrinterManager from "./PrinterManager";
+import { getCurrentAccount } from "../lib/accountStore";
 
 export const defaultSettings = {
   salonName: "Mai Beauty Salon",
@@ -56,6 +57,9 @@ export default function Settings({ language = "vi" }) {
   const [saved, setSaved] = useState(false);
   const [qrUploadError, setQrUploadError] = useState("");
   const [activePanel, setActivePanel] = useState("salon");
+  const [currentAccount] = useState(getCurrentAccount);
+  const [passwordForm, setPasswordForm] = useState({ current: "", next: "", confirm: "" });
+  const [passwordMessage, setPasswordMessage] = useState("");
   const tr = (key) => tx(language, "settingsPage", key);
   const tc = (key) => tx(language, "common", key);
   const printerCopy = {
@@ -161,6 +165,16 @@ export default function Settings({ language = "vi" }) {
     }
   }
 
+  async function changeOwnPassword(event) {
+    event.preventDefault();
+    setPasswordMessage("");
+    if (passwordForm.next.length < 6 || passwordForm.next !== passwordForm.confirm) { setPasswordMessage("Mật khẩu mới phải đủ 6 ký tự và nhập lại trùng nhau."); return; }
+    const response = await fetch("/api/account-password", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ currentPassword: passwordForm.current, newPassword: passwordForm.next }) });
+    const result = await response.json().catch(() => ({}));
+    setPasswordMessage(result.ok ? "Đã đổi mật khẩu thành công." : (result.message || "Không thể đổi mật khẩu."));
+    if (result.ok) setPasswordForm({ current: "", next: "", confirm: "" });
+  }
+
   return (
     <>
       <div className="pageHead"><div><p className="eyebrow">SETTINGS</p><h1>{tr("title")}</h1><p>{tr("taskDesc")}</p></div><button className="primary" form="settingsForm">{tr("save")}</button></div>
@@ -171,6 +185,7 @@ export default function Settings({ language = "vi" }) {
         {activePanel === "automation" && <section className="card settingsPanel"><h2>{tr("automation")}</h2><label className="toggleLine"><input type="checkbox" checked={settings.autoConfirm} onChange={(event) => update("autoConfirm", event.target.checked)} /> {tr("autoConfirm")}</label><label className="toggleLine"><input type="checkbox" checked={settings.emailReminder} onChange={(event) => update("emailReminder", event.target.checked)} /> {tr("emailReminder")}</label><label className="toggleLine"><input type="checkbox" checked={settings.lineReminder} onChange={(event) => update("lineReminder", event.target.checked)} /> {tr("lineReminder")}</label><label className="toggleLine"><input type="checkbox" checked={settings.depositRequired} onChange={(event) => update("depositRequired", event.target.checked)} /> {tr("deposit")}</label>{saved && <p className="successNote">{tr("saved")}</p>}</section>}
         {activePanel === "payment" && <section className="card settingsPanel paymentSettingsPanel"><h2>{tr("paymentSettings")}</h2><p className="mutedText">{tr("paymentDesc")}</p><div className="settingsPaymentMethods">{(settings.paymentMethods || defaultSettings.paymentMethods).map((method) => <div className="settingsPaymentMethod" key={method.id}><input value={method.label} onChange={(event) => updatePaymentMethod(method.id, "label", event.target.value)} /><button type="button" className="ghost dangerButton" onClick={() => removePaymentMethod(method.id)}>{tc("delete")}</button></div>)}<button type="button" className="ghost" onClick={addPaymentMethod}>{tr("addPaymentMethod")}</button></div><label className="toggleLine"><input type="checkbox" checked={settings.qrEnabled} onChange={(event) => update("qrEnabled", event.target.checked)} /> {language === "ja" ? "QRコード決済" : language === "en" ? "QR code payment" : "Thanh toán bằng mã QR"}</label><label>{language === "ja" ? "QRコード画像" : language === "en" ? "QR code image" : "Ảnh mã QR"}<input type="file" accept="image/*" onChange={uploadQr} /></label>{qrUploadError && <p className="errorNote">{qrUploadError}</p>}{settings.qrImageUrl && <img className="settingsQrPreview" src={settings.qrImageUrl} alt="QR code" />}<label>{tr("bankName")}<input value={settings.bankName} onChange={(event) => update("bankName", event.target.value)} /></label><label>{tr("bankAccount")}<input value={settings.bankAccount} onChange={(event) => update("bankAccount", event.target.value)} /></label><label>{tr("holder")}<input value={settings.bankHolder} onChange={(event) => update("bankHolder", event.target.value)} /></label><label>{tr("paymentNote")}<input value={settings.paymentNote} onChange={(event) => update("paymentNote", event.target.value)} /></label></section>}
         {activePanel === "printer" && <section className="card settingsPanel printerSettingsPanel"><div><p className="eyebrow">STAR mPOP</p><h2>{printerCopy.title}</h2><p className="mutedText">{printerCopy.desc}</p></div><div className="printerSettingsAction"><PrinterManager language={language} /></div><p className="printerSupportNote">{printerCopy.support}</p></section>}
+        {activePanel === "salon" && currentAccount?.role === "staff" && <section className="card settingsPanel"><h2>Đổi mật khẩu đăng nhập</h2><p className="mutedText">Tài khoản: {currentAccount.email}</p><div className="formGrid"><label>Mật khẩu hiện tại<input type="password" value={passwordForm.current} onChange={(event) => setPasswordForm({ ...passwordForm, current: event.target.value })} required /></label><label>Mật khẩu mới<input type="password" minLength={6} value={passwordForm.next} onChange={(event) => setPasswordForm({ ...passwordForm, next: event.target.value })} required /></label><label>Nhập lại mật khẩu mới<input type="password" minLength={6} value={passwordForm.confirm} onChange={(event) => setPasswordForm({ ...passwordForm, confirm: event.target.value })} required /></label><button className="primary" type="button" onClick={changeOwnPassword}>Đổi mật khẩu</button>{passwordMessage && <p className="successNote">{passwordMessage}</p>}</div></section>}
         {activePanel === "apps" && <section className="card settingsPanel paymentSettingsPanel"><h2>{tr("appsPanel")}</h2><p className="mutedText">{tr("appsDesc")}</p>{platforms.filter((platform) => platform.id !== "direct").map((platform) => { const provider = bookingProviders[platform.id === "hotpepper" ? "hotpepper" : platform.id]; return <div className="lineItem" key={platform.id}><span><strong>{platform.name}</strong><small>{provider?.status === "manual" ? tr("manualStatus") : platform.status}</small></span><strong>{provider?.capabilities?.includes("block") ? tr("synced") : tr("manual")}</strong></div>; })}<h3>{tr("syncLog")}</h3>{syncEvents.map((event) => <div className="lineItem" key={event.id}><span>{event.title}</span><small>{event.severity}</small></div>)}</section>}
       </form>
       {activePanel === "staff" && <section className="settingsStaffSection">
