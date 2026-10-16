@@ -45,6 +45,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
   async function addStaff() {
     if (!draft.name.trim()) return;
+    if (!draft.accountPassword || draft.accountPassword.length < 6) return;
     const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const record = { ...draft, id: uniqueId, credentialStatus: draft.accountPassword ? c.accountReady : c.needsPassword };
     await upsertStaffAccount(record, draft.accountPassword);
