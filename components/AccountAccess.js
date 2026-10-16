@@ -68,6 +68,21 @@ const loginCopy = {
   },
 };
 
+function localizedLoginMessage(message, language) {
+  const text = String(message || "").toLowerCase();
+  const messages = {
+    vi: { admin: "Sai tài khoản hoặc mật khẩu admin.", sync: "Tài khoản nhân viên chưa được đồng bộ lên máy chủ.", missing: "Tài khoản chưa có mật khẩu. Chủ quán cần tạo hoặc đổi mật khẩu.", invalid: "Sai email hoặc mật khẩu." },
+    ja: { admin: "管理者ユーザー名またはパスワードが正しくありません。", sync: "スタッフアカウントがサーバーに同期されていません。", missing: "このアカウントにはパスワードがありません。オーナーが設定してください。", invalid: "メールアドレスまたはパスワードが正しくありません。" },
+    en: { admin: "The admin username or password is incorrect.", sync: "The staff account has not been synchronized to the server.", missing: "This account has no password yet. The owner must set one.", invalid: "The email or password is incorrect." },
+  }[language] || null;
+  if (!messages) return message || "";
+  if (text.includes("admin")) return messages.admin;
+  if (text.includes("chưa được đồng bộ") || text.includes("not synchronized")) return messages.sync;
+  if (text.includes("chưa có mật khẩu") || text.includes("no password")) return messages.missing;
+  if (text.includes("sai email") || text.includes("incorrect")) return messages.invalid;
+  return message || "";
+}
+
 function storedLoginLanguage() {
   if (typeof window === "undefined") return "vi";
   return window.localStorage.getItem(LOGIN_LANGUAGE_KEY) || "vi";
@@ -94,7 +109,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
   async function submitLogin(event) {
     event.preventDefault();
     const result = await login(loginForm.email, loginForm.password);
-    setLoginMessage(result.message || "");
+    setLoginMessage(localizedLoginMessage(result.message, language));
   }
 
   async function submitCustomer(event) {
@@ -105,7 +120,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
 
   function startGoogleLogin() {
     const result = loginWithGoogle();
-    setLoginMessage(result.message || "");
+    setLoginMessage(localizedLoginMessage(result.message, language));
   }
 
   if (showRegister) {
