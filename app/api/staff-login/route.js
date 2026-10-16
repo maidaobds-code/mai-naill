@@ -1,3 +1,5 @@
+import { createStaffSession, staffCookie } from "../../../lib/serverAuth";
+
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const OWNER = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
@@ -22,5 +24,7 @@ export async function POST(request) {
   if (!account.passwordHash) return Response.json({ ok: false, code: "PASSWORD_MISSING", message: "Tài khoản chưa có mật khẩu trên server." }, { status: 409 });
   if (!account?.passwordHash || account.passwordHash !== await hash(password)) return Response.json({ ok: false, message: "Sai email hoặc mật khẩu." }, { status: 401 });
   const { passwordHash, ...safe } = account;
-  return Response.json({ ok: true, account: safe });
+  const result = Response.json({ ok: true, account: safe });
+  result.headers.set("Set-Cookie", staffCookie(createStaffSession(account.id)));
+  return result;
 }

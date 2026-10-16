@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { tx } from "../lib/i18nClean";
-import { getStoredPosSales } from "./Checkout";
+import { getSharedPosSales, getStoredPosSales, saveSharedPosSales } from "./Checkout";
 import PrinterManager from "./PrinterManager";
 import { getPrinterSettings, printStarReceipt } from "../lib/starPrinter";
 import { staff } from "../lib/salonData";
@@ -95,6 +95,14 @@ export default function PaymentHistory({ language = "vi" }) {
   );
 
   useEffect(() => {
+    let mounted = true;
+    const refresh = () => getSharedPosSales().then((remote) => {
+      if (!mounted) return;
+      setSales(remote);
+      localStorage.setItem("nail-japan-pos-sales", JSON.stringify(remote));
+    }).catch(() => {});
+    refresh();
+    const timer = window.setInterval(refresh, 5000);
     function sync(event) {
       setSales(
         Array.isArray(event.detail) ? event.detail : getStoredPosSales(),
@@ -103,6 +111,8 @@ export default function PaymentHistory({ language = "vi" }) {
     window.addEventListener("nail-japan-pos-sales-updated", sync);
     window.addEventListener("storage", sync);
     return () => {
+      mounted = false;
+      window.clearInterval(timer);
       window.removeEventListener("nail-japan-pos-sales-updated", sync);
       window.removeEventListener("storage", sync);
     };
@@ -119,6 +129,7 @@ export default function PaymentHistory({ language = "vi" }) {
     const replacement = { ...selected, id: `${selected.id}-edit-${Date.now()}`, orderNumber: `${selected.orderNumber || selected.receiptNumber}-E`, total, paid: Math.min(Number(selected.paid || total), total), remaining: Math.max(0, total - Number(selected.paid || total)), change: Math.max(0, received - total), cashReceived: received, staff: editStaff, editedFrom: selected.id, editedAt: new Date().toISOString(), voided: false };
     const next = [...sales.map((sale) => sale.id === selected.id ? { ...sale, voided: true, voidedAt: new Date().toISOString(), voidedBy: editStaff } : sale), replacement];
     localStorage.setItem("nail-japan-pos-sales", JSON.stringify(next));
+    saveSharedPosSales(next).catch(() => setNotice("Không thể đồng bộ thay đổi lên server."));
     window.dispatchEvent(new CustomEvent("nail-japan-pos-sales-updated", { detail: next }));
     setSales(next); setSelectedId(replacement.id); setEditing(false); setNotice(actionText.save);
   }

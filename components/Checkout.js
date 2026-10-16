@@ -64,6 +64,18 @@ export function getStoredPosSales() {
   return readJson(CHECKOUT_KEY, []);
 }
 
+export async function getSharedPosSales() {
+  const response = await fetch("/api/pos-sales", { cache: "no-store", credentials: "include" });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !Array.isArray(result.value)) throw new Error(result.message || "Cannot load POS sales");
+  return result.value;
+}
+
+export async function saveSharedPosSales(value) {
+  const response = await fetch("/api/pos-sales", { method: "POST", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ value }) });
+  if (!response.ok) throw new Error("Cannot sync POS sales");
+}
+
 export default function Checkout({ label = "POS / Checkout", appointmentId = "", language = "vi", onOpenPaymentHistory }) {
   const tr = (key, vars) => tx(language, "checkoutPage", key, vars);
   const tc = (key) => tx(language, "common", key);
@@ -276,6 +288,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
     const existing = getStoredPosSales().filter((sale) => sale.id !== record.id && (!record.appointmentId || sale.appointmentId !== record.appointmentId));
     const next = [record, ...existing];
     window.localStorage.setItem(CHECKOUT_KEY, JSON.stringify(next));
+    saveSharedPosSales(next).catch(() => setError("Không thể đồng bộ lịch sử thanh toán lên server."));
     setPosHistory(next);
     window.dispatchEvent(new CustomEvent("nail-japan-pos-sales-updated", { detail: next }));
     if (paymentStatus === "Paid" && !order.stockDeducted) {
