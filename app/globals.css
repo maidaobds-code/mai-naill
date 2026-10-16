@@ -890,11 +890,13 @@ section.nailPosPanel .nailPaymentRow {
 }
 
 .printPaper {
-  width: 82mm;
-  min-height: 128mm;
+  width: 58mm;
+  max-width: 58mm;
+  min-height: 0;
   margin: 0 auto;
-  padding: 8mm;
-  border: 2px solid #777;
+  padding: 4mm 3mm;
+  border: 0;
+  box-sizing: border-box;
   background: #fff;
   color: #111;
   font-family: Arial, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
@@ -905,7 +907,9 @@ section.nailPosPanel .nailPaymentRow {
 /* POS receipt: compact itemized layout like a Japanese thermal slip. */
 .printReceipt .printPaper {
   border: 0;
-  padding: 6mm 5mm;
+  width: 58mm;
+  max-width: 58mm;
+  padding: 3mm 2.5mm;
   font-family: "Courier New", "Yu Gothic", monospace;
   font-size: 11px;
 }
@@ -937,9 +941,11 @@ section.nailPosPanel .nailPaymentRow {
 
 /* Ryoshusho: formal receipt layout with recipient, amount and tax box. */
 .printRyoshusho .printPaper {
-  min-height: 105mm;
-  padding: 8mm 7mm;
-  border: 1px solid #777;
+  width: 58mm;
+  max-width: 58mm;
+  min-height: 0;
+  padding: 4mm 3mm;
+  border: 0;
 }
 
 .printRyoshusho h3 {
@@ -1032,8 +1038,8 @@ section.nailPosPanel .nailPaymentRow {
 
 @media print {
   @page {
-    size: 80mm auto;
-    margin: 4mm;
+    size: 58mm auto;
+    margin: 0;
   }
 
   body * {
@@ -1049,12 +1055,17 @@ section.nailPosPanel .nailPaymentRow {
     display: block !important;
     position: absolute;
     inset: 0 auto auto 0;
-    width: 100%;
+    width: 58mm;
+    max-width: 58mm;
+    margin: 0;
     padding: 0;
     background: #fff;
   }
 
   .printPaper {
+    width: 58mm;
+    max-width: 58mm;
+    margin: 0;
     box-shadow: none;
   }
 }
