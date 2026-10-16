@@ -6,6 +6,7 @@ import { getSharedPosSales, getStoredPosSales, saveSharedPosSales } from "./Chec
 import PrinterManager from "./PrinterManager";
 import { getPrinterSettings, printStarReceipt } from "../lib/starPrinter";
 import { staff } from "../lib/salonData";
+import { useStaffStore } from "../lib/staffStore";
 
 function yen(value) {
   return `JPY ${Math.round(Number(value || 0)).toLocaleString("ja-JP")}`;
@@ -89,6 +90,9 @@ export default function PaymentHistory({ language = "vi" }) {
   const [editTotal, setEditTotal] = useState("");
   const [editLines, setEditLines] = useState([]);
   const [editPaymentMethod, setEditPaymentMethod] = useState("");
+  const [editPassword, setEditPassword] = useState("");
+  const { staff: syncedStaff } = useStaffStore();
+  const staffList = syncedStaff.length ? syncedStaff : staff;
   const paymentChoices = ["現金", "クレジットカード", "銀行振込", "アプリ決済"];
   const selected = sales.find((sale) => sale.id === selectedId) || sales.find((sale) => !sale.voided) || sales[0];
   const activeSales = useMemo(() => sales.filter((sale) => !sale.voided), [sales]);
@@ -122,11 +126,15 @@ export default function PaymentHistory({ language = "vi" }) {
   }, []);
 
   useEffect(() => {
-    if (selected) { setEditStaff(selected.staff || ""); setEditTotal(String(selected.total || "")); setEditLines((selected.lines || []).map((line) => ({ ...line }))); setEditPaymentMethod(selected.paymentMethodText || "現金"); setEditing(false); }
+    if (selected) { setEditStaff(selected.staff || ""); setEditPassword(""); setEditTotal(String(selected.total || "")); setEditLines((selected.lines || []).map((line) => ({ ...line }))); setEditPaymentMethod(selected.paymentMethodText || "現金"); setEditing(false); }
   }, [selected?.id]);
 
-  function saveEditedPayment() {
+  async function saveEditedPayment() {
     if (!selected || !editStaff) { setNotice(actionText.choose); return; }
+    const editor = staffList.find((member) => member.name === editStaff);
+    if (!editor?.email || !editPassword) { setNotice("Vui lòng chọn nhân viên và nhập mật khẩu."); return; }
+    const auth = await fetch("/api/staff-login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: editor.email, password: editPassword }) }).then(async (response) => ({ ok: response.ok, data: await response.json().catch(() => ({})) })).catch(() => ({ ok: false }));
+    if (!auth.ok) { setNotice("Mật khẩu nhân viên không đúng."); return; }
     const lines = editLines.filter((line) => String(line.name || "").trim()).map((line, index) => ({ ...line, id: line.id || `edited-line-${Date.now()}-${index}`, name: String(line.name).trim(), quantity: Math.max(1, Number(line.quantity || 1)), unitPrice: Math.max(0, Number(line.unitPrice || 0)), discountValue: Math.max(0, Number(line.discountValue || 0)) }));
     const calculatedTotal = lines.reduce((sum, line) => sum + (line.unitPrice * line.quantity) - line.discountValue, 0);
     const total = Math.max(0, Number(editTotal || calculatedTotal));
@@ -243,7 +251,7 @@ export default function PaymentHistory({ language = "vi" }) {
               {printing ? c.printing : c.reprint}
             </button>
             {!selected.voided && <div className="paymentHistoryActions"><button type="button" className="ghost" onClick={() => { setNotice(""); window.print(); }}>{actionText.receipt}</button><button type="button" className="ghost" onClick={() => setEditing((value) => !value)}>{actionText.edit}</button></div>}
-            {editing && !selected.voided && <div className="paymentEditBox"><label>{actionText.staff}<select value={editStaff} onChange={(event) => setEditStaff(event.target.value)}><option value="">{actionText.choose}</option>{staff.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label><label>支払方法<select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)}>{paymentChoices.map((method) => <option key={method}>{method}</option>)}</select></label><div className="paymentEditLines">{editLines.map((line, index) => <div className="paymentEditLine" key={line.id || index}><input value={line.name || ""} placeholder="サービス / 商品" onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /><input type="number" min="1" value={line.quantity || 1} onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: event.target.value } : item))} /><input type="number" min="0" value={line.unitPrice || 0} onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, unitPrice: event.target.value } : item))} /><button type="button" className="ghost" onClick={() => setEditLines((current) => current.filter((_, itemIndex) => itemIndex !== index))}>削除</button></div>)}</div><button type="button" className="ghost" onClick={() => setEditLines((current) => [...current, { id: `new-line-${Date.now()}`, name: "", quantity: 1, unitPrice: 0, discountValue: 0 }])}>＋サービス・商品を追加</button><label>{c.total}<input type="number" min="0" value={editTotal} onChange={(event) => setEditTotal(event.target.value)} /></label><button type="button" className="primary" onClick={saveEditedPayment}>{actionText.save}</button></div>}
+            {editing && !selected.voided && <div className="paymentEditBox"><label>{actionText.staff}<select value={editStaff} onChange={(event) => { setEditStaff(event.target.value); setEditPassword(""); }}><option value="">{actionText.choose}</option>{staffList.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label><label>Mật khẩu nhân viên<input type="password" value={editPassword} onChange={(event) => setEditPassword(event.target.value)} autoComplete="current-password" /></label><label>支払方法<select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)}>{paymentChoices.map((method) => <option key={method}>{method}</option>)}</select></label><div className="paymentEditLines">{editLines.map((line, index) => <div className="paymentEditLine" key={line.id || index}><input value={line.name || ""} placeholder="サービス / 商品" onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /><input type="number" min="1" value={line.quantity || 1} onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: event.target.value } : item))} /><input type="number" min="0" value={line.unitPrice || 0} onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, unitPrice: event.target.value } : item))} /><button type="button" className="ghost" onClick={() => setEditLines((current) => current.filter((_, itemIndex) => itemIndex !== index))}>削除</button></div>)}</div><button type="button" className="ghost" onClick={() => setEditLines((current) => [...current, { id: `new-line-${Date.now()}`, name: "", quantity: 1, unitPrice: 0, discountValue: 0 }])}>＋サービス・商品を追加</button><label>{c.total}<input type="number" min="0" value={editTotal} onChange={(event) => setEditTotal(event.target.value)} /></label><button type="button" className="primary" onClick={saveEditedPayment}>{actionText.save}</button></div>}
             {notice && <p className="printerNotice">{notice}</p>}
             <div className="orderInfoGrid">
               {selected.editedBy && <div><span>修正者</span><strong>{selected.editedBy}</strong></div>}
