@@ -19,7 +19,7 @@ const items = [
 
 export default function SidebarEnhanced({ active, setActive, language, setLanguage, allowedItems = items.map((item) => item[2]) }) {
   const { orders } = useStoreOrders();
-  const unread = orders.filter((order) => order.unread).length;
+  const unread = orders.filter((order) => order.unread && !["FULFILLED", "Completed", "Delivered"].includes(order.status)).length;
   const visibleItems = items.filter((item) => allowedItems.includes(item[2]));
   return (
     <aside className="sidebar">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { emptyService, useServiceCatalog } from "../lib/catalogStore";
 import { tx } from "../lib/i18nClean";
 import { useStaffStore } from "../lib/staffStore";
+import { useAccountStore } from "../lib/accountStore";
 
 const copy = {
   vi: { desc: "Ảnh menu sẽ đồng bộ sang form đặt lịch hẹn trên website.", save: "+ Lưu dịch vụ", name: "Tên dịch vụ", duration: "Thời lượng phút", owner: "Chủ sở hữu", image: "Ảnh mẫu nail", selectedImage: "Ảnh đã chọn từ máy tính", headers: ["Dịch vụ", "Giá", "Thời lượng", "Nhân viên làm được", "Thao tác"], minutes: "phút" },
@@ -14,7 +15,13 @@ const copy = {
 export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi" }) {
   const c = copy[language] || copy.vi;
   const tc = (key) => tx(language, "common", key);
-  const { staff } = useStaffStore();
+  const { staff: storedStaff } = useStaffStore();
+  const { currentAccount } = useAccountStore();
+  const staff = (() => {
+    const ownName = currentAccount?.role === "staff" ? currentAccount.staffName || currentAccount.name : "";
+    if (!ownName || storedStaff.some((member) => member.name === ownName)) return storedStaff;
+    return [...storedStaff, { id: `account-${currentAccount.id}`, name: ownName, role: "Nailist", color: "#7c3aed", external: {} }];
+  })();
   const [services, setServices] = useServiceCatalog();
   const [draft, setDraft] = useState(emptyService);
 

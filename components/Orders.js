@@ -159,7 +159,7 @@ export default function Orders({ language = "vi" }) {
     (total, order) => total + Number(order.total || 0),
     0,
   );
-  const unreadCount = orders.filter((order) => order.unread).length;
+  const unreadCount = orders.filter((order) => order.unread && !["FULFILLED", "Completed", "Delivered"].includes(order.status)).length;
 
   useEffect(() => {
     function syncPosSales(event) {
