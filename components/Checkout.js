@@ -444,7 +444,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
         <button onClick={() => printDocument("ryoshusho")}>▣ {tr("reprintRyoshusho")}</button>
       </div>
 
-      <div className={`printDocument ${printMode === "receipt" ? "active" : ""}`}>
+      <div className={`printDocument printReceipt ${printMode === "receipt" ? "active" : ""}`}>
         
         <div className="printPaper">
           <div className="printStore">
@@ -468,7 +468,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
         </div>
       </div>
 
-      <div className={`printDocument ${printMode === "ryoshusho" ? "active" : ""}`}>
+      <div className={`printDocument printRyoshusho ${printMode === "ryoshusho" ? "active" : ""}`}>
         
         <div className="printPaper">
           <div className="printStore">

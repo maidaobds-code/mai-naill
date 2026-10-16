@@ -1,7 +1,8 @@
 ﻿"use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { tx } from "../lib/i18nClean";
-import { platforms, staff } from "../lib/salonData";
+import { platforms, staff as seedStaff } from "../lib/salonData";
+import { useStaffStore } from "../lib/staffStore";
 import { useBookingStore } from "../lib/bookingStore";
 
 const slots = [
@@ -26,8 +27,8 @@ function platformFor(id) {
   return platforms.find((platform) => platform.id === id) || platforms[0];
 }
 
-function staffFor(name) {
-  return staff.find((member) => member.name === name) || staff[0];
+function staffFor(name, staffList = seedStaff) {
+  return staffList.find((member) => member.name === name) || staffList[0] || seedStaff[0];
 }
 
 function bookingDay(booking) {
@@ -59,6 +60,10 @@ function blankBooking(day, hour, member) {
     phone: "",
     service: "Gel One Color",
     staff: member.name,
+    staffId: member.id,
+    staffEmail: member.email || "",
+    staffRole: member.role || "",
+    staffPhone: member.phone || "",
     source: "direct",
     draft: true,
   };
@@ -69,21 +74,29 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const tc = (key) => tx(language, "common", key);
   const [view, setView] = useState("day");
   const [selectedDay, setSelectedDay] = useState(6);
-  const [selected, setSelected] = useState(blankBooking(6, "10:00", staff[0]));
+  const [selected, setSelected] = useState(blankBooking(6, "10:00", seedStaff[0]));
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
   const { bookings, setBookings } = useBookingStore();
+  const { staff: staffMembers } = useStaffStore();
+  const staff = staffMembers.length ? staffMembers : seedStaff;
   const pressRef = useRef(null);
   const paintRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => bookingDay(booking) === selectedDay);
   const weekTotal = bookings.filter((booking) => bookingDay(booking) >= 6 && bookingDay(booking) <= 12).length;
   const monthTotal = bookings.length;
 
+  useEffect(() => {
+    if (!staff.length || !selected?.draft) return;
+    const current = staff.find((member) => member.name === selected.staff) || staff[0];
+    if (current && current.name !== selected.staff) setSelected((value) => ({ ...value, staff: current.name }));
+  }, [staff, selected?.draft, selected?.staff]);
+
   function openDay(day) {
     setSelectedDay(day);
     setView("day");
-    setSelected(blankBooking(day, "10:00", staff[0]));
+    setSelected(blankBooking(day, "10:00", staff[0] || seedStaff[0]));
   }
 
   function beginSelect(hour, member) {
@@ -169,9 +182,32 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     clearTimeout(pressRef.current);
   }
 
-  function saveBooking() {
+  async function notifyAssignedStaff(booking, previousStaff) {
+    const assigned = staff.find((member) => member.name === booking.staff);
+    if (!assigned?.email || assigned.name === previousStaff) return;
+    const isNew = !previousStaff;
+    const response = await fetch("/api/notifications", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        to: assigned.email,
+        subject: `${isNew ? "Lịch hẹn mới" : "Lịch hẹn đã được cập nhật"} - ${booking.customer}`,
+        html: `<p>Xin chào ${assigned.name},</p><p>${isNew ? "Bạn được thêm vào lịch hẹn mới." : "Lịch hẹn của bạn vừa được cập nhật."}</p><p><strong>Khách:</strong> ${booking.customer}<br/><strong>Ngày:</strong> 2026/10/${String(booking.day).padStart(2, "0")}<br/><strong>Giờ:</strong> ${booking.start} - ${booking.end}<br/><strong>Dịch vụ:</strong> ${booking.service || "-"}</p>`,
+      }),
+    });
+    if (!response.ok) throw new Error("Không thể gửi email cho nhân viên");
+  }
+
+  async function saveBooking() {
+    const previousStaff = selected.draft ? "" : selected.staff;
+    const assigned = staff.find((member) => member.name === selected.staff) || staff.find((member) => String(member.id) === String(selected.staffId)) || staff[0] || seedStaff[0];
     const bookingToSave = {
       ...selected,
+      staff: assigned.name,
+      staffId: assigned.id,
+      staffEmail: assigned.email || "",
+      staffRole: assigned.role || "",
+      staffPhone: assigned.phone || "",
       id: selected.draft ? `booking-${Date.now()}` : selected.id,
       day: selectedDay,
       customer: selected.customer || "New customer",
@@ -185,11 +221,12 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     });
     setSelected(bookingToSave);
     setModalOpen(false);
+    try { await notifyAssignedStaff(bookingToSave, previousStaff); } catch (error) { console.warn(error); }
   }
 
   function deleteBooking() {
     setBookings((current) => current.filter((booking) => booking.id !== selected.id));
-    setSelected(blankBooking(selectedDay, "10:00", staff[0]));
+    setSelected(blankBooking(selectedDay, "10:00", staff[0] || seedStaff[0]));
     setModalOpen(false);
   }
 
@@ -217,7 +254,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>{c.week}</button>
           <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>{c.month}</button>
           <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
-          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDay, "10:00", staff[0])); setModalOpen(true); }}>{c.newBooking}</button>
+          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDay, "10:00", staff[0] || seedStaff[0])); setModalOpen(true); }}>{c.newBooking}</button>
         </div>
       </div>
 
@@ -335,11 +372,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
         <div className="bookingModalBackdrop" onMouseDown={() => setModalOpen(false)}>
           <div className="card bookingModal" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modalHead"><div><p className="eyebrow">{selected.draft ? c.newLabel : c.editLabel}</p><h2>{selected.customer || c.customer}</h2></div><button className="ghost iconClose" onClick={() => setModalOpen(false)}>{tc("close")}</button></div>
-            <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>2026/10/{String(selectedDay).padStart(2, "0")} · {selected.staff}</span></div>
+            <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>2026/10/{String(selectedDay).padStart(2, "0")} · {selected.staff}</span>{selected.staffRole && <small>{selected.staffRole}{selected.staffEmail ? ` · ${selected.staffEmail}` : ""}</small>}</div>
             <div className="formGrid modalForm">
               <label>{c.customer}<input value={selected.customer} onChange={(event) => setSelected({ ...selected, customer: event.target.value })} placeholder={c.customer} /></label>
               <label>{c.phone}<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
-              <label>{c.staff}<select value={selected.staff} onChange={(event) => setSelected({ ...selected, staff: event.target.value })}>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label>
+              <label>{c.staff}<select value={selected.staff} onChange={(event) => { const assigned = staff.find((member) => member.name === event.target.value); setSelected({ ...selected, staff: event.target.value, staffId: assigned?.id || "", staffEmail: assigned?.email || "", staffRole: assigned?.role || "", staffPhone: assigned?.phone || "" }); }}>{staff.map((member) => <option key={member.id} value={member.name}>{member.name}{member.role ? ` · ${member.role}` : ""}</option>)}</select></label>
               <label>{c.platform}<select value={selected.source} onChange={(event) => setSelected({ ...selected, source: event.target.value })}>{platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}</select></label>
               <label>{c.start}<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
               <label>{c.end}<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>

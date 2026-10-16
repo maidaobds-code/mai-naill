@@ -434,7 +434,7 @@ export default function Orders({ language = "vi" }) {
             {selected.isPosSale && (
               <>
                 <div
-                  className={`printDocument ${printMode === "receipt" ? "active" : ""}`}
+                  className={`printDocument printReceipt ${printMode === "receipt" ? "active" : ""}`}
                 >
                   <div className="printPaper">
                     <div className="printStore">
@@ -507,7 +507,7 @@ export default function Orders({ language = "vi" }) {
                   </div>
                 </div>
                 <div
-                  className={`printDocument ${printMode === "ryoshusho" ? "active" : ""}`}
+                  className={`printDocument printRyoshusho ${printMode === "ryoshusho" ? "active" : ""}`}
                 >
                   <div className="printPaper">
                     <div className="printStore">

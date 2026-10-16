@@ -902,6 +902,65 @@ section.nailPosPanel .nailPaymentRow {
   line-height: 1.45;
 }
 
+/* POS receipt: compact itemized layout like a Japanese thermal slip. */
+.printReceipt .printPaper {
+  border: 0;
+  padding: 6mm 5mm;
+  font-family: "Courier New", "Yu Gothic", monospace;
+  font-size: 11px;
+}
+
+.printReceipt .printStore {
+  text-align: center;
+  border-bottom: 1px dashed #333;
+  padding-bottom: 7px;
+}
+
+.printReceipt .printMeta {
+  font-size: 10px;
+  margin-top: 8px;
+}
+
+.printReceipt .printItems {
+  border-top: 1px solid #333;
+  border-bottom: 1px solid #333;
+  padding: 5px 0;
+}
+
+.printReceipt .printItems p {
+  display: grid;
+  grid-template-columns: 1fr auto;
+}
+
+/* Ryoshusho: formal receipt layout with recipient, amount and tax box. */
+.printRyoshusho .printPaper {
+  min-height: 105mm;
+  padding: 8mm 7mm;
+  border: 1px solid #777;
+}
+
+.printRyoshusho h3 {
+  margin: 14px 0 18px;
+  font-size: 24px;
+  letter-spacing: .35em;
+}
+
+.printRyoshusho .printRecipient {
+  min-height: 38px;
+  font-size: 15px;
+}
+
+.printRyoshusho .printTotal {
+  margin: 15px 0;
+  padding: 9px 0;
+  border-top: 2px solid #222;
+  border-bottom: 2px solid #222;
+}
+
+.printRyoshusho .printTotal strong {
+  font-size: 20px;
+}
+
 .printStore {
   display: grid;
   gap: 2px;
