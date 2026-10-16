@@ -910,6 +910,9 @@ section.nailPosPanel .nailPaymentRow {
   font-size: 11px;
 }
 
+.printReceipt h3 { font-size: 0; }
+.printReceipt h3::after { content: "お買い上げ明細"; font-size: 15px; }
+
 .printReceipt .printStore {
   text-align: center;
   border-bottom: 1px dashed #333;
@@ -944,6 +947,9 @@ section.nailPosPanel .nailPaymentRow {
   font-size: 24px;
   letter-spacing: .35em;
 }
+
+.printRyoshusho h3 { font-size: 0; }
+.printRyoshusho h3::after { content: "領収書"; font-size: 24px; }
 
 .printRyoshusho .printRecipient {
   min-height: 38px;

@@ -126,7 +126,7 @@ export default function PaymentHistory({ language = "vi" }) {
     if (!selected || !editStaff) { setNotice(actionText.choose); return; }
     const total = Math.max(0, Number(editTotal || 0));
     const received = Number(selected.cashReceived || selected.paid || total);
-    const replacement = { ...selected, id: `${selected.id}-edit-${Date.now()}`, orderNumber: `${selected.orderNumber || selected.receiptNumber}-E`, total, paid: Math.min(Number(selected.paid || total), total), remaining: Math.max(0, total - Number(selected.paid || total)), change: Math.max(0, received - total), cashReceived: received, staff: editStaff, editedFrom: selected.id, editedAt: new Date().toISOString(), voided: false };
+    const replacement = { ...selected, id: `${selected.id}-edit-${Date.now()}`, orderNumber: `${selected.orderNumber || selected.receiptNumber}-E`, total, paid: Math.min(Number(selected.paid || total), total), remaining: Math.max(0, total - Number(selected.paid || total)), change: Math.max(0, received - total), cashReceived: received, staff: editStaff, editedBy: editStaff, editedFrom: selected.id, editedAt: new Date().toISOString(), voided: false };
     const next = [...sales.map((sale) => sale.id === selected.id ? { ...sale, voided: true, voidedAt: new Date().toISOString(), voidedBy: editStaff } : sale), replacement];
     localStorage.setItem("nail-japan-pos-sales", JSON.stringify(next));
     saveSharedPosSales(next).catch(() => setNotice("Không thể đồng bộ thay đổi lên server."));
@@ -241,6 +241,7 @@ export default function PaymentHistory({ language = "vi" }) {
             {editing && !selected.voided && <div className="paymentEditBox"><label>{actionText.staff}<select value={editStaff} onChange={(event) => setEditStaff(event.target.value)}><option value="">{actionText.choose}</option>{staff.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label><label>{c.total}<input type="number" min="0" value={editTotal} onChange={(event) => setEditTotal(event.target.value)} /></label><button type="button" className="primary" onClick={saveEditedPayment}>{actionText.save}</button></div>}
             {notice && <p className="printerNotice">{notice}</p>}
             <div className="orderInfoGrid">
+              {selected.editedBy && <div><span>修正者</span><strong>{selected.editedBy}</strong></div>}
               <div>
                 <span>{c.customer}</span>
                 <strong>{selected.customer || "-"}</strong>
