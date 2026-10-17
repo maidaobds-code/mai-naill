@@ -60,6 +60,15 @@ function lineTotal(line) {
   return Math.max(0, gross - discount);
 }
 
+// Printed receipts are always Japanese, regardless of the app language.
+const receiptCopy = {
+  title: "お支払い", itemUnit: "×", subtotal: "小計", discount: "割引",
+  total: "合計", received: "お預かり", remaining: "残額", payment: "お支払い",
+  change: "お釣り", tax: "税", taxBase: "税抜", taxAmount: "税額",
+  receipt: "領収書", recipient: "様", purpose: "但し書き",
+  service: "ネイルサービス代として", receiptNumber: "領収書番号",
+};
+
 export function getStoredPosSales() {
   return readJson(CHECKOUT_KEY, []);
 }
@@ -457,14 +466,14 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
           <div className="printItems">{order.lines.map((line) => <p key={line.id}><span>{line.name} × {line.quantity}</span><strong>{yen(lineTotal(line))}</strong></p>)}</div>
           <div className="printRule" />
 	          <p><span>小計</span><strong>{yen(subtotal)}</strong></p>
-	          <p><span>{tr("discount")} {order.orderDiscountType === "percent" && Number(order.orderDiscountValue || 0) > 0 ? `(${order.orderDiscountValue}%)` : ""}</span><strong>- {yen(orderDiscount)}</strong></p>
+	          <p><span>{receiptCopy.discount} {order.orderDiscountType === "percent" && Number(order.orderDiscountValue || 0) > 0 ? `(${order.orderDiscountValue}%)` : ""}</span><strong>- {yen(orderDiscount)}</strong></p>
 	          <p><span>合計</span><strong>{yen(total)}</strong></p>
 	          <p><span>お預かり</span><strong>{yen(cashReceived)}</strong></p>
 	          <p><span>残額</span><strong>{yen(remaining)}</strong></p>
 	          <p><span>{paymentMethodText || tr("paymentMethods")}</span><strong>{yen(paid)}</strong></p>
 	          <p><span>お釣り</span><strong>{yen(change)}</strong></p>
           <div className="printRule" />
-	          <p><span>{tr("tax")} {taxRate}%</span><span>{tr("taxBase")} {yen(Math.max(0, taxableSubtotal - tax))}</span><strong>{tr("taxAmount")} {yen(tax)}</strong></p>
+	          <p><span>{receiptCopy.tax} {taxRate}%</span><span>{receiptCopy.taxBase} {yen(Math.max(0, taxableSubtotal - tax))}</span><strong>{receiptCopy.taxAmount} {yen(tax)}</strong></p>
         </div>
       </div>
 
@@ -482,12 +491,12 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
           <p><span>{new Date().toLocaleDateString("ja-JP")}</span><strong>{paymentMethodText || "現金"}</strong></p>
           <div className="printRule" />
 	          <p><span>小計</span><strong>{yen(subtotal)}</strong></p>
-	          <p><span>{tr("discount")} {order.orderDiscountType === "percent" && Number(order.orderDiscountValue || 0) > 0 ? `(${order.orderDiscountValue}%)` : ""}</span><strong>- {yen(orderDiscount)}</strong></p>
+	          <p><span>{receiptCopy.discount} {order.orderDiscountType === "percent" && Number(order.orderDiscountValue || 0) > 0 ? `(${order.orderDiscountValue}%)` : ""}</span><strong>- {yen(orderDiscount)}</strong></p>
 	          <p className="printTotal"><span>合計</span><strong>{yen(total)}</strong></p>
 	          <p><span>お預かり</span><strong>{yen(cashReceived)}</strong></p>
 	          <p><span>残額</span><strong>{yen(remaining)}</strong></p>
           <p><span>但し書き</span><strong>ネイルサービス代として</strong></p>
-	          <div className="printTaxGrid"><span>{tr("taxRate")}</span><span>{tr("taxBase")}</span><span>{tr("taxAmount")}</span><span>{tr("grandTotal")}</span><span>{taxRate}%</span><span>{yen(Math.max(0, taxableSubtotal - tax))}</span><span>{yen(tax)}</span><span>{yen(total)}</span></div>
+	          <div className="printTaxGrid"><span>税率</span><span>{receiptCopy.taxBase}</span><span>{receiptCopy.taxAmount}</span><span>{receiptCopy.total}</span><span>{taxRate}%</span><span>{yen(Math.max(0, taxableSubtotal - tax))}</span><span>{yen(tax)}</span><span>{yen(total)}</span></div>
           <small>領収書番号: {order.receiptNumber || order.orderNumber || "POS"}</small>
         </div>
       </div>
