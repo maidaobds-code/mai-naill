@@ -1057,7 +1057,7 @@ section.nailPosPanel .nailPaymentRow {
 @media print {
   html,
   body {
-    width: 58mm !important;
+    width: auto !important;
     min-width: 0 !important;
     height: auto !important;
     min-height: 0 !important;
@@ -1072,7 +1072,7 @@ section.nailPosPanel .nailPaymentRow {
   }
 
   @page {
-    size: 58mm auto;
+    size: auto;
     margin: 0;
   }
 
@@ -1094,8 +1094,8 @@ section.nailPosPanel .nailPaymentRow {
     position: absolute !important;
     top: 0;
     left: 0;
-    width: 58mm;
-    max-width: 58mm;
+    width: 100% !important;
+    max-width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
     margin: 0;
@@ -1108,12 +1108,18 @@ section.nailPosPanel .nailPaymentRow {
   }
 
   .printPaper {
-    width: 58mm;
-    max-width: 58mm;
+    width: 100% !important;
+    max-width: 100% !important;
     margin: 0;
     box-shadow: none;
     page-break-inside: avoid;
     break-inside: avoid;
+  }
+
+  .printReceipt .printPaper,
+  .printRyoshusho .printPaper {
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 
