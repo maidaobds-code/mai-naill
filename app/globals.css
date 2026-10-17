@@ -939,6 +939,24 @@ section.nailPosPanel .nailPaymentRow {
   grid-template-columns: 1fr auto;
 }
 
+/* Japanese thermal-slip order: total, tax details, then payment. */
+.printReceipt .printPaper { display: flex; flex-direction: column; }
+.printReceipt .printPaper > * { order: 1; }
+.printReceipt .printPaper > :nth-child(1) { order: 1; }
+.printReceipt .printPaper > :nth-child(2) { order: 2; }
+.printReceipt .printPaper > :nth-child(3) { order: 3; }
+.printReceipt .printPaper > :nth-child(4) { order: 4; }
+.printReceipt .printPaper > :nth-child(5) { order: 5; }
+.printReceipt .printPaper > :nth-child(6) { order: 6; }
+.printReceipt .printPaper > :nth-child(7) { order: 7; }
+.printReceipt .printPaper > :nth-child(8) { order: 8; }
+.printReceipt .printPaper > :nth-child(14) { order: 9; }
+.printReceipt .printPaper > :nth-child(9) { order: 10; }
+.printReceipt .printPaper > :nth-child(10) { order: 11; }
+.printReceipt .printPaper > :nth-child(11) { order: 12; }
+.printReceipt .printPaper > :nth-child(12) { order: 13; }
+.printReceipt .printPaper > :nth-child(13) { order: 14; }
+
 /* Ryoshusho: formal receipt layout with recipient, amount and tax box. */
 .printRyoshusho .printPaper {
   width: 58mm;

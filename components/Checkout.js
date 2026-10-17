@@ -473,7 +473,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
 	          <p><span>{paymentMethodText || tr("paymentMethods")}</span><strong>{yen(paid)}</strong></p>
 	          <p><span>お釣り</span><strong>{yen(change)}</strong></p>
           <div className="printRule" />
-	          <p><span>{receiptCopy.tax} {taxRate}%</span><span>{receiptCopy.taxBase} {yen(Math.max(0, taxableSubtotal - tax))}</span><strong>{receiptCopy.taxAmount} {yen(tax)}</strong></p>
+	          <p className="printTaxSummary"><span>{receiptCopy.tax} {taxRate}%</span><span>{receiptCopy.taxBase} {yen(Math.max(0, taxableSubtotal - tax))}</span><strong>{receiptCopy.taxAmount} {yen(tax)}</strong></p>
         </div>
       </div>
 
