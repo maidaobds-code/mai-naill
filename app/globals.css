@@ -972,8 +972,8 @@ section.nailPosPanel .nailPaymentRow {
   letter-spacing: .35em;
 }
 
-.printRyoshusho h3 { font-size: 0; }
-.printRyoshusho h3::after { content: "領収書"; font-size: 24px; }
+.printRyoshusho h3 { font-size: 24px; }
+.printRyoshusho h3::after { content: none; }
 
 .printRyoshusho .printRecipient {
   min-height: 38px;
