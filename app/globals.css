@@ -905,6 +905,8 @@ section.nailPosPanel .nailPaymentRow {
 }
 
 /* POS receipt: compact itemized layout like a Japanese thermal slip. */
+.appLogo { width: 38px; height: 38px; object-fit: contain; border-radius: 10px; background: #fff; }
+.printLogo { display: block; width: 58px; height: 58px; object-fit: contain; margin: 0 auto 8px; }
 .printReceipt .printPaper {
   border: 0;
   width: 58mm;

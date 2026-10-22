@@ -438,6 +438,7 @@ export default function Orders({ language = "vi" }) {
                 >
                   <div className="printPaper">
                     <div className="printStore">
+                      {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt="Salon logo" />}
                       <strong>
                         {selected.storeSnapshot?.salonName ||
                           "Mai Beauty Salon"}
@@ -511,6 +512,7 @@ export default function Orders({ language = "vi" }) {
                 >
                   <div className="printPaper">
                     <div className="printStore">
+                      {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt="Salon logo" />}
                       <strong>
                         {selected.storeSnapshot?.salonName ||
                           "Mai Beauty Salon"}

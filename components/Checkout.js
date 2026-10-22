@@ -457,6 +457,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
         
         <div className="printPaper">
           <div className="printStore">
+            {settings.logoUrl && <img className="printLogo" src={settings.logoUrl} alt="Salon logo" />}
             <strong>{settings.salonName || "Mai Beauty Salon"}</strong>
             <span>{settings.address || "Tokyo, Japan"}</span>
             <span>{settings.phone || ""}</span>
@@ -481,6 +482,7 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
         
         <div className="printPaper">
           <div className="printStore">
+            {settings.logoUrl && <img className="printLogo" src={settings.logoUrl} alt="Salon logo" />}
             <strong>{settings.salonName || "Mai Beauty Salon"}</strong>
             <span>{settings.address || "Tokyo, Japan"}</span>
             <span>{settings.phone || ""}</span>

@@ -1,6 +1,8 @@
 ﻿"use client";
+import { useEffect, useState } from "react";
 import { languages, t, tx } from "../lib/i18nClean";
 import { useStoreOrders } from "../lib/orderStore";
+import { defaultSettings } from "./Settings";
 
 const items = [
   ["calendar", "▦", "Calendar", "calendar", "#7dd3fc"],
@@ -20,10 +22,17 @@ const items = [
 export default function SidebarEnhanced({ active, setActive, language, setLanguage, allowedItems = items.map((item) => item[2]) }) {
   const { orders } = useStoreOrders();
   const unread = orders.filter((order) => order.unread && !["FULFILLED", "Completed", "Delivered"].includes(order.status)).length;
+  const [settings, setSettings] = useState(defaultSettings);
+  useEffect(() => {
+    const load = async () => { try { const result = await fetch("/api/settings", { cache: "no-store" }).then((r) => r.json()); if (result.value) setSettings({ ...defaultSettings, ...result.value }); } catch {} };
+    const sync = (event) => setSettings({ ...defaultSettings, ...(event.detail || {}) });
+    load(); window.addEventListener("nail-japan-settings-updated", sync); window.addEventListener("storage", load);
+    return () => { window.removeEventListener("nail-japan-settings-updated", sync); window.removeEventListener("storage", load); };
+  }, []);
   const visibleItems = items.filter((item) => allowedItems.includes(item[2]));
   return (
     <aside className="sidebar">
-      <div className="brand"><div className="brandMark">M</div><div><strong>{tx(language, "brand", "name")}</strong><span>{t(language, "salonOs")}</span></div></div>
+      <div className="brand">{settings.logoUrl ? <img className="appLogo" src={settings.logoUrl} alt="Salon logo" /> : <div className="brandMark">M</div>}<div><strong>{settings.salonName || tx(language, "brand", "name")}</strong><span>{t(language, "salonOs")}</span></div></div>
       <nav>
         {visibleItems.map(([iconType, icon, label, key, accent]) => (
           <button key={label} className={active === label ? "navItem active" : "navItem"} style={{ "--nav-accent": accent }} onClick={() => setActive(label)}>

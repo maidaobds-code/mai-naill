@@ -99,12 +99,26 @@ export default function Settings({ language = "vi" }) {
     setSettings((current) => ({ ...current, [field]: value }));
   }
 
-  function uploadLogo(event) {
+  async function uploadLogo(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => update("logoUrl", reader.result);
-    reader.readAsDataURL(file);
+    setQrUploadError("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch("/api/logo-upload", { method: "POST", body });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.url) throw new Error(result.message || "Không thể tải logo lên Supabase.");
+      const nextSettings = { ...settings, logoUrl: result.url };
+      setSettings(nextSettings);
+      window.localStorage.setItem("nail-japan-settings", JSON.stringify(nextSettings));
+      await saveServerSettings(nextSettings);
+      if (supabaseReady()) await saveKv("nail-japan-settings", nextSettings);
+      window.dispatchEvent(new CustomEvent("nail-japan-settings-updated", { detail: nextSettings }));
+      setSaved(true);
+    } catch (error) {
+      setQrUploadError(error.message || "Không thể tải logo lên Supabase.");
+    }
   }
 
   async function uploadQr(event) {

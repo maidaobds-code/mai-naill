@@ -327,7 +327,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   return (
     <div className="storeSoftShell">
       <header className="storeGlassToolbar">
-        <a className="storeToolbarBrand" href={mode === "booking" ? "/booking" : "/shop"}><span className="brandMark">M</span><strong>Mai Beauty Salon</strong></a>
+        <a className="storeToolbarBrand" href={mode === "booking" ? "/booking" : "/shop"}>{settings.logoUrl ? <img className="appLogo" src={settings.logoUrl} alt="Salon logo" /> : <span className="brandMark">M</span>}<strong>{settings.salonName || "Mai Beauty Salon"}</strong></a>
         <nav className="storeToolbarLinks">
           <a className={mode === "shop" ? "active" : ""} href="/shop">{t(language, "onlineStore")}</a>
           <a className={mode === "booking" ? "active" : ""} href="/booking">{tr("bookNail")}</a>

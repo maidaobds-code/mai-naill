@@ -306,6 +306,7 @@ export default function PaymentHistory({ language = "vi" }) {
             <div className="printDocument active paymentHistoryPrintDocument">
               <div className="printPaper">
                 <div className="printStore">
+                  {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt="Salon logo" />}
                   <strong>
                     {selected.storeSnapshot?.salonName || "Mai Beauty Salon"}
                   </strong>
