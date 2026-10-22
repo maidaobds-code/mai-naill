@@ -197,7 +197,7 @@ export default function Settings({ language = "vi" }) {
       window.dispatchEvent(new CustomEvent("nail-japan-settings-updated", { detail: settings }));
     } catch (error) {
       setSaved(false);
-      setSaveMessage(tr("saveFailed"));
+      setSaveMessage(`${tr("saveFailed")} ${error.message || ""}`.trim());
       setQrUploadError(error.message || "Không thể lưu cài đặt lên Supabase.");
     } finally {
       setSaving(false);
