@@ -89,6 +89,14 @@ function localizedLoginMessage(message, language) {
   return message || "";
 }
 
+function localizedRegisterMessage(message, language) {
+  const text = String(message || "");
+  if (/confirmation email|sending confirmation|email/i.test(text)) {
+    return ({ vi: "Supabase không gửi được email xác nhận. Hãy kiểm tra SMTP, email người gửi và Email Template trong Supabase.", ja: "Supabaseが確認メールを送信できませんでした。SMTP、送信元メール、メールテンプレートを確認してください。", en: "Supabase could not send the confirmation email. Check SMTP, sender email, and the Supabase email template." }[language] || text) + (text.match(/\[HTTP \d+\]/)?.[0] || "");
+  }
+  return text;
+}
+
 function storedLoginLanguage() {
   if (typeof window === "undefined") return "vi";
   return window.localStorage.getItem(LOGIN_LANGUAGE_KEY) || "vi";
@@ -123,12 +131,12 @@ export function AccountGate({ language = "vi", setLanguage }) {
     event.preventDefault();
     const result = await registerCustomer(customerForm);
     setRegisteredEmail(result.ok ? result.email : "");
-    setRegisterMessage(result.ok ? copy.confirmSent : (result.message || ""));
+    setRegisterMessage(result.ok ? copy.confirmSent : localizedRegisterMessage(result.message, language));
   }
 
   async function resendConfirmation() {
     try { await resendSignupEmail(registeredEmail, `${window.location.origin}/auth/callback`); setRegisterMessage(copy.confirmSent); }
-    catch (error) { setRegisterMessage(error.message || copy.resend); }
+    catch (error) { setRegisterMessage(localizedRegisterMessage(error.message, language)); }
   }
 
   function startGoogleLogin() {
