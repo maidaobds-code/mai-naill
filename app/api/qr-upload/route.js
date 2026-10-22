@@ -21,4 +21,3 @@ export async function POST(request) {
   if (!response.ok) return Response.json({ ok: false, message: await response.text() }, { status: 502 });
   return Response.json({ ok: true, url: `${SUPABASE_URL}/storage/v1/object/public/mai-beauty-assets/${path}` });
 }
-
