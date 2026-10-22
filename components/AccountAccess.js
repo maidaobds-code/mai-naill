@@ -27,6 +27,8 @@ const loginCopy = {
     backToLogin: "Quay lại đăng nhập",
     brandText: "Không gian đặt lịch, mua hàng và chăm sóc khách hàng dành riêng cho salon.",
     language: "Ngôn ngữ",
+    confirmSent: "Đăng ký thành công. Vui lòng kiểm tra email để xác nhận trước khi đăng nhập.",
+    resend: "Gửi lại email xác nhận",
   },
   ja: {
     roleOwner: "オーナー",
@@ -46,6 +48,8 @@ const loginCopy = {
     backToLogin: "ログインに戻る",
     brandText: "予約、ショッピング、顧客ケアをまとめたサロン専用スペースです。",
     language: "言語",
+    confirmSent: "登録しました。ログインする前にメールを確認して認証してください。",
+    resend: "確認メールを再送信",
   },
   en: {
     roleOwner: "Owner",
@@ -65,6 +69,8 @@ const loginCopy = {
     backToLogin: "Back to login",
     brandText: "A dedicated salon space for booking, shopping, and customer care.",
     language: "Language",
+    confirmSent: "Registration successful. Check your email and confirm it before logging in.",
+    resend: "Resend confirmation email",
   },
 };
 
@@ -89,12 +95,13 @@ function storedLoginLanguage() {
 }
 
 export function AccountGate({ language = "vi", setLanguage }) {
-  const { currentAccount, login, logout, loginWithGoogle, registerCustomer } = useAccountStore();
+  const { currentAccount, login, logout, loginWithGoogle, registerCustomer, resendSignupEmail } = useAccountStore();
   const [showRegister, setShowRegister] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [customerForm, setCustomerForm] = useState({ name: "", email: "", password: "", phone: "" });
   const [loginMessage, setLoginMessage] = useState("");
   const [registerMessage, setRegisterMessage] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
   const copy = loginCopy[language] || loginCopy.vi;
 
   function changeLanguage(value) {
@@ -115,7 +122,13 @@ export function AccountGate({ language = "vi", setLanguage }) {
   async function submitCustomer(event) {
     event.preventDefault();
     const result = await registerCustomer(customerForm);
-    setRegisterMessage(result.message || "");
+    setRegisteredEmail(result.ok ? result.email : "");
+    setRegisterMessage(result.ok ? copy.confirmSent : (result.message || ""));
+  }
+
+  async function resendConfirmation() {
+    try { await resendSignupEmail(registeredEmail, `${window.location.origin}/auth/callback`); setRegisterMessage(copy.confirmSent); }
+    catch (error) { setRegisterMessage(error.message || copy.resend); }
   }
 
   function startGoogleLogin() {
@@ -137,7 +150,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
           <label>Gmail<span className="loginInputShell mailIcon"><input type="email" value={customerForm.email} onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })} required placeholder="yourname@gmail.com" /></span></label>
           <label>{copy.password}<span className="loginInputShell lockIcon"><input type="password" value={customerForm.password} onChange={(event) => setCustomerForm({ ...customerForm, password: event.target.value })} required minLength={6} /></span></label>
           <label>{copy.phone}<span className="loginInputShell phoneIcon"><input value={customerForm.phone} onChange={(event) => setCustomerForm({ ...customerForm, phone: event.target.value })} /></span></label>
-          {registerMessage && <p className="storeNote">{registerMessage}</p>}
+          {registerMessage && <p className="storeNote">{registerMessage}{registeredEmail && <><br /><button type="button" className="ghost" onClick={resendConfirmation}>{copy.resend}</button></>}</p>}
           <div className="loginButtonRow"><button className="ghost" type="button" onClick={() => setShowRegister(false)}>{copy.backToLogin}</button><button className="primary" type="submit">{copy.createAccount}</button></div>
         </form>
       </section>
