@@ -1,3 +1,5 @@
+import { isAdminRequest } from "../../../lib/serverAuth";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const SETTINGS_OWNER_ID = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
@@ -45,4 +47,3 @@ export async function POST(request) {
     return Response.json({ ok: false, message: error.message }, { status: 500 });
   }
 }
-
