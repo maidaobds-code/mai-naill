@@ -86,14 +86,26 @@ export default function Settings({ language = "vi" }) {
   useEffect(() => { let mounted = true; async function load() { setSettings(getAppSettings()); try { const response = await fetch("/api/settings", { cache: "no-store" }); const result = await response.json(); const remote = result.value || (supabaseReady() ? await getKv("nail-japan-settings") : null); if (mounted && remote) { const next = { ...defaultSettings, ...remote }; setSettings(next); window.localStorage.setItem("nail-japan-settings", JSON.stringify(next)); } } catch {} } load(); return () => { mounted = false; }; }, []);
 
   async function saveServerSettings(value) {
-    const response = await fetch("/api/settings", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(value),
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.ok) throw new Error(result.message || "Không thể lưu cài đặt lên Supabase.");
-    return result.value || value;
+    let serverError = null;
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(value),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok && result.ok) return result.value || value;
+      serverError = result.message || `HTTP ${response.status}`;
+    } catch (error) {
+      serverError = error.message;
+    }
+
+    // Some deployments do not expose the server service-role key. If the
+    // signed-in Supabase session is available, save through the client path.
+    if (supabaseReady()) {
+      try { return await saveKv("nail-japan-settings", value); } catch (error) { serverError = error.message || serverError; }
+    }
+    throw new Error(serverError || "Không thể lưu cài đặt lên Supabase.");
   }
 
   function update(field, value) {
@@ -185,7 +197,7 @@ export default function Settings({ language = "vi" }) {
       window.dispatchEvent(new CustomEvent("nail-japan-settings-updated", { detail: settings }));
     } catch (error) {
       setSaved(false);
-      setSaveMessage(`${tr("saveFailed")} ${error.message || ""}`.trim());
+      setSaveMessage(tr("saveFailed"));
       setQrUploadError(error.message || "Không thể lưu cài đặt lên Supabase.");
     } finally {
       setSaving(false);
