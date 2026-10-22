@@ -55,6 +55,8 @@ export function getAppSettings() {
 export default function Settings({ language = "vi" }) {
   const [settings, setSettings] = useState(defaultSettings);
   const [saved, setSaved] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saving, setSaving] = useState(false);
   const [qrUploadError, setQrUploadError] = useState("");
   const [currentAccount] = useState(getCurrentAccount);
   const isStaff = currentAccount?.role === "staff";
@@ -171,15 +173,22 @@ export default function Settings({ language = "vi" }) {
 
   async function saveSettings(event) {
     event.preventDefault();
+    setSaving(true);
+    setSaveMessage("");
     setQrUploadError("");
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(settings));
     try {
       await saveServerSettings(settings);
       if (supabaseReady()) saveKv("nail-japan-settings", settings).catch(() => {});
       setSaved(true);
+      setSaveMessage(tr("saved"));
+      window.dispatchEvent(new CustomEvent("nail-japan-settings-updated", { detail: settings }));
     } catch (error) {
       setSaved(false);
+      setSaveMessage(`${tr("saveFailed")} ${error.message || ""}`.trim());
       setQrUploadError(error.message || "Không thể lưu cài đặt lên Supabase.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -195,7 +204,7 @@ export default function Settings({ language = "vi" }) {
 
   return (
     <>
-      <div className="pageHead"><div><p className="eyebrow">SETTINGS</p><h1>{tr("title")}</h1><p>{tr("taskDesc")}</p></div>{!isStaff && <button className="primary" form="settingsForm">{tr("save")}</button>}</div>
+      <div className="pageHead"><div><p className="eyebrow">SETTINGS</p><h1>{tr("title")}</h1><p>{tr("taskDesc")}</p></div>{!isStaff && <div className="settingsSaveAction">{saveMessage && <span className={saved ? "saveStatus successNote" : "saveStatus errorNote"} role="status">{saveMessage}</span>}<button className="primary" form="settingsForm" disabled={saving}>{saving ? tr("saving") : tr("save")}</button></div>}</div>
       <div className="settingsTaskGrid">{panels.map(([id, title, desc]) => <button key={id} className={activePanel === id ? "settingsTask active" : "settingsTask"} onClick={() => setActivePanel(id)}><strong>{title}</strong><span>{desc}</span></button>)}</div>
       <form id="settingsForm" className="settingsGrid settingsGridWide" onSubmit={saveSettings}>
         {activePanel === "salon" && <section className="card settingsPanel"><h2>{tr("salonInfo")}</h2><label>{tr("salonName")}<input value={settings.salonName} onChange={(event) => update("salonName", event.target.value)} /></label><label>{tr("branch")}<input value={settings.branch} onChange={(event) => update("branch", event.target.value)} /></label><label>{tc("address")}<input value={settings.address} onChange={(event) => update("address", event.target.value)} /></label><label>{tc("phone")}<input value={settings.phone} onChange={(event) => update("phone", event.target.value)} /></label><label>{tc("email")}<input type="email" value={settings.email} onChange={(event) => update("email", event.target.value)} /></label><label>{tr("logo")}<input type="file" accept="image/*" onChange={uploadLogo} /></label>{settings.logoUrl && <img className="settingsLogoPreview" src={settings.logoUrl} alt="Salon logo" />}</section>}
