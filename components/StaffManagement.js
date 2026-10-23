@@ -34,6 +34,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const { accounts, upsertStaffAccount, resetPassword, updateAccountRole } = useAccountStore();
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
   const [resetDraft, setResetDraft] = useState({});
+  const [roleDraft, setRoleDraft] = useState({});
   const [accountMessage, setAccountMessage] = useState("");
   const draftChanged = Boolean(draft.name || draft.email || draft.accountPassword || draft.role !== "staff");
 
@@ -73,6 +74,13 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
   function deleteStaff(id) {
     setStaff((current) => current.filter((member) => member.id !== id));
+  }
+
+  function saveStaffRole(account) {
+    if (!account) return;
+    const role = roleDraft[account.id] || account.role;
+    const result = updateAccountRole(account.id, role);
+    setAccountMessage(result.ok ? "Đã lưu vai trò cho nhân viên." : result.message);
   }
 
   return (
@@ -115,8 +123,8 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
               <td>{member.external.hotpepper || "-"}</td>
               <td>{member.external.nailie || "-"}</td>
               <td>{member.external.minimo || "-"}</td>
-              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={account.role} onChange={(event) => updateAccountRole(account.id, event.target.value)}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
-              <td><div className="staffAccountActions"><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button><button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
+              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={roleDraft[account.id] || account.role} onChange={(event) => setRoleDraft((current) => ({ ...current, [account.id]: event.target.value }))}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
+              <td><div className="staffAccountActions"><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
 	                </>;
 	              })()}
             </tr>
