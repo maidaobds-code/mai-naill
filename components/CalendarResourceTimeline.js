@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { tx } from "../lib/i18nClean";
 import { platforms, staff as seedStaff } from "../lib/salonData";
 import { useStaffStore } from "../lib/staffStore";
+import { useAccountStore } from "../lib/accountStore";
 import { useBookingStore } from "../lib/bookingStore";
 
 const slots = [
@@ -84,6 +85,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [paintRange, setPaintRange] = useState(null);
   const { bookings, setBookings } = useBookingStore();
   const { staff: staffMembers } = useStaffStore();
+  const { accounts } = useAccountStore();
   const staff = staffMembers.length ? staffMembers : seedStaff;
   const pressRef = useRef(null);
   const paintRef = useRef(null);
@@ -187,9 +189,12 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   }
 
   async function notifyAssignedStaff(booking, previousBooking) {
+    const accountFor = (member, bookingRecord) => accounts.find((account) => account.role === "staff" && (account.email === member?.email || account.name === member?.name || account.id === `staff-${member?.id}`)) || accounts.find((account) => account.role === "staff" && account.email === bookingRecord?.staffEmail);
     const assigned = staff.find((member) => member.name === booking.staff);
     const previousAssigned = previousBooking && staff.find((member) => member.name === previousBooking.staff);
-    const recipients = [...new Map([assigned, previousAssigned].filter((member) => member?.email).map((member) => [member.email, member])).values()];
+    const assignedAccount = accountFor(assigned, booking);
+    const previousAccount = accountFor(previousAssigned, previousBooking);
+    const recipients = [...new Map([[assigned, assignedAccount], [previousAssigned, previousAccount]].filter(([member, account]) => member?.email || account?.email).map(([member, account]) => [member?.email || account.email, { ...(member || {}), ...(account || {}), name: member?.name || account?.name }])).values()];
     if (!recipients.length) return;
     const isNew = !previousBooking;
     const relevantFields = ["day", "start", "end", "customer", "phone", "service", "source", "status", "staff", "note"];
