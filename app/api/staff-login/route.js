@@ -12,6 +12,22 @@ async function hash(value) {
 }
 
 export async function POST(request) {
+  // Single-salon fallback: recover from a mismatched CATALOG_OWNER_ID only when
+  // Supabase contains exactly one accounts record, avoiding ambiguous tenants.
+  const body = await request.clone().json().catch(() => ({}));
+  if (URL && KEY && body.email && body.password) {
+    const fallback = await fetch(`${URL}/rest/v1/app_kv?key=eq.${KV}&select=value,owner_id&order=updated_at.desc&limit=2`, { cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}` } }).catch(() => null);
+    const fallbackRows = fallback?.ok ? await fallback.json().catch(() => []) : [];
+    if (fallbackRows.length === 1) {
+      const account = fallbackRows[0]?.value?.find((item) => ["staff", "manager"].includes(item.role) && item.email?.trim().toLowerCase() === String(body.email).trim().toLowerCase());
+      if (account?.passwordHash === await hash(body.password)) {
+        const { passwordHash, ...safe } = account;
+        const result = Response.json({ ok: true, account: safe });
+        result.headers.set("Set-Cookie", staffCookie(createStaffSession(account.id)));
+        return result;
+      }
+    }
+  }
   const { email = "", password = "" } = await request.json().catch(() => ({}));
   if (!URL || !KEY) return Response.json({ ok: false, message: "Server chưa cấu hình Supabase." }, { status: 503 });
   if (!email || !password) return Response.json({ ok: false, message: "Vui lòng nhập email và mật khẩu." }, { status: 400 });
