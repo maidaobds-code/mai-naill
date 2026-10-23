@@ -1903,6 +1903,9 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
   .slotHitGrid { grid-template-columns: repeat(24, 44px); }
 }
 
+/* Final thermal receipt overrides. */
+.printLogo{display:block;width:18mm;height:18mm;object-fit:contain;margin:0 auto 3mm}.printRyoshusho h3{font-size:0!important;text-align:center;letter-spacing:.18em}.printRyoshusho h3::after{content:"領収書";font-size:21px}
+
 .printerOverlay { position:fixed; inset:0; z-index:10000; display:grid; place-items:center; padding:18px; background:rgba(15,23,42,.56); backdrop-filter:blur(12px); }
 .printerModal { width:min(520px,calc(100vw - 32px)); max-height:calc(100dvh - 36px); overflow:auto; padding:24px; border-radius:26px; background:#f8f7fb!important; border:1px solid rgba(255,255,255,.9); box-shadow:0 28px 80px rgba(15,23,42,.28); }
 .printerModal .sectionTitle { align-items:flex-start; gap:18px; margin-bottom:22px; }

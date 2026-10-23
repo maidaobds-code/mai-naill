@@ -9,6 +9,7 @@ import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
 import { useAccountStore } from "../lib/accountStore";
 
 const CAMPAIGN_KEY = "nail-japan-campaigns";
+const DELETED_CUSTOMERS_KEY = "nail-japan-deleted-customers";
 
 function yen(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
@@ -21,7 +22,9 @@ function escapeHtml(value) {
 function campaignEmailHtml(title, message, couponCode, imageUrl) {
   const image = /^https?:\/\//i.test(imageUrl || "") ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" style="display:block;width:100%;max-height:260px;object-fit:cover;border-radius:14px;margin:0 0 20px" />` : "";
   const coupon = couponCode ? `<div style="margin-top:20px;padding:14px;border:1px dashed #c084c2;border-radius:12px;background:#fff7fb"><strong>Mã ưu đãi: ${escapeHtml(couponCode)}</strong></div>` : "";
-  return `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px">${image}<h1 style="margin:0 0 16px;font-size:24px">${escapeHtml(title)}</h1><p style="white-space:pre-line;font-size:15px;line-height:1.7">${escapeHtml(message)}</p>${coupon}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">Trân trọng,<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`;
+  const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const action = siteUrl ? `<p style="margin:24px 0;text-align:center"><a href="${escapeHtml(siteUrl)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#9333ea;color:#fff;text-decoration:none;font-weight:700">Mở trang Mai Beauty Salon</a></p>` : "";
+  return `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px">${image}<h1 style="margin:0 0 16px;font-size:24px">${escapeHtml(title)}</h1><p style="white-space:pre-line;font-size:15px;line-height:1.7">${escapeHtml(message)}</p>${coupon}${action}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">Trân trọng,<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`;
 }
 
 function uniqueCustomers(seed, bookings, orders, accounts = []) {
@@ -63,13 +66,19 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
   const [campaigns, setCampaigns] = useState([]);
   const [hydrated, setHydrated] = useState(false);
   const [selectedCustomerKeys, setSelectedCustomerKeys] = useState([]);
+  const [deletedCustomerKeys, setDeletedCustomerKeys] = useState([]);
   const [draft, setDraft] = useState({ title: defaultDraft.title, type: "promotion", target: "old", couponCode: "OLD10", imageUrl: "", imageName: "", message: defaultDraft.message });
-  const customerList = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders, accounts), [bookings, orders, accounts]);
+  const allCustomers = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders, accounts), [bookings, orders, accounts]);
+  const customerList = useMemo(() => allCustomers.filter((customer) => !deletedCustomerKeys.includes(customerKey(customer))), [allCustomers, deletedCustomerKeys]);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(CAMPAIGN_KEY);
     if (raw) {
       try { setCampaigns(JSON.parse(raw)); } catch {}
+    }
+    const deletedRaw = window.localStorage.getItem(DELETED_CUSTOMERS_KEY);
+    if (deletedRaw) {
+      try { setDeletedCustomerKeys(JSON.parse(deletedRaw)); } catch {}
     }
     if (supabaseReady()) {
       getKv(CAMPAIGN_KEY).then((remote) => {
@@ -83,6 +92,11 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
       setHydrated(true);
     }
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(DELETED_CUSTOMERS_KEY, JSON.stringify(deletedCustomerKeys));
+    setSelectedCustomerKeys((current) => current.filter((key) => !deletedCustomerKeys.includes(key)));
+  }, [deletedCustomerKeys]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -106,6 +120,11 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
   function toggleAllCustomers() {
     const selectableKeys = customerList.filter((customer) => customer.email).map(customerKey);
     setSelectedCustomerKeys((current) => current.length === selectableKeys.length ? [] : selectableKeys);
+  }
+
+  function deleteCustomer(customer) {
+    if (!window.confirm(`${tr("deleteConfirm")}\n\n${customer.name}`)) return;
+    setDeletedCustomerKeys((current) => current.includes(customerKey(customer)) ? current : [...current, customerKey(customer)]);
   }
 
   async function sendCampaign(event) {
@@ -146,7 +165,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
         </form>
       </section>
       <div className="customerGrid">
-        <section className="card tableWrap"><table><thead><tr><th className="customerSelectHead"><input type="checkbox" checked={customerList.filter((customer) => customer.email).length > 0 && selectedCustomerKeys.length === customerList.filter((customer) => customer.email).length} onChange={toggleAllCustomers} aria-label={tr("selectAllCustomers")} /></th><th>{tc("customer")}</th><th>{tc("phone")}</th><th>{tc("email")}</th><th>{tr("bookings")}</th><th>{tr("orders")}</th><th>{tr("spend")}</th><th>{tr("typeCol")}</th></tr></thead><tbody>{customerList.map((customer) => { const key = customerKey(customer); return <tr key={key}><td className="customerSelectCell"><input type="checkbox" checked={selectedCustomerKeys.includes(key)} disabled={!customer.email} onChange={() => toggleCustomer(customer)} aria-label={`${tr("selectCustomer")} ${customer.name}`} /></td><td><strong>{customer.name}</strong></td><td>{customer.phone}</td><td>{customer.email || "-"}</td><td>{customer.bookingCount || customer.visits || 0}</td><td>{customer.orderCount || 0}</td><td>{yen(customer.spend)}</td><td><span className="pill">{customer.tag}</span></td></tr>; })}</tbody></table></section>
+        <section className="card tableWrap"><table><thead><tr><th className="customerSelectHead"><input type="checkbox" checked={customerList.filter((customer) => customer.email).length > 0 && selectedCustomerKeys.length === customerList.filter((customer) => customer.email).length} onChange={toggleAllCustomers} aria-label={tr("selectAllCustomers")} /></th><th>{tc("customer")}</th><th>{tc("phone")}</th><th>{tc("email")}</th><th>{tr("bookings")}</th><th>{tr("orders")}</th><th>{tr("spend")}</th><th>{tr("typeCol")}</th><th>{tc("action")}</th></tr></thead><tbody>{customerList.map((customer) => { const key = customerKey(customer); return <tr key={key}><td className="customerSelectCell"><input type="checkbox" checked={selectedCustomerKeys.includes(key)} disabled={!customer.email} onChange={() => toggleCustomer(customer)} aria-label={`${tr("selectCustomer")} ${customer.name}`} /></td><td><strong>{customer.name}</strong></td><td>{customer.phone}</td><td>{customer.email || "-"}</td><td>{customer.bookingCount || customer.visits || 0}</td><td>{customer.orderCount || 0}</td><td>{yen(customer.spend)}</td><td><span className="pill">{customer.tag}</span></td><td><button type="button" className="ghost dangerButton customerDeleteButton" onClick={() => deleteCustomer(customer)}>{tc("delete")}</button></td></tr>; })}</tbody></table></section>
         <aside className="card campaignLog"><h2>{tr("campaignLog")}</h2>{campaigns.length ? campaigns.map((campaign) => <div className="campaignItem" key={campaign.id}><strong>{campaign.title}</strong><span>{tr("recipientCount", { count: campaign.recipients.length })} · {new Date(campaign.sentAt).toLocaleString("ja-JP")}</span>{campaign.couponCode && <span className="pill">{tr("coupon")} {campaign.couponCode}</span>}{campaign.imageUrl && <img className="catalogThumb" src={campaign.imageUrl} alt={campaign.title} />}<small>{campaign.message}</small></div>) : <p>{tr("noCampaign")}</p>}</aside>
       </div>
     </>
