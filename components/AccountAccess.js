@@ -18,6 +18,10 @@ const loginCopy = {
     loginText: "Nhập email và mật khẩu tài khoản của bạn.",
     email: "Email / Admin user",
     password: "Mật khẩu",
+    confirmPassword: "Nhập lại mật khẩu",
+    passwordMismatch: "Hai mật khẩu không trùng nhau.",
+    showPassword: "Hiển thị mật khẩu",
+    hidePassword: "Ẩn mật khẩu",
     createAccount: "Tạo tài khoản",
     gmailLogin: "Đăng nhập bằng tài khoản Gmail trực tiếp",
     customerAccount: "Tạo tài khoản khách hàng",
@@ -37,6 +41,10 @@ const loginCopy = {
     loginText: "メールまたは管理者ユーザー名とパスワードを入力してください。",
     email: "メール / 管理者ユーザー",
     password: "パスワード",
+    confirmPassword: "パスワード（確認）",
+    passwordMismatch: "パスワードが一致しません。",
+    showPassword: "パスワードを表示",
+    hidePassword: "パスワードを隠す",
     createAccount: "アカウント作成",
     gmailLogin: "Gmailアカウントでログイン",
     customerAccount: "お客様アカウント作成",
@@ -56,6 +64,10 @@ const loginCopy = {
     loginText: "Enter your account email and password.",
     email: "Email / Admin user",
     password: "Password",
+    confirmPassword: "Confirm password",
+    passwordMismatch: "The passwords do not match.",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     createAccount: "Create account",
     gmailLogin: "Log in directly with Gmail",
     customerAccount: "Create customer account",
@@ -92,7 +104,11 @@ export function AccountGate({ language = "vi", setLanguage }) {
   const { currentAccount, login, logout, loginWithGoogle, registerCustomer } = useAccountStore();
   const [showRegister, setShowRegister] = useState(false);
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [customerForm, setCustomerForm] = useState({ name: "", email: "", password: "", phone: "" });
+  const [customerPasswordConfirmation, setCustomerPasswordConfirmation] = useState("");
+  const [showCustomerPassword, setShowCustomerPassword] = useState(false);
+  const [showCustomerPasswordConfirmation, setShowCustomerPasswordConfirmation] = useState(false);
   const [loginMessage, setLoginMessage] = useState("");
   const [registerMessage, setRegisterMessage] = useState("");
   const copy = loginCopy[language] || loginCopy.vi;
@@ -114,6 +130,10 @@ export function AccountGate({ language = "vi", setLanguage }) {
 
   async function submitCustomer(event) {
     event.preventDefault();
+    if (customerForm.password !== customerPasswordConfirmation) {
+      setRegisterMessage(copy.passwordMismatch);
+      return;
+    }
     const result = await registerCustomer(customerForm);
     setRegisterMessage(result.message || "");
   }
@@ -135,7 +155,8 @@ export function AccountGate({ language = "vi", setLanguage }) {
           </div>
           <label>{copy.name}<span className="loginInputShell userIcon"><input value={customerForm.name} onChange={(event) => setCustomerForm({ ...customerForm, name: event.target.value })} required /></span></label>
           <label>Gmail<span className="loginInputShell mailIcon"><input type="email" value={customerForm.email} onChange={(event) => setCustomerForm({ ...customerForm, email: event.target.value })} required placeholder="yourname@gmail.com" /></span></label>
-          <label>{copy.password}<span className="loginInputShell lockIcon"><input type="password" value={customerForm.password} onChange={(event) => setCustomerForm({ ...customerForm, password: event.target.value })} required minLength={6} /></span></label>
+          <label>{copy.password}<span className="loginInputShell lockIcon"><input type={showCustomerPassword ? "text" : "password"} value={customerForm.password} onChange={(event) => setCustomerForm({ ...customerForm, password: event.target.value })} required minLength={6} /><button className="passwordVisibilityButton" type="button" onClick={() => setShowCustomerPassword((visible) => !visible)} aria-label={showCustomerPassword ? copy.hidePassword : copy.showPassword} title={showCustomerPassword ? copy.hidePassword : copy.showPassword}>{showCustomerPassword ? "◉" : "◌"}</button></span></label>
+          <label>{copy.confirmPassword}<span className="loginInputShell lockIcon"><input type={showCustomerPasswordConfirmation ? "text" : "password"} value={customerPasswordConfirmation} onChange={(event) => setCustomerPasswordConfirmation(event.target.value)} required minLength={6} /><button className="passwordVisibilityButton" type="button" onClick={() => setShowCustomerPasswordConfirmation((visible) => !visible)} aria-label={showCustomerPasswordConfirmation ? copy.hidePassword : copy.showPassword} title={showCustomerPasswordConfirmation ? copy.hidePassword : copy.showPassword}>{showCustomerPasswordConfirmation ? "◉" : "◌"}</button></span></label>
           <label>{copy.phone}<span className="loginInputShell phoneIcon"><input value={customerForm.phone} onChange={(event) => setCustomerForm({ ...customerForm, phone: event.target.value })} /></span></label>
           {registerMessage && <p className="storeNote">{registerMessage}</p>}
           <div className="loginButtonRow"><button className="ghost" type="button" onClick={() => setShowRegister(false)}>{copy.backToLogin}</button><button className="primary" type="submit">{copy.createAccount}</button></div>
@@ -154,7 +175,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
           <p>{copy.loginText}</p>
         </div>
         <label>{copy.email}<span className="loginInputShell mailIcon"><input value={loginForm.email} onChange={(event) => setLoginForm({ ...loginForm, email: event.target.value })} required placeholder="admin@example.com" /></span></label>
-        <label>{copy.password}<span className="loginInputShell lockIcon"><input type="password" value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required minLength={6} /></span></label>
+        <label>{copy.password}<span className="loginInputShell lockIcon"><input type={showLoginPassword ? "text" : "password"} value={loginForm.password} onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })} required minLength={6} /><button className="passwordVisibilityButton" type="button" onClick={() => setShowLoginPassword((visible) => !visible)} aria-label={showLoginPassword ? copy.hidePassword : copy.showPassword} title={showLoginPassword ? copy.hidePassword : copy.showPassword}>{showLoginPassword ? "◉" : "◌"}</button></span></label>
         {loginMessage && <p className="storeNote">{loginMessage}</p>}
         <div className="loginButtonRow"><button className="ghost" type="button" onClick={() => setShowRegister(true)}>{copy.createAccount}</button><button className="primary" type="submit">{copy.login}</button></div>
         <button className="gmailLoginButton" type="button" onClick={startGoogleLogin}>{copy.gmailLogin}</button>

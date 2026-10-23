@@ -939,6 +939,24 @@ section.nailPosPanel .nailPaymentRow {
   grid-template-columns: 1fr auto;
 }
 
+/* Japanese thermal-slip order: total, tax details, then payment. */
+.printReceipt .printPaper { display: flex; flex-direction: column; }
+.printReceipt .printPaper > * { order: 1; }
+.printReceipt .printPaper > :nth-child(1) { order: 1; }
+.printReceipt .printPaper > :nth-child(2) { order: 2; }
+.printReceipt .printPaper > :nth-child(3) { order: 3; }
+.printReceipt .printPaper > :nth-child(4) { order: 4; }
+.printReceipt .printPaper > :nth-child(5) { order: 5; }
+.printReceipt .printPaper > :nth-child(6) { order: 6; }
+.printReceipt .printPaper > :nth-child(7) { order: 7; }
+.printReceipt .printPaper > :nth-child(8) { order: 8; }
+.printReceipt .printPaper > :nth-child(14) { order: 9; }
+.printReceipt .printPaper > :nth-child(9) { order: 10; }
+.printReceipt .printPaper > :nth-child(10) { order: 11; }
+.printReceipt .printPaper > :nth-child(11) { order: 12; }
+.printReceipt .printPaper > :nth-child(12) { order: 13; }
+.printReceipt .printPaper > :nth-child(13) { order: 14; }
+
 /* Ryoshusho: formal receipt layout with recipient, amount and tax box. */
 .printRyoshusho .printPaper {
   width: 58mm;
@@ -1445,6 +1463,9 @@ section.nailPosPanel .nailPaymentAppName {
 @media(max-width:720px){.accountAuthSplit{grid-template-columns:1fr}.loginPage .accountAuth{padding:30px 24px;border-radius:26px}.loginPage .accountAuth h1{font-size:42px}.loginButtonRow{grid-template-columns:1fr}}
 @media(max-width:650px){.profileGrid,.chatComposer,.staffAccountActions{grid-template-columns:1fr}.customerShell main{padding:14px}.customerProfilePanel{right:14px;top:72px}}
 .loginInputShell.userIcon:before{content:"👤"}.loginInputShell.phoneIcon:before{content:"☎"}
+.loginInputShell:has(.passwordVisibilityButton){grid-template-columns:28px 1fr 34px}
+.passwordVisibilityButton{border:0;background:transparent;color:#8d6c83;cursor:pointer;font-size:20px;line-height:1;padding:8px 0;border-radius:999px}
+.passwordVisibilityButton:hover,.passwordVisibilityButton:focus-visible{color:#7c3f62;background:rgba(190,136,176,.12);outline:none}
 .storeSoftShell {
   max-width: 1180px;
   margin: 0 auto;
