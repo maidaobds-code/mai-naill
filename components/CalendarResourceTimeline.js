@@ -208,6 +208,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       staffEmail: assigned.email || "",
       staffRole: assigned.role || "",
       staffPhone: assigned.phone || "",
+      language: selected.language || "vi",
       id: selected.draft ? `booking-${Date.now()}` : selected.id,
       day: selectedDay,
       customer: selected.customer || "New customer",

@@ -134,7 +134,7 @@ export function AccountGate({ language = "vi", setLanguage }) {
       setRegisterMessage(copy.passwordMismatch);
       return;
     }
-    const result = await registerCustomer(customerForm);
+    const result = await registerCustomer({ ...customerForm, language });
     setRegisterMessage(result.message || "");
   }
 

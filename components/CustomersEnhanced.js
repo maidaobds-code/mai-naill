@@ -19,8 +19,8 @@ function uniqueCustomers(seed, bookings, orders, accounts = []) {
   seed.forEach((customer) => map.set(customer.phone, { ...customer, email: customer.email || "", source: customer.origin, orderCount: 0, bookingCount: customer.visits || 0 }));
   accounts.filter((account) => account.role === "customer").forEach((account) => {
     const key = account.phone || account.email || account.id;
-    const current = map.get(key) || { id: account.id, name: account.name, phone: account.phone || "", email: account.email || "", spend: 0, visits: 0, lastVisit: "", origin: "Customer account", tag: "Account", orderCount: 0, bookingCount: 0 };
-    map.set(key, { ...current, name: current.name || account.name, phone: current.phone || account.phone || "", email: current.email || account.email || "", source: current.source || "Customer account" });
+    const current = map.get(key) || { id: account.id, name: account.name, phone: account.phone || "", email: account.email || "", language: account.language || "vi", spend: 0, visits: 0, lastVisit: "", origin: "Customer account", tag: "Account", orderCount: 0, bookingCount: 0 };
+    map.set(key, { ...current, name: current.name || account.name, phone: current.phone || account.phone || "", email: current.email || account.email || "", language: current.language || account.language || "vi", source: current.source || "Customer account" });
   });
   bookings.forEach((booking) => {
     const key = booking.phone || booking.email || booking.customer;
@@ -81,11 +81,17 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
     return customerList.filter((customer) => (customer.orderCount > 0 || customer.bookingCount > 0 || customer.visits > 0));
   }
 
-  function sendCampaign(event) {
+  async function sendCampaign(event) {
     event.preventDefault();
     const recipients = targetCustomers();
     if (!draft.title.trim() || !draft.message.trim() || recipients.length === 0) return;
-    setCampaigns((current) => [{ id: `campaign-${Date.now()}`, ...draft, sentAt: new Date().toISOString(), recipients: recipients.map((customer) => ({ name: customer.name, phone: customer.phone, email: customer.email || "No email", status: "Gmail sent" })) }, ...current]);
+    const delivered = await Promise.all(recipients.filter((customer) => customer.email).map(async (customer) => {
+      const language = customer.language || "vi";
+      const subject = language === "ja" ? draft.title : language === "en" ? draft.title : draft.title;
+      const response = await fetch("/api/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: customer.email, subject, html: `<h2>${draft.title}</h2><p>${draft.message.replaceAll("\n", "<br />")}</p>${draft.couponCode ? `<p>Coupon: ${draft.couponCode}</p>` : ""}` }) }).catch(() => null);
+      return { name: customer.name, phone: customer.phone, email: customer.email, status: response?.ok ? "Resend sent" : "Failed" };
+    }));
+    setCampaigns((current) => [{ id: `campaign-${Date.now()}`, ...draft, sentAt: new Date().toISOString(), recipients: recipients.map((customer) => delivered.find((item) => item.email === customer.email) || ({ name: customer.name, phone: customer.phone, email: customer.email || "No email", status: "No email" })) }, ...current]);
   }
 
   function uploadCampaignImage(event) {

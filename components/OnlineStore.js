@@ -302,7 +302,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   }
 
   function confirmProductPayment() {
-    const order = addOrder({ productId: selectedProduct.id, productName: selectedProduct.name, quantity: 1, total: selectedProduct.salePrice || selectedProduct.basePrice, stockAtOrder: selectedProduct.stock, customer: checkout.customer.trim(), phone: checkout.phone.trim(), email: checkout.email.trim(), customerAccountId: currentAccount?.id || "", fulfillmentType: checkout.fulfillmentType, paymentMethod: checkout.paymentMethod, address: checkout.address.trim(), postalCode: checkout.postalCode.trim(), note: checkout.note.trim(), transferBillUrl: checkout.transferBillUrl, transferBillName: checkout.transferBillName });
+    const order = addOrder({ productId: selectedProduct.id, productName: selectedProduct.name, quantity: 1, total: selectedProduct.salePrice || selectedProduct.basePrice, stockAtOrder: selectedProduct.stock, customer: checkout.customer.trim(), phone: checkout.phone.trim(), email: checkout.email.trim(), language, customerAccountId: currentAccount?.id || "", fulfillmentType: checkout.fulfillmentType, paymentMethod: checkout.paymentMethod, address: checkout.address.trim(), postalCode: checkout.postalCode.trim(), note: checkout.note.trim(), transferBillUrl: checkout.transferBillUrl, transferBillName: checkout.transferBillName });
     setTrackingId(order.orderNumber); setMessage(tr("orderCreated", { order: order.orderNumber })); setPaymentReview(false); setSelectedProduct(null);
   }
 
@@ -318,8 +318,10 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
       return;
     }
 
-    const saved = addBooking({ day: draft.day, date: draft.date, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: selectedService.name, staff: draft.staff || selectedService.staff?.[0] || staff[0].name, source: "direct", origin: localCopy.websiteBooking, price: selectedService.price, commissionRule: localCopy.websiteBooking });
+    const saved = addBooking({ day: draft.day, date: draft.date, language, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: selectedService.name, staff: draft.staff || selectedService.staff?.[0] || staff[0].name, source: "direct", origin: localCopy.websiteBooking, price: selectedService.price, commissionRule: localCopy.websiteBooking });
     notifyByEmail({ to: [draft.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách hàng: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
+    const assignedStaff = staff.find((member) => member.name === saved.staff);
+    notifyByEmail({ to: [assignedStaff?.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
     setMessage(tr("bookingCreated", { time: saved.start, date: draft.date }));
     setDraft((current) => ({ ...current, customer: accountContact.customer, phone: accountContact.phone, email: accountContact.email }));
   }
