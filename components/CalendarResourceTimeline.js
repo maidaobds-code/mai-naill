@@ -69,6 +69,10 @@ function blankBooking(day, hour, member) {
   };
 }
 
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
+}
+
 export default function CalendarResourceTimeline({ label = "Calendar", language = "vi", onCheckout }) {
   const c = copy[language] || copy.vi;
   const tc = (key) => tx(language, "common", key);
@@ -182,24 +186,32 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     clearTimeout(pressRef.current);
   }
 
-  async function notifyAssignedStaff(booking, previousStaff) {
+  async function notifyAssignedStaff(booking, previousBooking) {
     const assigned = staff.find((member) => member.name === booking.staff);
-    if (!assigned?.email || assigned.name === previousStaff) return;
-    const isNew = !previousStaff;
-    const response = await fetch("/api/notifications", {
+    const previousAssigned = previousBooking && staff.find((member) => member.name === previousBooking.staff);
+    const recipients = [...new Map([assigned, previousAssigned].filter((member) => member?.email).map((member) => [member.email, member])).values()];
+    if (!recipients.length) return;
+    const isNew = !previousBooking;
+    const relevantFields = ["day", "start", "end", "customer", "phone", "service", "source", "status", "staff", "note"];
+    const changed = isNew || relevantFields.some((field) => String(previousBooking?.[field] ?? "") !== String(booking?.[field] ?? ""));
+    if (!changed) return;
+    const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+    const title = isNew ? "Lịch hẹn mới được phân công" : "Lịch hẹn đã được cập nhật";
+    const button = siteUrl ? `<p style="text-align:center;margin:24px 0"><a href="${escapeHtml(siteUrl)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#9333ea;color:#fff;text-decoration:none;font-weight:700">Mở trang quản lý lịch</a></p>` : "";
+    const responses = await Promise.all(recipients.map((member) => fetch("/api/notifications", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        to: assigned.email,
-        subject: `${isNew ? "Lịch hẹn mới" : "Lịch hẹn đã được cập nhật"} - ${booking.customer}`,
-        html: `<p>Xin chào ${assigned.name},</p><p>${isNew ? "Bạn được thêm vào lịch hẹn mới." : "Lịch hẹn của bạn vừa được cập nhật."}</p><p><strong>Khách:</strong> ${booking.customer}<br/><strong>Ngày:</strong> 2026/10/${String(booking.day).padStart(2, "0")}<br/><strong>Giờ:</strong> ${booking.start} - ${booking.end}<br/><strong>Dịch vụ:</strong> ${booking.service || "-"}</p>`,
+        to: member.email,
+        subject: `Mai Beauty Salon · ${title} · ${booking.customer || "Khách hàng"}`,
+        html: `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="margin:0 0 16px;font-size:24px">${escapeHtml(title)}</h1><p style="font-size:15px;line-height:1.7">Xin chào ${escapeHtml(member.name)},<br/>${isNew ? "Bạn được phân công một lịch hẹn mới." : "Lịch hẹn liên quan đến bạn vừa được cập nhật."}</p><div style="margin:20px 0;padding:16px;border-radius:14px;background:#fff7fb;border:1px solid #f0dce8"><strong>Khách hàng:</strong> ${escapeHtml(booking.customer)}<br/><strong>Ngày:</strong> 2026/10/${String(booking.day).padStart(2, "0")}<br/><strong>Giờ:</strong> ${escapeHtml(booking.start)} – ${escapeHtml(booking.end)}<br/><strong>Dịch vụ:</strong> ${escapeHtml(booking.service || "-")}</div>${button}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">Trân trọng,<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`,
       }),
-    });
-    if (!response.ok) throw new Error("Không thể gửi email cho nhân viên");
+    }).catch(() => null)));
+    if (responses.some((response) => !response?.ok)) throw new Error("Không thể gửi email cho nhân viên");
   }
 
   async function saveBooking() {
-    const previousStaff = selected.draft ? "" : selected.staff;
+    const previousBooking = selected.draft ? null : bookings.find((booking) => booking.id === selected.id) || selected;
     const assigned = staff.find((member) => member.name === selected.staff) || staff.find((member) => String(member.id) === String(selected.staffId)) || staff[0] || seedStaff[0];
     const bookingToSave = {
       ...selected,
@@ -222,7 +234,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     });
     setSelected(bookingToSave);
     setModalOpen(false);
-    try { await notifyAssignedStaff(bookingToSave, previousStaff); } catch (error) { console.warn(error); }
+    try { await notifyAssignedStaff(bookingToSave, previousBooking); } catch (error) { console.warn(error); }
   }
 
   function deleteBooking() {
