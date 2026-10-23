@@ -140,12 +140,18 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
     setCampaigns((current) => [{ id: `campaign-${Date.now()}`, ...draft, sentAt: new Date().toISOString(), recipients: recipients.map((customer) => delivered.find((item) => item.email === customer.email) || ({ name: customer.name, phone: customer.phone, email: customer.email || "No email", status: "No email" })) }, ...current]);
   }
 
-  function uploadCampaignImage(event) {
+  async function uploadCampaignImage(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setDraft((current) => ({ ...current, imageUrl: reader.result, imageName: file.name }));
-    reader.readAsDataURL(file);
+    const form = new FormData();
+    form.append("file", file);
+    const response = await fetch("/api/transfer-upload", { method: "POST", body: form }).catch(() => null);
+    const result = response ? await response.json().catch(() => ({})) : {};
+    if (!response?.ok || !result?.url) {
+      window.alert(result?.message || "Không thể tải ảnh lên máy chủ.");
+      return;
+    }
+    setDraft((current) => ({ ...current, imageUrl: result.url, imageName: file.name }));
   }
 
   return (

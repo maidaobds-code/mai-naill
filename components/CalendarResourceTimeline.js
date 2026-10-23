@@ -190,7 +190,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   }
 
   async function notifyAssignedStaff(booking, previousBooking) {
-    const accountFor = (member, bookingRecord) => accounts.find((account) => account.role === "staff" && (account.email === member?.email || account.name === member?.name || account.id === `staff-${member?.id}`)) || accounts.find((account) => account.role === "staff" && account.email === bookingRecord?.staffEmail);
+    const accountFor = (member, bookingRecord) => accounts.find((account) => account.email === member?.email || account.name === member?.name || account.staffName === member?.name || account.id === `staff-${member?.id}`) || accounts.find((account) => account.email === bookingRecord?.staffEmail);
     const assigned = staff.find((member) => member.name === booking.staff);
     const previousAssigned = previousBooking && staff.find((member) => member.name === previousBooking.staff);
     const assignedAccount = accountFor(assigned, booking);
@@ -223,7 +223,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       ...selected,
       staff: assigned.name,
       staffId: assigned.id,
-      staffEmail: assigned.email || "",
+      staffEmail: assigned.email || accounts.find((account) => account.name === assigned.name || account.staffName === assigned.name)?.email || "",
       staffRole: assigned.role || "",
       staffPhone: assigned.phone || "",
       language: selected.language || "vi",
