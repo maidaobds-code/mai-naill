@@ -20,6 +20,7 @@ export async function POST(request) {
     const fallbackRows = fallback?.ok ? await fallback.json().catch(() => []) : [];
     if (fallbackRows.length === 1) {
       const account = fallbackRows[0]?.value?.find((item) => ["staff", "manager"].includes(item.role) && item.email?.trim().toLowerCase() === String(body.email).trim().toLowerCase());
+      if (account && account.passwordHash !== await hash(body.password)) return Response.json({ ok: false, message: "Sai email hoặc mật khẩu." }, { status: 401 });
       if (account?.passwordHash === await hash(body.password)) {
         const { passwordHash, ...safe } = account;
         const result = Response.json({ ok: true, account: safe });
