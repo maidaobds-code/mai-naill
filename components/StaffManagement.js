@@ -5,15 +5,15 @@ import { useAccountStore } from "../lib/accountStore";
 import { useStaffStore } from "../lib/staffStore";
 import { tx } from "../lib/i18nClean";
 
-const staffColors = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444"];
+const staffColors = [["Tím", "#7c3aed"], ["Hồng", "#ec4899"], ["Xanh dương", "#0ea5e9"], ["Xanh lá", "#10b981"], ["Cam", "#f97316"], ["Vàng", "#eab308"], ["Đỏ", "#ef4444"], ["Đỏ hồng", "#f43f5e"], ["Tím đậm", "#6d28d9"], ["Xanh da trời", "#38bdf8"], ["Xanh ngọc", "#14b8a6"], ["Xanh biển", "#2563eb"], ["Nâu", "#a16207"], ["Xám", "#64748b"], ["Đen", "#1f2937"], ["Trắng", "#cbd5e1"], ["Hồng đào", "#fb7185"], ["Tím lavender", "#a78bfa"], ["Xanh bạc hà", "#34d399"], ["Vàng kim", "#d97706"]];
 
 function newStaff(nextId) {
   return {
     id: `draft-${nextId}`,
     name: "",
-    role: "Nailist",
+    role: "staff",
     status: "Working",
-    color: staffColors[(nextId - 1) % staffColors.length],
+    color: staffColors[(nextId - 1) % staffColors.length][1],
     external: { hotpepper: "", nailie: "", minimo: "" },
     email: "",
     accountPassword: "",
@@ -89,8 +89,8 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
         <div className="sectionTitle"><div><h2>{embedded ? label : c.newStaff}</h2><p>{c.secureNote}</p></div>{embedded && <button className="primary" onClick={addStaff}>{c.addStaff}</button>}</div>
         <div className="staffForm">
           <label>{c.name}<input value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} placeholder={c.namePlaceholder} /></label>
-          <label>{c.role}<input value={draft.role} onChange={(event) => updateDraft("role", event.target.value)} /></label>
-          <label>{c.calendarColor}<select value={draft.color} onChange={(event) => updateDraft("color", event.target.value)}>{staffColors.map((color) => <option key={color} value={color}>{color}</option>)}</select></label>
+          <label>{c.role}<select value={draft.role} onChange={(event) => updateDraft("role", event.target.value)}><option value="staff">{c.staffRole}</option><option value="manager">Quản lý</option><option value="owner">{c.owner}</option></select></label>
+          <label>{c.calendarColor}<div className="staffColorPicker">{staffColors.map(([name, color]) => <button type="button" key={color} title={name} aria-label={name} className={draft.color === color ? "staffColorChoice active" : "staffColorChoice"} style={{ background: color }} onClick={() => updateDraft("color", color)}><span>{name}</span></button>)}</div></label>
           <label>Hot Pepper account<input value={draft.external.hotpepper} onChange={(event) => updateExternal("hotpepper", event.target.value)} placeholder="HP staff/account id" /></label>
           <label>Nailie account<input value={draft.external.nailie} onChange={(event) => updateExternal("nailie", event.target.value)} placeholder="Nailie staff/account id" /></label>
           <label>minimo account<input value={draft.external.minimo} onChange={(event) => updateExternal("minimo", event.target.value)} placeholder="minimo staff/account id" /></label>
@@ -109,11 +109,11 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 	                const account = accounts.find((item) => item.id === `staff-${member.id}` || item.email === member.email);
 	                return <>
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{member.role}</span></div></div></td>
-              <td><span className="colorSwatch" style={{ background: member.color }} /></td>
+              <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
               <td>{member.external.hotpepper || "-"}</td>
               <td>{member.external.nailie || "-"}</td>
               <td>{member.external.minimo || "-"}</td>
-	              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={account.role} onChange={(event) => updateAccountRole(account.id, event.target.value)}><option value="owner">{c.owner}</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
+              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={account.role} onChange={(event) => updateAccountRole(account.id, event.target.value)}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
               <td><div className="staffAccountActions"><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button><button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
 	                </>;
 	              })()}

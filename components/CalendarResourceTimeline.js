@@ -195,7 +195,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const previousAssigned = previousBooking && staff.find((member) => member.name === previousBooking.staff);
     const assignedAccount = accountFor(assigned, booking);
     const previousAccount = accountFor(previousAssigned, previousBooking);
-    const recipientPairs = [[assigned, assignedAccount, booking.staffEmail], [previousAssigned, previousAccount, previousBooking?.staffEmail]];
+    const managerAccounts = accounts.filter((account) => ["owner", "manager"].includes(account.role) && account.email);
+    const recipientPairs = [[assigned, assignedAccount, booking.staffEmail], [previousAssigned, previousAccount, previousBooking?.staffEmail], ...managerAccounts.map((account) => [null, account, account.email])];
     const recipients = [...new Map(recipientPairs.filter(([member, account, storedEmail]) => member?.email || account?.email || storedEmail).map(([member, account, storedEmail]) => {
       const email = String(member?.email || account?.email || storedEmail || "").trim().toLowerCase();
       return [email, { ...(member || {}), ...(account || {}), email, name: member?.name || account?.name || booking.staff }];
@@ -214,6 +215,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       body: JSON.stringify({
         to: member.email,
         subject: `Mai Beauty Salon · ${title} · ${booking.customer || "Khách hàng"}`,
+        text: `${title}\nKhách hàng: ${booking.customer}\nNgày: 2026/10/${String(booking.day).padStart(2, "0")}\nGiờ: ${booking.start} - ${booking.end}\nDịch vụ: ${booking.service || "-"}`,
         html: `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="margin:0 0 16px;font-size:24px">${escapeHtml(title)}</h1><p style="font-size:15px;line-height:1.7">Xin chào ${escapeHtml(member.name)},<br/>${isNew ? "Bạn được phân công một lịch hẹn mới." : "Lịch hẹn liên quan đến bạn vừa được cập nhật."}</p><div style="margin:20px 0;padding:16px;border-radius:14px;background:#fff7fb;border:1px solid #f0dce8"><strong>Khách hàng:</strong> ${escapeHtml(booking.customer)}<br/><strong>Ngày:</strong> 2026/10/${String(booking.day).padStart(2, "0")}<br/><strong>Giờ:</strong> ${escapeHtml(booking.start)} – ${escapeHtml(booking.end)}<br/><strong>Dịch vụ:</strong> ${escapeHtml(booking.service || "-")}</div>${button}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">Trân trọng,<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`,
       }),
     }).catch(() => null)));
