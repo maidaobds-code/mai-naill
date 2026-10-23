@@ -19,12 +19,13 @@ function escapeHtml(value) {
   return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
 }
 
-function campaignEmailHtml(title, message, couponCode, imageUrl) {
+function campaignEmailHtml(title, message, couponCode, imageUrl, language = "vi") {
+  const copy = ({ vi: { coupon: "Mã ưu đãi", button: "Mở trang Mai Beauty Salon", closing: "Trân trọng" }, en: { coupon: "Offer code", button: "Open Mai Beauty Salon", closing: "Kind regards" }, ja: { coupon: "クーポンコード", button: "Mai Beauty Salonを開く", closing: "よろしくお願いいたします" } }[language]) || { coupon: "Mã ưu đãi", button: "Mở trang Mai Beauty Salon", closing: "Trân trọng" };
   const image = /^https?:\/\//i.test(imageUrl || "") ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" style="display:block;width:100%;max-height:260px;object-fit:cover;border-radius:14px;margin:0 0 20px" />` : "";
-  const coupon = couponCode ? `<div style="margin-top:20px;padding:14px;border:1px dashed #c084c2;border-radius:12px;background:#fff7fb"><strong>Mã ưu đãi: ${escapeHtml(couponCode)}</strong></div>` : "";
+  const coupon = couponCode ? `<div style="margin-top:20px;padding:14px;border:1px dashed #c084c2;border-radius:12px;background:#fff7fb"><strong>${copy.coupon}: ${escapeHtml(couponCode)}</strong></div>` : "";
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const action = siteUrl ? `<p style="margin:24px 0;text-align:center"><a href="${escapeHtml(siteUrl)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#9333ea;color:#fff;text-decoration:none;font-weight:700">Mở trang Mai Beauty Salon</a></p>` : "";
-  return `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="margin:0 0 16px;font-size:24px">${escapeHtml(title)}</h1><p style="white-space:pre-line;font-size:15px;line-height:1.7">${escapeHtml(message)}</p>${coupon}${image}${action}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">Trân trọng,<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`;
+  const action = siteUrl ? `<p style="margin:24px 0;text-align:center"><a href="${escapeHtml(siteUrl)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#9333ea;color:#fff;text-decoration:none;font-weight:700">${copy.button}</a></p>` : "";
+  return `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(100,50,90,.08)"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.3">${escapeHtml(title)}</h1><p style="white-space:pre-line;font-size:15px;line-height:1.7;margin:0">${escapeHtml(message)}</p>${coupon}${action}${image}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">${copy.closing},<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`;
 }
 
 function uniqueCustomers(seed, bookings, orders, accounts = []) {
@@ -134,7 +135,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
     const delivered = await Promise.all(recipients.filter((customer) => customer.email).map(async (customer) => {
       const language = customer.language || "vi";
       const subject = `${language === "ja" ? "Mai Beauty Salon・" : language === "en" ? "Mai Beauty Salon · " : "Mai Beauty Salon · "}${draft.title.trim()}`;
-      const response = await fetch("/api/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: customer.email, subject, html: campaignEmailHtml(draft.title, draft.message, draft.couponCode, draft.imageUrl) }) }).catch(() => null);
+      const response = await fetch("/api/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: customer.email, subject, html: campaignEmailHtml(draft.title, draft.message, draft.couponCode, draft.imageUrl, language) }) }).catch(() => null);
       return { name: customer.name, phone: customer.phone, email: customer.email, status: response?.ok ? "Sent" : "Failed" };
     }));
     setCampaigns((current) => [{ id: `campaign-${Date.now()}`, ...draft, sentAt: new Date().toISOString(), recipients: recipients.map((customer) => delivered.find((item) => item.email === customer.email) || ({ name: customer.name, phone: customer.phone, email: customer.email || "No email", status: "No email" })) }, ...current]);
