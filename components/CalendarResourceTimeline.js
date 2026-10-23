@@ -19,9 +19,9 @@ const timelineStart = 9 * 60;
 const timelineEnd = 23 * 60;
 
 const copy = {
-  vi: { desc: "Thời gian nằm ngang. Nhân viên là từng hàng dọc. Khối lịch kéo dài theo thời lượng hẹn.", previous: "Trước", today: "Hôm nay", next: "Sau", day: "Ngày", week: "Tuần", month: "Tháng", checkout: "Tính tiền", newBooking: "+ Lịch mới", selectedDay: "Ngày đã chọn", dayBookings: "Lịch trong ngày", weekTotal: "Tổng tuần", monthTotal: "Tổng tháng", dayView: "Xem theo ngày", staff: "Nhân viên", appointment: "lịch hẹn", noBooking: "Chưa có lịch", more: "+{count} lịch khác", newLabel: "LỊCH MỚI", editLabel: "SỬA LỊCH", customer: "Khách hàng", phone: "Số điện thoại", platform: "Nền tảng", start: "Bắt đầu", end: "Kết thúc", deleteBooking: "Xóa lịch", save: "Lưu và đồng bộ" },
-  ja: { desc: "時間は横軸、スタッフは縦の行です。予約ブロックは所要時間に合わせて表示されます。", previous: "前へ", today: "今日", next: "次へ", day: "日", week: "週", month: "月", checkout: "会計", newBooking: "+ 新規予約", selectedDay: "選択日", dayBookings: "当日の予約", weekTotal: "週合計", monthTotal: "月合計", dayView: "日表示", staff: "スタッフ", appointment: "予約", noBooking: "予約なし", more: "+{count}件", newLabel: "新規予約", editLabel: "予約編集", customer: "顧客", phone: "電話番号", platform: "プラットフォーム", start: "開始", end: "終了", deleteBooking: "予約削除", save: "保存して同期" },
-  en: { desc: "Time runs horizontally. Staff are vertical rows. Booking blocks stretch by appointment duration.", previous: "Previous", today: "Today", next: "Next", day: "Day", week: "Week", month: "Month", checkout: "Checkout", newBooking: "+ New booking", selectedDay: "Selected day", dayBookings: "Day bookings", weekTotal: "Week total", monthTotal: "Month total", dayView: "Day view", staff: "Staff", appointment: "bookings", noBooking: "No bookings", more: "+{count} more", newLabel: "NEW BOOKING", editLabel: "EDIT BOOKING", customer: "Customer", phone: "Phone", platform: "Platform", start: "Start", end: "End", deleteBooking: "Delete booking", save: "Save and sync" },
+  vi: { desc: "Thời gian nằm ngang. Nhân viên là từng hàng dọc. Khối lịch kéo dài theo thời lượng hẹn.", previous: "Trước", today: "Hôm nay", next: "Sau", day: "Ngày", week: "Tuần", month: "Tháng", checkout: "Tính tiền", newBooking: "+ Lịch mới", selectedDay: "Ngày đã chọn", dayBookings: "Lịch trong ngày", weekTotal: "Tổng tuần", monthTotal: "Tổng tháng", dayView: "Xem theo ngày", staff: "Nhân viên", appointment: "lịch hẹn", noBooking: "Chưa có lịch", more: "+{count} lịch khác", newLabel: "LỊCH MỚI", editLabel: "SỬA LỊCH", customer: "Khách hàng", phone: "Số điện thoại", platform: "Nền tảng", start: "Bắt đầu", end: "Kết thúc", deleteBooking: "Xóa lịch", save: "Lưu và đồng bộ", conflict: "Khoảng thời gian này đã có lịch hẹn của khách khác với nhân viên này. Vui lòng chọn thời gian khác." },
+  ja: { desc: "時間は横軸、スタッフは縦の行です。予約ブロックは所要時間に合わせて表示されます。", previous: "前へ", today: "今日", next: "次へ", day: "日", week: "週", month: "月", checkout: "会計", newBooking: "+ 新規予約", selectedDay: "選択日", dayBookings: "当日の予約", weekTotal: "週合計", monthTotal: "月合計", dayView: "日表示", staff: "スタッフ", appointment: "予約", noBooking: "予約なし", more: "+{count}件", newLabel: "新規予約", editLabel: "予約編集", customer: "顧客", phone: "電話番号", platform: "プラットフォーム", start: "開始", end: "終了", deleteBooking: "予約削除", save: "保存して同期", conflict: "この時間帯には、このスタッフの別の予約があります。別の時間を選択してください。" },
+  en: { desc: "Time runs horizontally. Staff are vertical rows. Booking blocks stretch by appointment duration.", previous: "Previous", today: "Today", next: "Next", day: "Day", week: "Week", month: "Month", checkout: "Checkout", newBooking: "+ New booking", selectedDay: "Selected day", dayBookings: "Day bookings", weekTotal: "Week total", monthTotal: "Month total", dayView: "Day view", staff: "Staff", appointment: "bookings", noBooking: "No bookings", more: "+{count} more", newLabel: "NEW BOOKING", editLabel: "EDIT BOOKING", customer: "Customer", phone: "Phone", platform: "Platform", start: "Start", end: "End", deleteBooking: "Delete booking", save: "Save and sync", conflict: "This time overlaps another appointment for the selected staff member. Please choose another time." },
 };
 
 function platformFor(id) {
@@ -83,6 +83,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
+  const [bookingError, setBookingError] = useState("");
   const { bookings, setBookings } = useBookingStore();
   const { staff: staffMembers } = useStaffStore();
   const { accounts } = useAccountStore();
@@ -232,6 +233,18 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       phone: selected.phone || "090-0000-0000",
       draft: false,
     };
+    const startMinutes = toMinutes(bookingToSave.start);
+    const endMinutes = toMinutes(bookingToSave.end);
+    if (endMinutes <= startMinutes) {
+      setBookingError(c.conflict);
+      return;
+    }
+    const conflict = bookings.find((booking) => booking.id !== selected.id && bookingDay(booking) === bookingToSave.day && (booking.staff === bookingToSave.staff || String(booking.staffId || "") === String(bookingToSave.staffId)) && startMinutes < toMinutes(booking.end) && endMinutes > toMinutes(booking.start));
+    if (conflict) {
+      setBookingError(c.conflict);
+      return;
+    }
+    setBookingError("");
     setBookings((current) => {
       const exists = current.some((booking) => booking.id === selected.id);
       if (exists) return current.map((booking) => booking.id === selected.id ? bookingToSave : booking);
@@ -399,6 +412,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
               <label>{c.start}<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
               <label>{c.end}<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
             </div>
+            {bookingError && <p className="bookingConflictNotice" role="alert">{bookingError}</p>}
             <div className="modalActions">
               <button className="ghost dangerButton" onClick={deleteBooking}>{c.deleteBooking}</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>{tc("cancel")}</button>
