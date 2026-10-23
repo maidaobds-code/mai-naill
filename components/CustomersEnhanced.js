@@ -68,6 +68,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
   const [hydrated, setHydrated] = useState(false);
   const [selectedCustomerKeys, setSelectedCustomerKeys] = useState([]);
   const [deletedCustomerKeys, setDeletedCustomerKeys] = useState([]);
+  const [campaignMessage, setCampaignMessage] = useState("");
   const [draft, setDraft] = useState({ title: defaultDraft.title, type: "promotion", target: "old", couponCode: "OLD10", imageUrl: "", imageName: "", message: defaultDraft.message });
   const allCustomers = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders, accounts), [bookings, orders, accounts]);
   const customerList = useMemo(() => allCustomers.filter((customer) => !deletedCustomerKeys.includes(customerKey(customer))), [allCustomers, deletedCustomerKeys]);
@@ -130,6 +131,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
 
   async function sendCampaign(event) {
     event.preventDefault();
+    setCampaignMessage("");
     const recipients = targetCustomers();
     if (!draft.title.trim() || !draft.message.trim() || recipients.length === 0) return;
     const delivered = await Promise.all(recipients.filter((customer) => customer.email).map(async (customer) => {
@@ -140,6 +142,8 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
       return { name: customer.name, phone: customer.phone, email: customer.email, status: response?.ok ? "Sent" : "Failed" };
     }));
     setCampaigns((current) => [{ id: `campaign-${Date.now()}`, ...draft, sentAt: new Date().toISOString(), recipients: recipients.map((customer) => delivered.find((item) => item.email === customer.email) || ({ name: customer.name, phone: customer.phone, email: customer.email || "No email", status: "No email" })) }, ...current]);
+    const sentCount = delivered.filter((item) => item.status === "Sent").length;
+    setCampaignMessage(language === "en" ? `Saved and sent to ${sentCount} customers.` : language === "ja" ? `${sentCount}名のお客様に保存して送信しました。` : `Đã lưu và gửi cho ${sentCount} khách hàng.`);
   }
 
   async function uploadCampaignImage(event) {
@@ -169,6 +173,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
           <label>{tr("couponCode")}<input value={draft.couponCode} onChange={(event) => setDraft({ ...draft, couponCode: event.target.value })} /></label>
           <label>{tr("campaignImage")}<input type="file" accept="image/*" onChange={uploadCampaignImage} /></label>
           <label className="campaignMessage">{tr("message")}<textarea rows={8} value={draft.message} onChange={(event) => setDraft({ ...draft, message: event.target.value })} /></label>
+          {campaignMessage && <p className="successNote">{campaignMessage}</p>}
           {draft.imageUrl && <div className="imagePreview"><img src={draft.imageUrl} alt={draft.title || "Campaign"} /><span>{draft.imageName}</span></div>}
         </form>
       </section>

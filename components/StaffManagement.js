@@ -35,6 +35,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
   const [resetDraft, setResetDraft] = useState({});
   const [accountMessage, setAccountMessage] = useState("");
+  const draftChanged = Boolean(draft.name || draft.email || draft.accountPassword || draft.role !== "staff");
 
   function updateDraft(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -97,6 +98,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <label>{c.loginEmail}<input type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="staff@example.com" /></label>
           <label>{c.password}<input type="password" value={draft.accountPassword} onChange={(event) => updateDraft("accountPassword", event.target.value)} placeholder={c.passwordPlaceholder} /></label>
         </div>
+        {draftChanged && !accountMessage && <p className="storeNote">Bạn đã thay đổi thông tin. Hãy bấm “{c.addStaff.replace("+ ", "") }” để lưu.</p>}
         {accountMessage && <p className="storeNote">{accountMessage}</p>}
       </section>
 
