@@ -84,7 +84,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
   const [bookingError, setBookingError] = useState("");
-  const { bookings, setBookings } = useBookingStore();
+  const { bookings, setBookings, removeBooking } = useBookingStore();
   const { staff: staffMembers } = useStaffStore();
   const { accounts } = useAccountStore();
   const staff = staffMembers.length ? staffMembers : seedStaff;
@@ -256,7 +256,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   }
 
   function deleteBooking() {
-    setBookings((current) => current.filter((booking) => booking.id !== selected.id));
+    removeBooking(selected.id);
     setSelected(blankBooking(selectedDay, "10:00", staff[0] || seedStaff[0]));
     setModalOpen(false);
   }
