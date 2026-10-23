@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { orders as seedOrders } from "../lib/ecommerce/data";
 import { tx } from "../lib/i18nClean";
-import { sendOrderEmail, useStoreOrders } from "../lib/orderStore";
+import { sendCustomerMessageEmail, sendOrderEmail, useStoreOrders } from "../lib/orderStore";
 import { getStoredPosSales } from "./Checkout";
 
 function money(value) {
@@ -216,7 +216,7 @@ export default function Orders({ language = "vi" }) {
     setToast(language === "en" ? "The customer has been notified by email." : language === "ja" ? "お客様に更新通知メールを送信しました。" : "Đã gửi email thông báo cập nhật cho khách hàng.");
   }
 
-  function sendReply() {
+  async function sendReply() {
     if (
       !selected ||
       selected.id.startsWith("order-1") ||
@@ -224,7 +224,13 @@ export default function Orders({ language = "vi" }) {
     )
       return;
     addChatMessage(selected.id, reply, "owner");
+    const message = reply.trim();
     setReply("");
+    try {
+      await sendCustomerMessageEmail(selected, message);
+    } catch (error) {
+      console.error("Customer message email failed:", error);
+    }
   }
 
   function updateSelected(field, value) {

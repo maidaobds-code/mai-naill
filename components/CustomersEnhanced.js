@@ -135,7 +135,8 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
     const delivered = await Promise.all(recipients.filter((customer) => customer.email).map(async (customer) => {
       const language = customer.language || "vi";
       const subject = `${language === "ja" ? "Mai Beauty Salon・" : language === "en" ? "Mai Beauty Salon · " : "Mai Beauty Salon · "}${draft.title.trim()}`;
-      const response = await fetch("/api/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: customer.email, subject, html: campaignEmailHtml(draft.title, draft.message, draft.couponCode, draft.imageUrl, language) }) }).catch(() => null);
+      const text = [draft.title.trim(), draft.message.trim(), draft.couponCode ? `Mã giảm giá: ${draft.couponCode}` : ""].filter(Boolean).join("\n\n");
+      const response = await fetch("/api/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: customer.email, subject, text, html: campaignEmailHtml(draft.title, draft.message, draft.couponCode, draft.imageUrl, language) }) }).catch(() => null);
       return { name: customer.name, phone: customer.phone, email: customer.email, status: response?.ok ? "Sent" : "Failed" };
     }));
     setCampaigns((current) => [{ id: `campaign-${Date.now()}`, ...draft, sentAt: new Date().toISOString(), recipients: recipients.map((customer) => delivered.find((item) => item.email === customer.email) || ({ name: customer.name, phone: customer.phone, email: customer.email || "No email", status: "No email" })) }, ...current]);
