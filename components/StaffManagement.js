@@ -112,7 +112,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
       <section className="card tableWrap">
         <table>
-          <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>Hot Pepper</th><th>Nailie</th><th>minimo</th><th>{c.login}</th><th>{tc("action")}</th></tr></thead>
+          <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>{tc("action")}</th></tr></thead>
           <tbody>{staff.map((member) => (
             <tr key={member.id}>
 	              {(() => {
@@ -120,9 +120,6 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 	                return <>
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{member.role}</span></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
-              <td>{member.external.hotpepper || "-"}</td>
-              <td>{member.external.nailie || "-"}</td>
-              <td>{member.external.minimo || "-"}</td>
               <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={roleDraft[account.id] || account.role} onChange={(event) => setRoleDraft((current) => ({ ...current, [account.id]: event.target.value }))}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
               <td><div className="staffAccountActions"><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
 	                </>;
