@@ -1464,7 +1464,8 @@ section.nailPosPanel .nailPaymentAppName {
 @media(max-width:650px){.profileGrid,.chatComposer,.staffAccountActions{grid-template-columns:1fr}.customerShell main{padding:14px}.customerProfilePanel{right:14px;top:72px}}
 .loginInputShell.userIcon:before{content:"👤"}.loginInputShell.phoneIcon:before{content:"☎"}
 .loginInputShell:has(.passwordVisibilityButton){grid-template-columns:28px 1fr 34px}
-.passwordVisibilityButton{border:0;background:transparent;color:#8d6c83;cursor:pointer;font-size:20px;line-height:1;padding:8px 0;border-radius:999px}
+.passwordVisibilityButton{display:grid;place-items:center;border:0;background:transparent;color:#8d6c83;cursor:pointer;padding:8px 0;border-radius:999px}
+.passwordVisibilityButton svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .passwordVisibilityButton:hover,.passwordVisibilityButton:focus-visible{color:#7c3f62;background:rgba(190,136,176,.12);outline:none}
 .storeSoftShell {
   max-width: 1180px;
