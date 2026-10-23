@@ -116,7 +116,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <tbody>{staff.map((member) => (
             <tr key={member.id}>
 	              {(() => {
-	                const account = accounts.find((item) => item.id === `staff-${member.id}` || item.email === member.email);
+                const account = accounts.find((item) => item.id === `staff-${member.id}`) || accounts.find((item) => item.name === member.name || item.staffName === member.name) || (() => { const matches = accounts.filter((item) => item.email && member.email && item.email.toLowerCase() === member.email.toLowerCase()); return matches.length === 1 ? matches[0] : null; })();
 	                return <>
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{member.role}</span></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
