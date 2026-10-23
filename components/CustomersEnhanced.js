@@ -14,6 +14,16 @@ function yen(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
 }
 
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
+}
+
+function campaignEmailHtml(title, message, couponCode, imageUrl) {
+  const image = /^https?:\/\//i.test(imageUrl || "") ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" style="display:block;width:100%;max-height:260px;object-fit:cover;border-radius:14px;margin:0 0 20px" />` : "";
+  const coupon = couponCode ? `<div style="margin-top:20px;padding:14px;border:1px dashed #c084c2;border-radius:12px;background:#fff7fb"><strong>Mã ưu đãi: ${escapeHtml(couponCode)}</strong></div>` : "";
+  return `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px">${image}<h1 style="margin:0 0 16px;font-size:24px">${escapeHtml(title)}</h1><p style="white-space:pre-line;font-size:15px;line-height:1.7">${escapeHtml(message)}</p>${coupon}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">Trân trọng,<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`;
+}
+
 function uniqueCustomers(seed, bookings, orders, accounts = []) {
   const map = new Map();
   seed.forEach((customer) => map.set(customer.phone, { ...customer, email: customer.email || "", source: customer.origin, orderCount: 0, bookingCount: customer.visits || 0 }));
@@ -35,6 +45,10 @@ function uniqueCustomers(seed, bookings, orders, accounts = []) {
   return Array.from(map.values());
 }
 
+function customerKey(customer) {
+  return String(customer.phone || customer.email || customer.id || customer.name);
+}
+
 export default function CustomersEnhanced({ label = "Customers", language = "vi" }) {
   const tr = (key) => tx(language, "customersPage", key);
   const tc = (key) => tx(language, "common", key);
@@ -48,6 +62,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
   const { accounts } = useAccountStore();
   const [campaigns, setCampaigns] = useState([]);
   const [hydrated, setHydrated] = useState(false);
+  const [selectedCustomerKeys, setSelectedCustomerKeys] = useState([]);
   const [draft, setDraft] = useState({ title: defaultDraft.title, type: "promotion", target: "old", couponCode: "OLD10", imageUrl: "", imageName: "", message: defaultDraft.message });
   const customerList = useMemo(() => uniqueCustomers(seedCustomers, bookings, orders, accounts), [bookings, orders, accounts]);
 
@@ -76,9 +91,21 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
   }, [campaigns, hydrated]);
 
   function targetCustomers() {
+    if (selectedCustomerKeys.length) return customerList.filter((customer) => selectedCustomerKeys.includes(customerKey(customer)));
     if (draft.target === "buyers") return customerList.filter((customer) => customer.orderCount > 0);
     if (draft.target === "bookers") return customerList.filter((customer) => customer.bookingCount > 0 || customer.visits > 0);
     return customerList.filter((customer) => (customer.orderCount > 0 || customer.bookingCount > 0 || customer.visits > 0));
+  }
+
+  function toggleCustomer(customer) {
+    if (!customer.email) return;
+    const key = customerKey(customer);
+    setSelectedCustomerKeys((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  }
+
+  function toggleAllCustomers() {
+    const selectableKeys = customerList.filter((customer) => customer.email).map(customerKey);
+    setSelectedCustomerKeys((current) => current.length === selectableKeys.length ? [] : selectableKeys);
   }
 
   async function sendCampaign(event) {
@@ -87,9 +114,9 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
     if (!draft.title.trim() || !draft.message.trim() || recipients.length === 0) return;
     const delivered = await Promise.all(recipients.filter((customer) => customer.email).map(async (customer) => {
       const language = customer.language || "vi";
-      const subject = language === "ja" ? draft.title : language === "en" ? draft.title : draft.title;
-      const response = await fetch("/api/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: customer.email, subject, html: `<h2>${draft.title}</h2><p>${draft.message.replaceAll("\n", "<br />")}</p>${draft.couponCode ? `<p>Coupon: ${draft.couponCode}</p>` : ""}` }) }).catch(() => null);
-      return { name: customer.name, phone: customer.phone, email: customer.email, status: response?.ok ? "Resend sent" : "Failed" };
+      const subject = `${language === "ja" ? "Mai Beauty Salon・" : language === "en" ? "Mai Beauty Salon · " : "Mai Beauty Salon · "}${draft.title.trim()}`;
+      const response = await fetch("/api/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ to: customer.email, subject, html: campaignEmailHtml(draft.title, draft.message, draft.couponCode, draft.imageUrl) }) }).catch(() => null);
+      return { name: customer.name, phone: customer.phone, email: customer.email, status: response?.ok ? "Sent" : "Failed" };
     }));
     setCampaigns((current) => [{ id: `campaign-${Date.now()}`, ...draft, sentAt: new Date().toISOString(), recipients: recipients.map((customer) => delivered.find((item) => item.email === customer.email) || ({ name: customer.name, phone: customer.phone, email: customer.email || "No email", status: "No email" })) }, ...current]);
   }
@@ -107,6 +134,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
       <div className="pageHead"><div><p className="eyebrow">CRM</p><h1>{label}</h1><p>{tr("desc")}</p></div><button className="primary" form="campaignForm">{tr("sendNotice")}</button></div>
       <section className="card customerCampaignPanel">
         <div className="sectionTitle"><div><h2>{tr("campaignTitle")}</h2><p>{tr("campaignDesc")}</p></div></div>
+        <div className="campaignAudienceNote">{selectedCustomerKeys.length ? tr("selectedRecipients", { count: selectedCustomerKeys.length }) : tr("groupRecipients")}</div>
         <form id="campaignForm" className="campaignForm" onSubmit={sendCampaign}>
           <label>{tr("subject")}<input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
           <label>{tr("type")}<select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })}><option value="promotion">{tr("promotion")}</option><option value="event">{tr("event")}</option><option value="notice">{tr("notice")}</option></select></label>
@@ -118,7 +146,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
         </form>
       </section>
       <div className="customerGrid">
-        <section className="card tableWrap"><table><thead><tr><th>{tc("customer")}</th><th>{tc("phone")}</th><th>{tc("email")}</th><th>{tr("bookings")}</th><th>{tr("orders")}</th><th>{tr("spend")}</th><th>{tr("typeCol")}</th></tr></thead><tbody>{customerList.map((customer) => <tr key={customer.phone || customer.id}><td><strong>{customer.name}</strong></td><td>{customer.phone}</td><td>{customer.email || "-"}</td><td>{customer.bookingCount || customer.visits || 0}</td><td>{customer.orderCount || 0}</td><td>{yen(customer.spend)}</td><td><span className="pill">{customer.tag}</span></td></tr>)}</tbody></table></section>
+        <section className="card tableWrap"><table><thead><tr><th className="customerSelectHead"><input type="checkbox" checked={customerList.filter((customer) => customer.email).length > 0 && selectedCustomerKeys.length === customerList.filter((customer) => customer.email).length} onChange={toggleAllCustomers} aria-label={tr("selectAllCustomers")} /></th><th>{tc("customer")}</th><th>{tc("phone")}</th><th>{tc("email")}</th><th>{tr("bookings")}</th><th>{tr("orders")}</th><th>{tr("spend")}</th><th>{tr("typeCol")}</th></tr></thead><tbody>{customerList.map((customer) => { const key = customerKey(customer); return <tr key={key}><td className="customerSelectCell"><input type="checkbox" checked={selectedCustomerKeys.includes(key)} disabled={!customer.email} onChange={() => toggleCustomer(customer)} aria-label={`${tr("selectCustomer")} ${customer.name}`} /></td><td><strong>{customer.name}</strong></td><td>{customer.phone}</td><td>{customer.email || "-"}</td><td>{customer.bookingCount || customer.visits || 0}</td><td>{customer.orderCount || 0}</td><td>{yen(customer.spend)}</td><td><span className="pill">{customer.tag}</span></td></tr>; })}</tbody></table></section>
         <aside className="card campaignLog"><h2>{tr("campaignLog")}</h2>{campaigns.length ? campaigns.map((campaign) => <div className="campaignItem" key={campaign.id}><strong>{campaign.title}</strong><span>{tr("recipientCount", { count: campaign.recipients.length })} · {new Date(campaign.sentAt).toLocaleString("ja-JP")}</span>{campaign.couponCode && <span className="pill">{tr("coupon")} {campaign.couponCode}</span>}{campaign.imageUrl && <img className="catalogThumb" src={campaign.imageUrl} alt={campaign.title} />}<small>{campaign.message}</small></div>) : <p>{tr("noCampaign")}</p>}</aside>
       </div>
     </>
