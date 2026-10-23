@@ -217,19 +217,17 @@ export default function Orders({ language = "vi" }) {
   }
 
   async function sendReply() {
-    if (
-      !selected ||
-      selected.id.startsWith("order-1") ||
-      selected.id.startsWith("order-2")
-    )
-      return;
-    addChatMessage(selected.id, reply, "owner");
+    if (!selected || selected.isPosSale || !orders.some((order) => order.id === selected.id)) return;
     const message = reply.trim();
+    if (!message) return;
+    addChatMessage(selected.id, reply, "owner");
     setReply("");
     try {
       await sendCustomerMessageEmail(selected, message);
+      setToast(language === "en" ? "Message sent to the customer by email." : language === "ja" ? "お客様にメッセージをメールで送信しました。" : "Đã gửi tin nhắn đến Gmail khách hàng.");
     } catch (error) {
       console.error("Customer message email failed:", error);
+      setToast(error.message || (language === "en" ? "Email could not be sent." : "Không thể gửi Gmail cho khách hàng."));
     }
   }
 
