@@ -16,7 +16,7 @@ export async function POST(request) {
   // Supabase contains exactly one accounts record, avoiding ambiguous tenants.
   const body = await request.clone().json().catch(() => ({}));
   if (URL && KEY && body.email && body.password) {
-    const fallback = await fetch(`${URL}/rest/v1/app_kv?key=eq.${KV}&select=value,owner_id&order=updated_at.desc&limit=2`, { cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}` } }).catch(() => null);
+    const fallback = await fetch(`${URL}/rest/v1/app_kv?key=eq.${KV}&select=value,owner_id&limit=1`, { cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}` } }).catch(() => null);
     const fallbackRows = fallback?.ok ? await fallback.json().catch(() => []) : [];
     if (fallbackRows.length === 1) {
       const account = fallbackRows[0]?.value?.find((item) => ["staff", "manager"].includes(item.role) && item.email?.trim().toLowerCase() === String(body.email).trim().toLowerCase());
