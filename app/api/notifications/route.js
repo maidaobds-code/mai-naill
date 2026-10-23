@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export async function POST(request) {
   const { to, subject, html, includeOwner = false } = await request.json().catch(() => ({}));
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM || "Mai Beauty Salon <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || "Mai Beauty Salon <onboarding@resend.dev>";
   if (!apiKey) return NextResponse.json({ ok: false, skipped: true, reason: "RESEND_API_KEY is not configured" }, { status: 503 });
   if (!to || !subject || !html) return NextResponse.json({ ok: false, error: "Missing email fields" }, { status: 400 });
   const recipients = [...(Array.isArray(to) ? to : [to]), ...(includeOwner ? [process.env.OWNER_EMAIL] : [])].filter(Boolean);

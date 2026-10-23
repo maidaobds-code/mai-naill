@@ -20,7 +20,7 @@ export async function GET(request) {
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const tomorrowKey = tomorrow.toISOString().slice(0, 10);
   const due = bookings.filter((booking) => booking.email && (booking.date === tomorrowKey || booking.date === tomorrowKey.replaceAll("-", "/")) && !booking.reminderSentAt && !["CANCELLED", "Cancelled"].includes(booking.status));
-  const from = process.env.RESEND_FROM || "Mai Beauty Salon <onboarding@resend.dev>";
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || "Mai Beauty Salon <onboarding@resend.dev>";
   const results = await Promise.all(due.map(async (booking) => {
     const language = booking.language || "vi";
     const text = language === "ja" ? `明日の予約のお知らせ：${booking.service || "予約"}、${booking.start || ""}〜${booking.end || ""}` : language === "en" ? `Reminder: your appointment is tomorrow at ${booking.start || ""}.` : `Nhắc lịch: bạn có lịch hẹn vào ngày mai lúc ${booking.start || ""}.`;
