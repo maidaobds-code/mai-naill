@@ -97,6 +97,7 @@ export default function Settings({ language = "vi" }) {
   function update(field, value) {
     setSaved(false);
     setSettings((current) => ({ ...current, [field]: value }));
+    if (field === "logoUrl") window.dispatchEvent(new CustomEvent("nail-japan-settings-updated"));
   }
 
   function uploadLogo(event) {
@@ -159,6 +160,7 @@ export default function Settings({ language = "vi" }) {
     event.preventDefault();
     setQrUploadError("");
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(settings));
+    window.dispatchEvent(new CustomEvent("nail-japan-settings-updated"));
     try {
       await saveServerSettings(settings);
       if (supabaseReady()) saveKv("nail-japan-settings", settings).catch(() => {});

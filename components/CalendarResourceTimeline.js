@@ -195,7 +195,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const previousAssigned = previousBooking && staff.find((member) => member.name === previousBooking.staff);
     const assignedAccount = accountFor(assigned, booking);
     const previousAccount = accountFor(previousAssigned, previousBooking);
-    const recipients = [...new Map([[assigned, assignedAccount], [previousAssigned, previousAccount]].filter(([member, account]) => member?.email || account?.email).map(([member, account]) => [member?.email || account.email, { ...(member || {}), ...(account || {}), name: member?.name || account?.name }])).values()];
+    const recipientPairs = [[assigned, assignedAccount, booking.staffEmail], [previousAssigned, previousAccount, previousBooking?.staffEmail]];
+    const recipients = [...new Map(recipientPairs.filter(([member, account, storedEmail]) => member?.email || account?.email || storedEmail).map(([member, account, storedEmail]) => {
+      const email = String(member?.email || account?.email || storedEmail || "").trim().toLowerCase();
+      return [email, { ...(member || {}), ...(account || {}), email, name: member?.name || account?.name || booking.staff }];
+    })).values()];
     if (!recipients.length) return;
     const isNew = !previousBooking;
     const relevantFields = ["day", "start", "end", "customer", "phone", "service", "source", "status", "staff", "note"];

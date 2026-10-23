@@ -199,12 +199,17 @@ export function AccountGate({ language = "vi", setLanguage }) {
 
 export function LoginPage() {
   const [language, setLanguage] = useState(storedLoginLanguage);
+  const [logoUrl, setLogoUrl] = useState("");
   const copy = loginCopy[language] || loginCopy.vi;
+
+  useEffect(() => {
+    try { setLogoUrl(JSON.parse(window.localStorage.getItem("nail-japan-settings") || "{}").logoUrl || ""); } catch {}
+  }, []);
 
   return (
     <div className="loginPage">
       <div className="loginBrandPanel">
-        <div className="brandMark large">M</div>
+        {logoUrl ? <img className="brandMark large appLoginLogo" src={logoUrl} alt="Mai Beauty Salon" /> : <div className="brandMark large">M</div>}
         <p className="eyebrow">MAI BEAUTY SALON</p>
         <h1>Mai Beauty Salon</h1>
         <p>{copy.brandText}</p>
