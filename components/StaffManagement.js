@@ -5,7 +5,7 @@ import { useAccountStore } from "../lib/accountStore";
 import { useStaffStore } from "../lib/staffStore";
 import { tx } from "../lib/i18nClean";
 
-const staffColors = [["Tím", "#7c3aed"], ["Hồng", "#ec4899"], ["Xanh dương", "#0ea5e9"], ["Xanh lá", "#10b981"], ["Cam", "#f97316"], ["Vàng", "#eab308"], ["Đỏ", "#ef4444"], ["Đỏ hồng", "#f43f5e"], ["Tím đậm", "#6d28d9"], ["Xanh da trời", "#38bdf8"], ["Xanh ngọc", "#14b8a6"], ["Xanh biển", "#2563eb"], ["Nâu", "#a16207"], ["Xám", "#64748b"], ["Đen", "#1f2937"], ["Trắng", "#cbd5e1"], ["Hồng đào", "#fb7185"], ["Tím lavender", "#a78bfa"], ["Xanh bạc hà", "#34d399"], ["Vàng kim", "#d97706"]];
+const staffColors = [["Lavender", "#a78bfa"], ["Lilac", "#c084fc"], ["Bubblegum", "#f9a8d4"], ["Hồng neon", "#f472b6"], ["Peach", "#fdba74"], ["Coral", "#fb7185"], ["Lemon", "#fde047"], ["Butter", "#fef08a"], ["Mint", "#86efac"], ["Emerald", "#34d399"], ["Aqua", "#5eead4"], ["Sky", "#7dd3fc"], ["Blue", "#60a5fa"], ["Periwinkle", "#818cf8"], ["Cobalt", "#4f46e5"], ["Teal", "#0d9488"], ["Lime", "#a3e635"], ["Tangerine", "#fb923c"], ["Magenta", "#e879f9"], ["Plum", "#a855f7"]];
 
 function newStaff(nextId) {
   return {
