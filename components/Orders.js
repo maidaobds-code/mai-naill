@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { orders as seedOrders } from "../lib/ecommerce/data";
 import { tx } from "../lib/i18nClean";
-import { useStoreOrders } from "../lib/orderStore";
+import { sendOrderEmail, useStoreOrders } from "../lib/orderStore";
 import { getStoredPosSales } from "./Checkout";
 
 function money(value) {
@@ -129,6 +129,7 @@ export default function Orders({ language = "vi" }) {
     en: {
       cancel: "Cancel order",
       remove: "Delete order",
+      save: "Save changes",
       cancelConfirm: "Cancel this order?",
       removeConfirm: "Permanently delete this order?",
     },
@@ -144,9 +145,11 @@ export default function Orders({ language = "vi" }) {
     cancelConfirm: "Hủy đơn hàng này?",
     removeConfirm: "Xóa vĩnh viễn đơn hàng này?",
   };
+  const saveLabel = language === "en" ? "Save changes" : language === "ja" ? "変更を保存" : "Lưu thay đổi";
   const [posSales, setPosSales] = useState(() => getStoredPosSales());
   const [selectedId, setSelectedId] = useState("");
   const [reply, setReply] = useState("");
+  const [orderDraft, setOrderDraft] = useState(null);
   const [toast, setToast] = useState("");
   const [printMode, setPrintMode] = useState("");
   const previousCount = useRef(0);
@@ -192,7 +195,25 @@ export default function Orders({ language = "vi" }) {
 
   function openOrder(order) {
     setSelectedId(order.id);
+    setOrderDraft({ status: order.status, paymentStatus: order.paymentStatus });
     if (order.unread) updateOrder(order.id, { unread: false });
+  }
+
+  useEffect(() => {
+    if (selected && !selected.isPosSale) setOrderDraft({ status: selected.status, paymentStatus: selected.paymentStatus });
+  }, [selected?.id]);
+
+  async function saveOrderChanges() {
+    if (!selected || selected.isPosSale || !orderDraft) return;
+    const patch = {};
+    if (orderDraft.status !== selected.status) patch.status = orderDraft.status;
+    if (orderDraft.paymentStatus !== selected.paymentStatus) patch.paymentStatus = orderDraft.paymentStatus;
+    if (!Object.keys(patch).length) return;
+    const next = { ...selected, ...patch };
+    updateOrder(selected.id, patch);
+    setOrderDraft({ status: next.status, paymentStatus: next.paymentStatus });
+    await sendOrderEmail(next, "updated");
+    setToast(language === "en" ? "The customer has been notified by email." : language === "ja" ? "お客様に更新通知メールを送信しました。" : "Đã gửi email thông báo cập nhật cho khách hàng.");
   }
 
   function sendReply() {
@@ -386,6 +407,9 @@ export default function Orders({ language = "vi" }) {
               !selected.isPosSale &&
               orders.some((order) => order.id === selected.id) && (
                 <div className="ownerOrderDangerActions">
+                  <button className="primary" onClick={saveOrderChanges}>
+                    {saveLabel}
+                  </button>
                   <button
                     className="ghost"
                     onClick={cancelSelected}
@@ -585,9 +609,9 @@ export default function Orders({ language = "vi" }) {
                   <label>
                     {tr("orderStatus")}
                     <select
-                      value={selected.status}
+                      value={orderDraft?.status ?? selected.status}
                       onChange={(event) =>
-                        updateSelected("status", event.target.value)
+                        setOrderDraft((current) => ({ ...(current || selected), status: event.target.value }))
                       }
                     >
                       <option value="Waiting payment">
@@ -619,9 +643,9 @@ export default function Orders({ language = "vi" }) {
                   <label>
                     {tr("paymentStatus")}
                     <select
-                      value={selected.paymentStatus}
+                      value={orderDraft?.paymentStatus ?? selected.paymentStatus}
                       onChange={(event) =>
-                        updateSelected("paymentStatus", event.target.value)
+                        setOrderDraft((current) => ({ ...(current || selected), paymentStatus: event.target.value }))
                       }
                     >
                       <option value="Waiting payment">
