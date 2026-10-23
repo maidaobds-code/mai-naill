@@ -1,4 +1,8 @@
-import { isAdminRequest } from "../../../lib/serverAuth";
+import { isAdminRequest as adminRequest, isOwnerRequest } from "../../../lib/serverAuth";
+
+function isAdminRequest(request) {
+  return adminRequest(request) || isOwnerRequest(request);
+}
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
