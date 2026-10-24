@@ -306,6 +306,10 @@ export default function GroupedBooking({
                       }}
                     />
                   </label>
+                  <label className="maiConsent marketingConsent">
+                    <input type="checkbox" checked={Boolean(draft.marketingConsent)} onChange={(e) => updateDraft("marketingConsent", e.target.checked)} />
+                    {copy("お得な情報やイベントのお知らせを受け取る", "Tôi đồng ý nhận email giảm giá và sự kiện của salon", "I would like to receive salon discounts and event emails")}
+                  </label>
                 </div>
                 <h3>
                   {copy(
@@ -483,7 +487,8 @@ export default function GroupedBooking({
                       "Before your visit",
                     )}
                   </h2>
-                  <div className="maiPolicy" lang="ja">
+                  <div className="maiPolicy" lang={lang}>
+                    <p className="policyLanguageLead">{copy("キャンセル・遅刻・施術保証についてのご案内です。", "Vui lòng đọc các quy định về đổi/hủy lịch, đi trễ và bảo hành trước khi đặt lịch.", "Please review our cancellation, lateness, service and repair policies before booking.")}</p>
                     <strong>■予約のキャンセル・変更について</strong>
                     <p>
                       キャンセルや日時変更は、予約日前日の営業時間内までにメッセージにてお願いします。当日キャンセルや日時変更はキャンセル料100%を請求し、次回以降のご予約をお断りさせて頂く場合がございます。
