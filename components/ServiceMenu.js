@@ -60,8 +60,12 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
       const result = await response.json().catch(() => ({}));
       return result.ok ? result.translations : {};
     };
-    const [names, descriptions] = await Promise.all([translate(draft.name), translate(draft.description)]);
-    const record = { ...draft, id: draft.id || `svc-${Date.now()}`, nameVi: names.VI || draft.name, nameJa: names.JA || draft.name, nameEn: names.EN || draft.name, nameZh: names.ZH || draft.name, nameKo: names.KO || draft.name, descriptionVi: descriptions.VI || draft.description, descriptionJa: descriptions.JA || draft.description, descriptionEn: descriptions.EN || draft.description, descriptionZh: descriptions.ZH || draft.description, descriptionKo: descriptions.KO || draft.description };
+    const hasNameTranslations = ["nameVi", "nameJa", "nameEn", "nameZh", "nameKo"].every((key) => draft[key]);
+    const hasDescriptionTranslations = !draft.description.trim() || ["descriptionVi", "descriptionJa", "descriptionEn", "descriptionZh", "descriptionKo"].every((key) => draft[key]);
+    const nameChanged = draft.translationSourceName !== draft.name;
+    const descriptionChanged = draft.translationSourceDescription !== draft.description;
+    const [names, descriptions] = await Promise.all([nameChanged || !hasNameTranslations ? translate(draft.name) : Promise.resolve({}), descriptionChanged || !hasDescriptionTranslations ? translate(draft.description) : Promise.resolve({})]);
+    const record = { ...draft, id: draft.id || `svc-${Date.now()}`, nameVi: names.VI || draft.nameVi || draft.name, nameJa: names.JA || draft.nameJa || draft.name, nameEn: names.EN || draft.nameEn || draft.name, nameZh: names.ZH || draft.nameZh || draft.name, nameKo: names.KO || draft.nameKo || draft.name, descriptionVi: descriptions.VI ?? draft.descriptionVi ?? draft.description, descriptionJa: descriptions.JA ?? draft.descriptionJa ?? draft.description, descriptionEn: descriptions.EN ?? draft.descriptionEn ?? draft.description, descriptionZh: descriptions.ZH ?? draft.descriptionZh ?? draft.description, descriptionKo: descriptions.KO ?? draft.descriptionKo ?? draft.description, translationSourceName: draft.name, translationSourceDescription: draft.description };
     setServices((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
     setDraft({ ...emptyService });
   }
