@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBookingStore } from "../lib/bookingStore";
 import GroupedBooking from "./GroupedBooking";
-import { withReferenceServices, japanToday } from "../lib/bookingMenu";
+import { japanToday } from "../lib/bookingMenu";
 import { useProductCatalog, useServiceCatalog } from "../lib/catalogStore";
 import { useStoreOrders } from "../lib/orderStore";
 import { getAppSettings } from "./Settings";
@@ -61,7 +61,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   const [settings, setSettings] = useState(() => ({ ...getAppSettings(), qrImageUrl: "/api/qr-image" }));
   const storeProducts = products.filter((product) => product.onlineStoreEnabled !== false);
   const featured = storeProducts.filter((product) => product.featuredOnline !== false);
-  const activeServices = useMemo(() => withReferenceServices(services), [services]);
+  const activeServices = services;
   const [bookingOptions, setBookingOptions] = useState([]);
   const { addBookingConfirmed: addBooking } = useBookingStore();
   const [message, setMessage] = useState("");
