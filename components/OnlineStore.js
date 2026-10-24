@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBookingStore } from "../lib/bookingStore";
+import GroupedBooking from "./GroupedBooking";
+import { withReferenceServices, japanToday } from "../lib/bookingMenu";
 import { useProductCatalog, useServiceCatalog } from "../lib/catalogStore";
 import { useStoreOrders } from "../lib/orderStore";
 import { getAppSettings } from "./Settings";
@@ -59,8 +61,9 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   const [settings, setSettings] = useState(() => ({ ...getAppSettings(), qrImageUrl: "/api/qr-image" }));
   const storeProducts = products.filter((product) => product.onlineStoreEnabled !== false);
   const featured = storeProducts.filter((product) => product.featuredOnline !== false);
-  const activeServices = services.length ? services : [];
-  const { addBooking } = useBookingStore();
+  const activeServices = useMemo(() => withReferenceServices(services), [services]);
+  const [bookingOptions, setBookingOptions] = useState([]);
+  const { addBookingConfirmed: addBooking } = useBookingStore();
   const [message, setMessage] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [checkout, setCheckout] = useState(emptyCheckout);
@@ -74,7 +77,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
   const productRailRef = useRef(null);
-  const [draft, setDraft] = useState({ service: activeServices[0]?.name || "", branch: "Mai Beauty Salon Tokyo", date: "2026-10-06", day: 6, time: "09:00", staff: "", customer: "", phone: "", email: "" });
+  const [draft, setDraft] = useState({ service: activeServices[0]?.name || "", branch: "Mai Beauty Salon Tokyo", date: japanToday(), day: Number(japanToday().slice(-2)), time: "", staff: "", customer: "", phone: "", email: "" });
   const selectedService = useMemo(() => activeServices.find((service) => service.name === draft.service) || activeServices[0], [activeServices, draft.service]);
   const trackedOrder = orders.find((order) => order.orderNumber === trackingId || order.id === trackingId) || orders[0];
   const availablePayments = paymentOptions(settings, checkout.fulfillmentType, language);
@@ -181,13 +184,11 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   }, [featuredIndex, visibleFeatured.length]);
 
   function updateDraft(field, value) {
-    const next = { ...draft, [field]: value };
-    if (field === "date") next.day = Number(value.slice(-2)) || 6;
-    setDraft(next);
+    setDraft(current => ({ ...current, [field]: value, ...(field === "date" ? { day: Number(value.slice(-2)) } : {}) }));
   }
 
   function chooseService(service) {
-    setDraft((current) => ({ ...current, service: service.name, staff: service.staff?.[0] || current.staff }));
+    setDraft((current) => ({ ...current, service: service.name, staff: "" }));
   }
 
   function openBuy(product) {
@@ -308,7 +309,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     setTrackingId(order.orderNumber); setMessage(tr("orderCreated", { order: order.orderNumber })); setPaymentReview(false); setSelectedProduct(null);
   }
 
-  function submitBooking(event) {
+  async function submitBooking(event) {
     event.preventDefault();
     if (!currentAccount) {
       window.location.assign("/");
@@ -320,12 +321,16 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
       return;
     }
 
-    const saved = addBooking({ day: draft.day, date: draft.date, language, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: selectedService.name, staff: draft.staff || selectedService.staff?.[0] || staff[0].name, source: "direct", origin: localCopy.websiteBooking, price: selectedService.price, commissionRule: localCopy.websiteBooking });
+    let saved;
+    try {
+    saved = await addBooking({ day: draft.day, date: draft.date, language, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration + bookingOptions.reduce((sum, option) => sum + option.duration, 0)), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: [selectedService.name, ...bookingOptions.map(option => option.name)].join(" + "), staff: draft.staff || selectedService.staff?.[0] || staff[0].name, source: "direct", origin: localCopy.websiteBooking, price: Number(selectedService.price) + bookingOptions.reduce((sum, option) => sum + option.price, 0), commissionRule: localCopy.websiteBooking });
+    } catch { setMessage(language === "ja" ? "予約を保存できませんでした。もう一度お試しください。" : language === "vi" ? "Chưa lưu được lịch hẹn. Vui lòng thử lại." : "Could not save your appointment. Please try again."); return false; }
     notifyByEmail({ to: [draft.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách hàng: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
     const assignedStaff = staff.find((member) => member.name === saved.staff);
     notifyByEmail({ to: [assignedStaff?.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
     setMessage(tr("bookingCreated", { time: saved.start, date: draft.date }));
     setDraft((current) => ({ ...current, customer: accountContact.customer, phone: accountContact.phone, email: accountContact.email }));
+    return true;
   }
 
   return (
@@ -374,7 +379,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
         {trackedOrder && <div className="chatTransferUpload"><label className="ghost">{transferUploading ? "Đang gửi ảnh…" : "Gửi ảnh chuyển khoản cho chủ quán"}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadChatTransfer} disabled={transferUploading} /></label>{transferUploadError && <p className="errorNote">{transferUploadError}</p>}</div>}
       </section>}</>}
 
-      {showBooking && <section id="online-booking" className="card storeBooking bookingSurface softBookingPanel"><div className="sectionTitle"><div><h2>{tr("bookingTitle")}</h2><p>{tr("bookingText")}</p></div></div><div className="serviceChoiceRail">{activeServices.map((service) => <button type="button" key={service.id} className={draft.service === service.name ? "serviceChoice active" : "serviceChoice"} onClick={() => chooseService(service)}>{service.imageUrl ? <img src={service.imageUrl} alt={service.name} /> : <span>{service.name.slice(0, 1)}</span>}<strong>{service.name}</strong><small>{service.duration} {localCopy.minutes} · {money(service.price)}</small></button>)}</div><form onSubmit={submitBooking}><div className="bookingFormGrid softBookingGrid"><label>{tc("service")}<select value={draft.service} onChange={(event) => updateDraft("service", event.target.value)}>{activeServices.map((service) => <option key={service.id}>{service.name}</option>)}</select></label><label>{localCopy.branch}<select value={draft.branch} onChange={(event) => updateDraft("branch", event.target.value)}><option>Mai Beauty Salon Tokyo</option><option>Mai Beauty Salon Osaka</option></select></label><label>{tc("date")}<input type="date" value={draft.date} onChange={(event) => updateDraft("date", event.target.value)} /></label><label>{tc("time")}<select value={draft.time} onChange={(event) => updateDraft("time", event.target.value)}>{timeSlots.map((time) => <option key={time}>{time}</option>)}</select></label><label>{tc("staff")}<select value={draft.staff} onChange={(event) => updateDraft("staff", event.target.value)}><option value="">{tr("autoStaff")}</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label><label>{tc("email")}<input required type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="name@gmail.com" /></label><label>{tc("customer")}<input required value={draft.customer} onChange={(event) => updateDraft("customer", event.target.value)} placeholder="Nguyen Van A" /></label><label>{tc("phone")}<input required value={draft.phone} onChange={(event) => updateDraft("phone", event.target.value)} placeholder="090-0000-0000" /></label></div><div className="bookingCheckoutBar"><span>{selectedService ? `${selectedService.duration} ${localCopy.minutes} · ${money(selectedService.price)}` : tr("chooseService")}</span><button className="primary" type="submit">{tr("confirmBooking")}</button></div></form>{message && <p className="storeNote successNote">{message}</p>}</section>}
+      {showBooking && <GroupedBooking services={activeServices} draft={draft} updateDraft={updateDraft} chooseService={chooseService} selectedService={selectedService} options={bookingOptions} setOptions={setBookingOptions} staff={staff} submitBooking={submitBooking} message={message} language={language} />}
       {profileOpen && <CustomerProfile language={language} onClose={() => setProfileOpen(false)} />}
 
       {paymentReview && selectedProduct && <div className="bookingModalBackdrop paymentReviewBackdrop"><div className="card bookingModal paymentReviewModal"><div className="modalHead"><div><p className="eyebrow">{language === "ja" ? "支払い確認" : language === "en" ? "Payment confirmation" : "Xác nhận thanh toán"}</p><h2>{selectedProduct.name}</h2></div><button className="ghost" type="button" onClick={() => setPaymentReview(false)}>{tc("close")}</button></div><div className="paymentReviewGrid"><p><strong>{tc("customer")}</strong><span>{checkout.customer}</span></p><p><strong>{tc("phone")}</strong><span>{checkout.phone}</span></p><p><strong>{tc("email")}</strong><span>{checkout.email}</span></p><p><strong>{tr("deliveryAddress")}</strong><span>{checkout.postalCode} {checkout.address}</span></p><p><strong>{tr("paymentMethod")}</strong><span>{availablePayments.find((item) => item.id === checkout.paymentMethod)?.label}</span></p></div>{checkout.paymentMethod === "bankTransfer" && <div className="bankTransferBox"><strong>{settings.bankName} · {settings.bankAccount}</strong><span>{settings.bankHolder}</span><small>{settings.paymentNote}</small><label>{tr("uploadBill")}<input type="file" accept="image/*" onChange={uploadTransferBill} /></label>{checkout.transferBillUrl && <img src={checkout.transferBillUrl} alt="Transfer bill" />}</div>}{checkout.paymentMethod === "qr" && <div className="bankTransferBox"><strong>{language === "ja" ? "QRコードをスキャン" : language === "en" ? "Scan QR code" : "Quét mã QR"}</strong><img src={settings.qrImageUrl} alt="QR code" />{checkout.transferBillUrl && <img src={checkout.transferBillUrl} alt="Transfer bill" />}</div>}<div className="modalActions"><button className="ghost" type="button" onClick={() => setPaymentReview(false)}>{tc("cancel")}</button><button className="primary" type="button" onClick={confirmProductPayment}>{language === "ja" ? "注文する" : language === "en" ? "Place order" : "Đặt hàng"}</button></div></div></div>}\n\n      {selectedProduct && <div className="bookingModalBackdrop" onMouseDown={() => setSelectedProduct(null)}><form className="card bookingModal productCheckoutModal" onSubmit={submitProductOrder} onMouseDown={(event) => event.stopPropagation()}><div className="modalHead"><div><p className="eyebrow">{tr("checkoutTitle")}</p><h2>{selectedProduct.name}</h2><p>{Number(selectedProduct.stock || 0) > 0 ? tr("canBuy", { stock: selectedProduct.stock }) : tr("outOfStock")}</p></div><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("close")}</button></div><div className="checkoutProductLine">{selectedProduct.mediaUrl && <img src={selectedProduct.mediaUrl} alt={selectedProduct.name} />}<div><strong>{money(selectedProduct.salePrice || selectedProduct.basePrice)}</strong><span>{selectedProduct.description || selectedProduct.shortDescription}</span></div></div><div className="fulfillmentTabs"><button type="button" className={checkout.fulfillmentType === "pickup" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "pickup")}>{tr("pickup")}</button><button type="button" className={checkout.fulfillmentType === "shipping" ? "active" : ""} onClick={() => updateCheckout("fulfillmentType", "shipping")}>{tr("shipping")}</button></div><div className="formGrid modalForm"><label>{tc("customer")}<input required value={checkout.customer} onChange={(event) => updateCheckout("customer", event.target.value)} /></label><label>{tc("phone")}<input required value={checkout.phone} onChange={(event) => updateCheckout("phone", event.target.value)} /></label><label>{tc("email")}<input required type="email" value={checkout.email} onChange={(event) => updateCheckout("email", event.target.value)} /></label>{checkout.fulfillmentType === "shipping" && <><label>{tr("paymentMethod")}<select value={checkout.paymentMethod} onChange={(event) => updateCheckout("paymentMethod", event.target.value)}>{availablePayments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><div className="postalLookup"><label>{language === "ja" ? "郵便番号" : language === "en" ? "Postal code" : "Mã bưu điện"}<input required value={checkout.postalCode} onChange={(event) => updateCheckout("postalCode", event.target.value)} placeholder="1234567" /></label><button type="button" className="ghost" onClick={lookupPostalCode} disabled={postalLoading}>{postalLoading ? "…" : (language === "ja" ? "検索" : language === "en" ? "Find" : "Tìm kiếm")}</button></div><label className="fullField">{tr("deliveryAddress")}<input required value={checkout.address} onChange={(event) => updateCheckout("address", event.target.value)} /></label><label className="fullField">{tr("deliveryNote")}<input value={checkout.note} onChange={(event) => updateCheckout("note", event.target.value)} /></label>{["bankTransfer", "qr"].includes(checkout.paymentMethod) && <div className="bankTransferBox fullField"><strong>{settings.bankName} · {settings.bankAccount}</strong><span>{settings.bankHolder}</span><small>{settings.paymentNote}</small><label>{tr("uploadBill")}<input type="file" accept="image/*" onChange={uploadTransferBill} /></label><label>{tr("uploadBill")}<input type="file" accept="image/*" onChange={uploadTransferBill} /></label>{checkout.transferBillUrl && <img src={checkout.transferBillUrl} alt="Transfer bill preview" />}</div>}</>}</div><div className="modalActions"><button className="ghost" type="button" onClick={() => setSelectedProduct(null)}>{tc("cancel")}</button><button className="primary" type="submit" onClick={() => { if (checkout.fulfillmentType === "shipping") setPaymentReview(true); }} disabled={Number(selectedProduct.stock || 0) <= 0}>{checkout.fulfillmentType === "shipping" ? (language === "ja" ? "支払いを確認" : language === "en" ? "Confirm payment" : "Xác nhận thanh toán") : tr("createOrder")}</button></div></form></div>}
