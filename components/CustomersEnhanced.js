@@ -60,7 +60,7 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
     vi: { title: "Giảm giá mùa lễ", message: "Cảm ơn bạn đã ủng hộ Mai Beauty Salon.\n\nTuần này salon có ưu đãi đặc biệt cho khách cũ. Bạn có thể đặt lịch trước để giữ khung giờ đẹp." },
     ja: { title: "季節キャンペーン", message: "Mai Beauty Salonをご利用いただきありがとうございます。\n\n今週はリピーター様向けの特別優待をご用意しています。ご希望の時間を早めにご予約ください。" },
     en: { title: "Seasonal discount", message: "Thank you for supporting Mai Beauty Salon.\n\nThis week we have a special offer for returning customers. Book early to keep your preferred time." },
-  }[language] || {};
+  }[language] || { title: "Seasonal discount", message: "Thank you for supporting Mai Beauty Salon.\n\nThis week we have a special offer for returning customers. Book early to keep your preferred time." };
   const { bookings } = useBookingStore();
   const { orders } = useStoreOrders();
   const { accounts } = useAccountStore();
