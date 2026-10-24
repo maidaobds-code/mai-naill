@@ -20,7 +20,7 @@ export async function GET(request) {
   try {
     const rows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${KV}&select=value&limit=1`);
     return Response.json({ ok: true, value: Array.isArray(rows?.[0]?.value) ? rows[0].value : [] }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) { return Response.json({ ok: false, value: [], message: error.message }, { status: 500 }); }
+  } catch { return Response.json({ ok: false, value: [], message: "Không thể đọc danh sách nhân viên." }, { status: 500 }); }
 }
 
 export async function POST(request) {
@@ -31,5 +31,5 @@ export async function POST(request) {
   try {
     await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
     return Response.json({ ok: true, value });
-  } catch (error) { return Response.json({ ok: false, message: error.message }, { status: 500 }); }
+  } catch { return Response.json({ ok: false, message: "Không thể lưu danh sách nhân viên." }, { status: 500 }); }
 }

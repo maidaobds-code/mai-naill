@@ -1,3 +1,5 @@
+import { isAdminRequest } from "../../../lib/serverAuth";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const SETTINGS_OWNER_ID = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
@@ -21,7 +23,8 @@ async function supabaseRest(path, options = {}) {
   return data;
 }
 
-export async function GET() {
+export async function GET(request) {
+  if (!isAdminRequest(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   try {
     const rows = await supabaseRest(`app_kv?key=eq.${SETTINGS_KEY}&select=value,updated_at&order=updated_at.desc&limit=1`);
     return Response.json({ ok: true, value: rows?.[0]?.value || null }, { headers: { "Cache-Control": "no-store, max-age=0" } });

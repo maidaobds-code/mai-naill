@@ -25,8 +25,8 @@ export async function GET() {
   try {
     const rows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=eq.${ORDERS_KEY}&select=value&limit=1`);
     return Response.json({ ok: true, value: Array.isArray(rows?.[0]?.value) ? rows[0].value : [] }, { headers: { "Cache-Control": "no-store, max-age=0" } });
-  } catch (error) {
-    return Response.json({ ok: false, message: error.message, value: [] }, { status: 500 });
+  } catch {
+    return Response.json({ ok: false, message: "Không thể đọc đơn hàng.", value: [] }, { status: 500 });
   }
 }
 
@@ -47,8 +47,8 @@ export async function POST(request) {
       body: JSON.stringify([{ owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: mergedOrders, updated_at: new Date().toISOString() }]),
     });
     return Response.json({ ok: true, value: rows?.[0]?.value || mergedOrders });
-  } catch (error) {
-    return Response.json({ ok: false, message: error.message }, { status: 500 });
+  } catch {
+    return Response.json({ ok: false, message: "Không thể lưu đơn hàng." }, { status: 500 });
   }
 }
 
@@ -66,7 +66,7 @@ export async function DELETE(request) {
       body: JSON.stringify([{ owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: nextOrders, updated_at: new Date().toISOString() }]),
     });
     return Response.json({ ok: true, value: nextOrders });
-  } catch (error) {
-    return Response.json({ ok: false, message: error.message }, { status: 500 });
+  } catch {
+    return Response.json({ ok: false, message: "Không thể xóa đơn hàng." }, { status: 500 });
   }
 }

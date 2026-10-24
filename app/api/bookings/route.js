@@ -16,7 +16,7 @@ export async function GET() {
   try {
     const rows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
     return Response.json({ ok: true, value: Array.isArray(rows?.[0]?.value) ? rows[0].value : [] }, { headers: { "Cache-Control": "no-store, max-age=0" } });
-  } catch (error) { return Response.json({ ok: false, value: [], message: error.message }, { status: 500 }); }
+  } catch { return Response.json({ ok: false, value: [], message: "Không thể đọc lịch hẹn." }, { status: 500 }); }
 }
 
 export async function POST(request) {
@@ -29,5 +29,5 @@ export async function POST(request) {
     const merged = [...body.bookings, ...current.filter((item) => item?.id && !incomingIds.has(item.id))];
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
     return Response.json({ ok: true, value: rows?.[0]?.value || merged });
-  } catch (error) { return Response.json({ ok: false, message: error.message }, { status: 500 }); }
+  } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
 }
