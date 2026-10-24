@@ -13,6 +13,7 @@ import { useStaffStore } from "../lib/staffStore";
 import { CustomerProfile } from "./AccountAccess";
 import { useAccountStore } from "../lib/accountStore";
 import { getPublicKv } from "../lib/supabaseBrowser";
+import { appointmentConfirmationEmail } from "../lib/appointmentEmail";
 
 const timeSlots = Array.from({ length: 29 }, (_, index) => {
   const minutes = 9 * 60 + index * 30;
@@ -329,7 +330,8 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     try {
     saved = await addBooking({ day: draft.day, date: draft.date, language, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration + bookingOptions.reduce((sum, option) => sum + option.duration, 0)), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: [selectedService.name, ...bookingOptions.map(option => option.name)].join(" + "), staff: assignedStaff?.name || "Chưa phân công", staffId: assignedStaff?.id || "", staffEmail: assignedStaff?.email || "", staffDisplayName: assignedStaff?.displayName || assignedStaff?.name || "", designationFee: Number(assignedStaff?.designationFee || 0), assignmentStatus: assignedStaff ? "ASSIGNED" : "PENDING_ASSIGNMENT", source: "direct", origin: localCopy.websiteBooking, price: Number(selectedService.price) + bookingOptions.reduce((sum, option) => sum + option.price, 0) + Number(assignedStaff?.designationFee || 0), commissionRule: localCopy.websiteBooking });
     } catch { setMessage(language === "ja" ? "予約を保存できませんでした。もう一度お試しください。" : language === "vi" ? "Chưa lưu được lịch hẹn. Vui lòng thử lại." : "Could not save your appointment. Please try again."); return false; }
-    notifyByEmail({ to: [draft.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách hàng: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
+    const customerEmail = appointmentConfirmationEmail({ booking: saved, settings, language, bookingUrl: `${window.location.origin}/booking` });
+    notifyByEmail({ to: [draft.email].filter(Boolean), ...customerEmail });
     if (assignedStaff?.email) notifyByEmail({ to: assignedStaff.email, subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
     const assignmentEmailFailed = saved.assignmentStatus === "PENDING_ASSIGNMENT" && saved.assignmentNotifications?.some((item) => !item.ok);
     setMessage(`${tr("bookingCreated", { time: saved.start, date: draft.date })}${assignmentEmailFailed ? (language === "ja" ? " 管理者メールの設定を確認してください。" : language === "en" ? " The appointment was saved, but the manager email could not be sent." : " Lịch đã lưu nhưng chưa gửi được email cho quản lý; hãy kiểm tra cấu hình email.") : ""}`);
