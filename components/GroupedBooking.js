@@ -174,7 +174,7 @@ export default function GroupedBooking({
                     .filter((g) => services.some((s) => s.category === g.id))
                     .map((g) => (
                       <a key={g.id} href={`#mai-${g.id}`}>
-                        {g[lang]}
+                  {g[lang] || g.en}
                       </a>
                     ))}
                 </nav>
@@ -195,7 +195,7 @@ export default function GroupedBooking({
                       >
                         <h3>
                           <span>{group.mark}</span>
-                          {group[lang]}
+                      {group[lang] || group.en}
                           <small>{list.length}</small>
                         </h3>
                         {list.map((service) => (
