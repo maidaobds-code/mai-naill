@@ -13,6 +13,8 @@ function yen(value) {
 }
 
 const copy = {
+  zh: { title: "付款记录", desc: "仅显示POS交易，与客户订单完全分开。", count: "交易", revenue: "付款总额", customer: "客户", code: "收据编号", time: "日期和时间", method: "付款方式", status: "状态", total: "合计", empty: "暂无付款记录。", detail: "付款详情", received: "已收款", remaining: "剩余", change: "找零", items: "服务 / 商品", reprint: "重新打印收据", printing: "正在打印...", printError: "无法直接打印，已打开系统打印窗口。" },
+  ko: { title: "결제 내역", desc: "POS 거래만 표시하며 고객 주문과 완전히 분리됩니다.", count: "거래", revenue: "총 결제액", customer: "고객", code: "영수증 번호", time: "날짜 및 시간", method: "결제 방법", status: "상태", total: "합계", empty: "결제 내역이 없습니다.", detail: "결제 상세", received: "받은 금액", remaining: "잔액", change: "거스름돈", items: "서비스 / 상품", reprint: "영수증 재인쇄", printing: "인쇄 중...", printError: "직접 인쇄할 수 없어 시스템 인쇄 창을 열었습니다." },
   vi: {
     title: "Lịch sử thanh toán",
     desc: "Chỉ hiển thị các giao dịch đã tạo tại quầy POS, tách biệt hoàn toàn với đơn khách đặt.",

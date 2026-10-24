@@ -15,6 +15,8 @@ function yen(value) {
 }
 
 const orderStatusLabels = {
+  zh: { "Waiting payment": "等待付款", "Payment checking": "付款确认中", Preparing: "准备中", "Ready for pickup": "可取货", Shipping: "配送中", Delivered: "已送达", Completed: "已完成", Cancelled: "已取消", Paid: "已付款", "Pay at store": "到店付款", Refunded: "已退款" },
+  ko: { "Waiting payment": "결제 대기", "Payment checking": "결제 확인 중", Preparing: "준비 중", "Ready for pickup": "수령 가능", Shipping: "배송 중", Delivered: "배송 완료", Completed: "완료", Cancelled: "취소됨", Paid: "결제 완료", "Pay at store": "매장 결제", Refunded: "환불됨" },
   vi: {
     "Waiting payment": "Chờ thanh toán",
     "Payment checking": "Đang kiểm tra thanh toán",

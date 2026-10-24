@@ -64,6 +64,8 @@ export default function Settings({ language = "vi" }) {
   const tr = (key) => tx(language, "settingsPage", key);
   const tc = (key) => tx(language, "common", key);
   const printerCopy = {
+    zh: { panel: "收据打印机", panelDesc: "连接 Star mPOP 并选择打印方式。", title: "打印机连接", desc: "此设置用于收银和付款记录页面。", support: "支持通过 USB、Star webPRNT 或系统打印机使用 mPOP。" },
+    ko: { panel: "영수증 프린터", panelDesc: "Star mPOP을 연결하고 인쇄 방법을 선택합니다.", title: "프린터 연결", desc: "이 설정은 결제 및 결제 내역 화면에서 함께 사용됩니다.", support: "USB, Star webPRNT 또는 시스템 프린터를 통한 mPOP을 지원합니다." },
     vi: { panel: "Máy in hóa đơn", panelDesc: "Kết nối Star mPOP và chọn phương thức in.", title: "Kết nối máy in", desc: "Cấu hình tại đây được dùng chung cho trang Tính tiền và Lịch sử thanh toán.", support: "Hỗ trợ mPOP POP10, POP10CI, POP10CBI qua USB, Star webPRNT hoặc máy in hệ thống." },
     ja: { panel: "レシートプリンター", panelDesc: "Star mPOPと印刷方法を設定します。", title: "プリンター接続", desc: "この設定は会計画面と支払い履歴で共通して使用されます。", support: "mPOP POP10、POP10CI、POP10CBIのUSB、Star webPRNT、システム印刷に対応します。" },
     en: { panel: "Receipt printer", panelDesc: "Connect Star mPOP and select a print method.", title: "Printer connection", desc: "This configuration is shared by Checkout and Payment history.", support: "Supports mPOP POP10, POP10CI and POP10CBI through USB, Star webPRNT, or system printing." },

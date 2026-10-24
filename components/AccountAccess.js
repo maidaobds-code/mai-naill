@@ -9,6 +9,8 @@ import { languages, tx } from "../lib/i18nClean";
 const LOGIN_LANGUAGE_KEY = "nail-japan-login-language";
 
 const loginCopy = {
+  zh: { roleOwner: "店主", roleStaff: "员工", roleCustomer: "客户", logout: "退出登录", login: "登录", loginText: "请输入账户邮箱和密码。", email: "邮箱 / 管理员账号", password: "密码", confirmPassword: "确认密码", passwordMismatch: "两次密码不一致。", showPassword: "显示密码", hidePassword: "隐藏密码", createAccount: "创建账户", gmailLogin: "使用 Gmail 直接登录", customerAccount: "创建客户账户", customerText: "仅限客户使用，请使用 Gmail 注册。", name: "姓名", phone: "电话", backToLogin: "返回登录", brandText: "为预约、购物和客户服务打造的沙龙空间。", language: "语言" },
+  ko: { roleOwner: "점주", roleStaff: "직원", roleCustomer: "고객", logout: "로그아웃", login: "로그인", loginText: "계정 이메일과 비밀번호를 입력하세요.", email: "이메일 / 관리자 계정", password: "비밀번호", confirmPassword: "비밀번호 확인", passwordMismatch: "비밀번호가 일치하지 않습니다.", showPassword: "비밀번호 표시", hidePassword: "비밀번호 숨기기", createAccount: "계정 만들기", gmailLogin: "Gmail로 직접 로그인", customerAccount: "고객 계정 만들기", customerText: "고객 전용입니다. Gmail로 가입하세요.", name: "이름", phone: "전화번호", backToLogin: "로그인으로 돌아가기", brandText: "예약, 쇼핑, 고객 관리를 위한 살롱 공간입니다.", language: "언어" },
   vi: {
     roleOwner: "Chủ quán",
     roleStaff: "Nhân viên",

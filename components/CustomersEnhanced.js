@@ -20,7 +20,7 @@ function escapeHtml(value) {
 }
 
 function campaignEmailHtml(title, message, couponCode, imageUrl, language = "vi") {
-  const copy = ({ vi: { coupon: "Mã ưu đãi", button: "Mở trang Mai Beauty Salon", closing: "Trân trọng" }, en: { coupon: "Offer code", button: "Open Mai Beauty Salon", closing: "Kind regards" }, ja: { coupon: "クーポンコード", button: "Mai Beauty Salonを開く", closing: "よろしくお願いいたします" } }[language]) || { coupon: "Mã ưu đãi", button: "Mở trang Mai Beauty Salon", closing: "Trân trọng" };
+  const copy = ({ vi: { coupon: "Mã ưu đãi", button: "Mở trang Mai Beauty Salon", closing: "Trân trọng" }, en: { coupon: "Offer code", button: "Open Mai Beauty Salon", closing: "Kind regards" }, ja: { coupon: "クーポンコード", button: "Mai Beauty Salonを開く", closing: "よろしくお願いいたします" }, zh: { coupon: "优惠码", button: "打开 Mai Beauty Salon", closing: "此致" }, ko: { coupon: "쿠폰 코드", button: "Mai Beauty Salon 열기", closing: "감사합니다" } }[language]) || { coupon: "优惠码", button: "打开 Mai Beauty Salon", closing: "此致" };
   const image = /^https?:\/\//i.test(imageUrl || "") ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" style="display:block;width:100%;max-height:260px;object-fit:cover;border-radius:14px;margin:0 0 20px" />` : "";
   const coupon = couponCode ? `<div style="margin-top:20px;padding:14px;border:1px dashed #c084c2;border-radius:12px;background:#fff7fb"><strong>${copy.coupon}: ${escapeHtml(couponCode)}</strong></div>` : "";
   const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -60,6 +60,8 @@ export default function CustomersEnhanced({ label = "Customers", language = "vi"
     vi: { title: "Giảm giá mùa lễ", message: "Cảm ơn bạn đã ủng hộ Mai Beauty Salon.\n\nTuần này salon có ưu đãi đặc biệt cho khách cũ. Bạn có thể đặt lịch trước để giữ khung giờ đẹp." },
     ja: { title: "季節キャンペーン", message: "Mai Beauty Salonをご利用いただきありがとうございます。\n\n今週はリピーター様向けの特別優待をご用意しています。ご希望の時間を早めにご予約ください。" },
     en: { title: "Seasonal discount", message: "Thank you for supporting Mai Beauty Salon.\n\nThis week we have a special offer for returning customers. Book early to keep your preferred time." },
+    zh: { title: "季节优惠", message: "感谢您支持 Mai Beauty Salon。\n\n本周为老客户准备了特别优惠，欢迎提前预约心仪时间。" },
+    ko: { title: "시즌 할인", message: "Mai Beauty Salon을 이용해 주셔서 감사합니다.\n\n이번 주 재방문 고객을 위한 특별 혜택을 준비했습니다. 원하는 시간을 미리 예약해 주세요." },
   }[language] || { title: "Seasonal discount", message: "Thank you for supporting Mai Beauty Salon.\n\nThis week we have a special offer for returning customers. Book early to keep your preferred time." };
   const { bookings } = useBookingStore();
   const { orders } = useStoreOrders();
