@@ -1,4 +1,0 @@
-https://mai-naill.vercel.app/shop
-https://mai-naill.vercel.app/booking
-https://mai-naill.vercel.app/reset-password
-https://mai-naill.vercel.app/reset-password
