@@ -307,8 +307,8 @@ export default function GroupedBooking({
                     />
                   </label>
                   <label className="maiConsent marketingConsent">
-                    <input type="checkbox" checked={Boolean(draft.marketingConsent)} onChange={(e) => updateDraft("marketingConsent", e.target.checked)} />
-                    {copy("お得な情報やイベントのお知らせを受け取る", "Tôi đồng ý nhận email giảm giá và sự kiện của salon", "I would like to receive salon discounts and event emails")}
+                    <span>{copy("お得な情報やイベントのお知らせ", "Nhận email giảm giá và sự kiện", "Discount and event emails")}</span>
+                    <span className="marketingChoices"><button type="button" className={draft.marketingConsent === true ? "selected" : ""} onClick={() => updateDraft("marketingConsent", true)}>{copy("はい", "Có", "Yes")}</button><button type="button" className={draft.marketingConsent === false ? "selected" : ""} onClick={() => updateDraft("marketingConsent", false)}>{copy("いいえ", "Không", "No")}</button></span>
                   </label>
                 </div>
                 <h3>
