@@ -5,6 +5,7 @@ import { platforms, staff as seedStaff } from "../lib/salonData";
 import { useStaffStore } from "../lib/staffStore";
 import { useAccountStore } from "../lib/accountStore";
 import { useBookingStore } from "../lib/bookingStore";
+import { japanToday } from "../lib/bookingMenu";
 
 const slots = [
   "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -13,9 +14,6 @@ const slots = [
   "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00", "22:30", "23:00"
 ];
 const intervalSlots = slots.slice(0, -1);
-const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const monthDays = Array.from({ length: 31 }, (_, index) => index + 1);
-const todayDay = new Date().getDate();
 const timelineStart = 9 * 60;
 const timelineEnd = 23 * 60;
 
@@ -39,6 +37,33 @@ function bookingDay(booking) {
   return booking.day || 6;
 }
 
+function addDays(date, amount) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + amount);
+  return value.toISOString().slice(0, 10);
+}
+
+function dateLabel(date) {
+  return String(date || "").replaceAll("-", "/");
+}
+
+function sameBookingDate(booking, date) {
+  if (booking.date) return booking.date === date;
+  return bookingDay(booking) === Number(date.slice(-2));
+}
+
+function mondayFor(date) {
+  const value = new Date(`${date}T12:00:00Z`);
+  const offset = (value.getUTCDay() + 6) % 7;
+  return addDays(date, -offset);
+}
+
+function monthDates(date) {
+  const [year, month] = date.split("-").map(Number);
+  const count = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Array.from({ length: count }, (_, index) => `${year}-${String(month).padStart(2, "0")}-${String(index + 1).padStart(2, "0")}`);
+}
+
 function toMinutes(time) {
   const [hour, minute] = time.split(":").map(Number);
   return hour * 60 + minute;
@@ -54,10 +79,12 @@ function bookingStyle(booking) {
   };
 }
 
-function blankBooking(day, hour, member) {
+function blankBooking(date, hour, member) {
+  const day = Number(String(date).slice(-2));
   return {
     id: `draft-${day}-${hour}-${member.id}`,
     day,
+    date,
     start: hour,
     end: slots[slots.indexOf(hour) + 2] || "23:00",
     customer: "",
@@ -81,8 +108,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const c = copy[language] || copy.vi;
   const tc = (key) => tx(language, "common", key);
   const [view, setView] = useState("day");
-  const [selectedDay, setSelectedDay] = useState(todayDay);
-  const [selected, setSelected] = useState(blankBooking(todayDay, "10:00", seedStaff[0]));
+  const [selectedDate, setSelectedDate] = useState(japanToday);
+  const selectedDay = Number(selectedDate.slice(-2));
+  const [selected, setSelected] = useState(() => blankBooking(japanToday(), "10:00", seedStaff[0]));
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
@@ -93,9 +121,12 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const staff = staffMembers.length ? staffMembers : seedStaff;
   const pressRef = useRef(null);
   const paintRef = useRef(null);
-  const selectedDayBookings = bookings.filter((booking) => bookingDay(booking) === selectedDay);
-  const weekTotal = bookings.filter((booking) => bookingDay(booking) >= 6 && bookingDay(booking) <= 12).length;
-  const monthTotal = bookings.length;
+  const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
+  const weekStart = mondayFor(selectedDate);
+  const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+  const visibleMonthDates = monthDates(selectedDate);
+  const weekTotal = bookings.filter((booking) => weekDates.some((date) => sameBookingDate(booking, date))).length;
+  const monthTotal = bookings.filter((booking) => visibleMonthDates.some((date) => sameBookingDate(booking, date))).length;
 
   useEffect(() => {
     if (!staff.length || !selected?.draft) return;
@@ -103,10 +134,10 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     if (current && current.name !== selected.staff) setSelected((value) => ({ ...value, staff: current.name }));
   }, [staff, selected?.draft, selected?.staff]);
 
-  function openDay(day) {
-    setSelectedDay(day);
+  function openDay(date) {
+    setSelectedDate(date);
     setView("day");
-    setSelected(blankBooking(day, "10:00", staff[0] || seedStaff[0]));
+    setSelected(blankBooking(date, "10:00", staff[0] || seedStaff[0]));
   }
 
   function beginSelect(hour, member) {
@@ -115,7 +146,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
   function openSelection(hour, member) {
     if (!dragStart || dragStart.member.id !== member.id) {
-      setSelected(blankBooking(selectedDay, hour, member));
+      setSelected(blankBooking(selectedDate, hour, member));
       setModalOpen(true);
       setDragStart(null);
       return;
@@ -124,7 +155,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const endIndex = slots.indexOf(hour);
     const firstIndex = Math.min(startIndex, endIndex);
     const lastIndex = Math.max(startIndex, endIndex);
-    setSelected({ ...blankBooking(selectedDay, slots[firstIndex], member), end: slots[Math.min(lastIndex + 1, slots.length - 1)] });
+    setSelected({ ...blankBooking(selectedDate, slots[firstIndex], member), end: slots[Math.min(lastIndex + 1, slots.length - 1)] });
     setModalOpen(true);
     setDragStart(null);
   }
@@ -166,7 +197,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const endIndex = intervalSlots.indexOf(painting.endHour);
     const firstIndex = Math.min(startIndex, endIndex);
     const lastIndex = Math.max(startIndex, endIndex);
-    setSelected({ ...blankBooking(selectedDay, slots[firstIndex], painting.member), end: slots[Math.min(lastIndex + 1, slots.length - 1)] });
+    setSelected({ ...blankBooking(selectedDate, slots[firstIndex], painting.member), end: slots[Math.min(lastIndex + 1, slots.length - 1)] });
     paintRef.current = null;
     setPaintRange(null);
     setModalOpen(true);
@@ -219,8 +250,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       body: JSON.stringify({
         to: member.email,
         subject: `Mai Beauty Salon · ${title} · ${booking.customer || "Khách hàng"}`,
-        text: `${title}\nKhách hàng: ${booking.customer}\nNgày: 2026/10/${String(booking.day).padStart(2, "0")}\nGiờ: ${booking.start} - ${booking.end}\nDịch vụ: ${booking.service || "-"}`,
-        html: `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="margin:0 0 16px;font-size:24px">${escapeHtml(title)}</h1><p style="font-size:15px;line-height:1.7">Xin chào ${escapeHtml(member.name)},<br/>${isNew ? "Bạn được phân công một lịch hẹn mới." : "Lịch hẹn liên quan đến bạn vừa được cập nhật."}</p><div style="margin:20px 0;padding:16px;border-radius:14px;background:#fff7fb;border:1px solid #f0dce8"><strong>Khách hàng:</strong> ${escapeHtml(booking.customer)}<br/><strong>Ngày:</strong> 2026/10/${String(booking.day).padStart(2, "0")}<br/><strong>Giờ:</strong> ${escapeHtml(booking.start)} – ${escapeHtml(booking.end)}<br/><strong>Dịch vụ:</strong> ${escapeHtml(booking.service || "-")}</div>${button}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">Trân trọng,<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`,
+        text: `${title}\nKhách hàng: ${booking.customer}\nNgày: ${booking.date || selectedDate}\nGiờ: ${booking.start} - ${booking.end}\nDịch vụ: ${booking.service || "-"}`,
+        html: `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="margin:0 0 16px;font-size:24px">${escapeHtml(title)}</h1><p style="font-size:15px;line-height:1.7">Xin chào ${escapeHtml(member.name)},<br/>${isNew ? "Bạn được phân công một lịch hẹn mới." : "Lịch hẹn liên quan đến bạn vừa được cập nhật."}</p><div style="margin:20px 0;padding:16px;border-radius:14px;background:#fff7fb;border:1px solid #f0dce8"><strong>Khách hàng:</strong> ${escapeHtml(booking.customer)}<br/><strong>Ngày:</strong> ${escapeHtml(booking.date || selectedDate)}<br/><strong>Giờ:</strong> ${escapeHtml(booking.start)} – ${escapeHtml(booking.end)}<br/><strong>Dịch vụ:</strong> ${escapeHtml(booking.service || "-")}</div>${button}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">Trân trọng,<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`,
       }),
     }).catch(() => null)));
     if (responses.some((response) => !response?.ok)) throw new Error("Không thể gửi email cho nhân viên");
@@ -239,6 +270,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       language: selected.language || "vi",
       id: selected.draft ? `booking-${Date.now()}` : selected.id,
       day: selectedDay,
+      date: selectedDate,
       customer: selected.customer || "New customer",
       phone: selected.phone || "090-0000-0000",
       draft: false,
@@ -249,7 +281,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       setBookingError(c.conflict);
       return;
     }
-    const conflict = bookings.find((booking) => booking.id !== selected.id && bookingDay(booking) === bookingToSave.day && (booking.staff === bookingToSave.staff || String(booking.staffId || "") === String(bookingToSave.staffId)) && startMinutes < toMinutes(booking.end) && endMinutes > toMinutes(booking.start));
+    const conflict = bookings.find((booking) => booking.id !== selected.id && sameBookingDate(booking, selectedDate) && (booking.staff === bookingToSave.staff || String(booking.staffId || "") === String(bookingToSave.staffId)) && startMinutes < toMinutes(booking.end) && endMinutes > toMinutes(booking.start));
     if (conflict) {
       setBookingError(c.conflict);
       return;
@@ -267,7 +299,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
   function deleteBooking() {
     removeBooking(selected.id);
-    setSelected(blankBooking(selectedDay, "10:00", staff[0] || seedStaff[0]));
+    setSelected(blankBooking(selectedDate, "10:00", staff[0] || seedStaff[0]));
     setModalOpen(false);
   }
 
@@ -288,19 +320,19 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <p>{c.desc}</p>
         </div>
         <div className="toolbar">
-          <button className="ghost" onClick={() => setSelectedDay(Math.max(1, selectedDay - 1))}>{c.previous}</button>
-          <button className="ghost" onClick={() => setSelectedDay(6)}>{c.today}</button>
-          <button className="ghost" onClick={() => setSelectedDay(Math.min(31, selectedDay + 1))}>{c.next}</button>
+          <button className="ghost" onClick={() => setSelectedDate(addDays(selectedDate, -1))}>{c.previous}</button>
+          <button className="ghost" onClick={() => setSelectedDate(japanToday())}>{c.today}</button>
+          <button className="ghost" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>{c.next}</button>
           <button className={view === "day" ? "ghost activeSoft" : "ghost"} onClick={() => setView("day")}>{c.day}</button>
           <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>{c.week}</button>
           <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>{c.month}</button>
           <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
-          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDay, "10:00", staff[0] || seedStaff[0])); setModalOpen(true); }}>{c.newBooking}</button>
+          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDate, "10:00", staff[0] || seedStaff[0])); setModalOpen(true); }}>{c.newBooking}</button>
         </div>
       </div>
 
       <div className="calendarSummary">
-        <div className="card summaryPill"><span>{c.selectedDay}</span><strong>2026/10/{String(selectedDay).padStart(2, "0")}</strong></div>
+        <div className="card summaryPill"><span>{c.selectedDay}</span><strong>{dateLabel(selectedDate)}</strong></div>
         <div className="card summaryPill"><span>{c.dayBookings}</span><strong>{selectedDayBookings.length}</strong></div>
         <div className="card summaryPill"><span>{c.weekTotal}</span><strong>{weekTotal}</strong></div>
         <div className="card summaryPill"><span>{c.monthTotal}</span><strong>{monthTotal}</strong></div>
@@ -309,7 +341,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       {view === "day" && (
         <section className="card resourceTimelineShell">
           <div className="calendarHeader">
-              <strong>2026/10/{String(selectedDay).padStart(2, "0")} · {c.dayView}</strong>
+              <strong>{dateLabel(selectedDate)} · {c.dayView}</strong>
           </div>
           <div className="resourceTimeline">
             <div className="resourceHeader">{c.staff}</div>
@@ -335,7 +367,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                           onPointerMove={movePaint}
                           onPointerUp={finishPaint}
                           onPointerCancel={() => { paintRef.current = null; setPaintRange(null); }}
-                          onDoubleClick={() => { setSelected(blankBooking(selectedDay, hour, member)); setModalOpen(true); }}
+                          onDoubleClick={() => { setSelected(blankBooking(selectedDate, hour, member)); setModalOpen(true); }}
                         />
                       ))}
                     </div>
@@ -369,13 +401,14 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
       {view === "week" && (
         <section className="card weekGrid weekCalendar">
-          {weekDays.map((day, index) => {
-            const dayNumber = 6 + index;
-            const dayBookings = bookings.filter((booking) => bookingDay(booking) === dayNumber).sort((a, b) => a.start.localeCompare(b.start));
-            const isSelected = dayNumber === selectedDay;
+          {weekDates.map((date) => {
+            const dayName = new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : language === "vi" ? "vi-VN" : "en-US", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+            const dayNumber = Number(date.slice(-2));
+            const dayBookings = bookings.filter((booking) => sameBookingDate(booking, date)).sort((a, b) => a.start.localeCompare(b.start));
+            const isSelected = date === selectedDate;
             return (
-              <button className={isSelected ? "weekCol weekDayButton selectedWeekDay" : "weekCol weekDayButton"} key={day} onClick={() => openDay(dayNumber)}>
-                <span className="weekDayTop"><small>{day}</small><em>10/{String(dayNumber).padStart(2, "0")}</em></span>
+              <button className={isSelected ? "weekCol weekDayButton selectedWeekDay" : "weekCol weekDayButton"} key={date} onClick={() => openDay(date)}>
+                <span className="weekDayTop"><small>{dayName}</small><em>{date.slice(5).replace("-", "/")}</em></span>
                 <strong className="weekDayNumber">{dayNumber}</strong>
                 <span className="weekCountBadge">{dayBookings.length} {c.appointment}</span>
                 <span className="weekBookingList">
@@ -402,9 +435,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       {view === "month" && (
         <section className="card monthGrid">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((dayName) => <div className="monthHead" key={dayName}>{dayName}</div>)}
-          {monthDays.map((day) => {
-            const dayBookings = bookings.filter((booking) => bookingDay(booking) === day);
-            return <button className={day === selectedDay ? "monthDay selectedMonthDay" : "monthDay"} key={day} onClick={() => openDay(day)}><strong>{day}</strong><span>{dayBookings.length} {c.appointment}</span><em>{dayBookings.slice(0, 4).map((booking) => <i key={booking.id} style={{ background: staffFor(booking.staff).color }} />)}</em></button>;
+          {Array.from({ length: (new Date(`${visibleMonthDates[0]}T12:00:00Z`).getUTCDay() + 6) % 7 }, (_, index) => <div className="monthDay monthBlank" key={`blank-${index}`} />)}
+          {visibleMonthDates.map((date) => {
+            const day = Number(date.slice(-2));
+            const dayBookings = bookings.filter((booking) => sameBookingDate(booking, date));
+            return <button className={date === selectedDate ? "monthDay selectedMonthDay" : "monthDay"} key={date} onClick={() => openDay(date)}><strong>{day}</strong><span>{dayBookings.length} {c.appointment}</span><em>{dayBookings.slice(0, 4).map((booking) => <i key={booking.id} style={{ background: staffFor(booking.staff).color }} />)}</em></button>;
           })}
         </section>
       )}
@@ -413,7 +448,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
         <div className="bookingModalBackdrop" onMouseDown={() => setModalOpen(false)}>
           <div className="card bookingModal" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modalHead"><div><p className="eyebrow">{selected.draft ? c.newLabel : c.editLabel}</p><h2>{selected.customer || c.customer}</h2></div><button className="ghost iconClose" onClick={() => setModalOpen(false)}>{tc("close")}</button></div>
-            <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>2026/10/{String(selectedDay).padStart(2, "0")} · {selected.staff}</span>{selected.staffRole && <small>{selected.staffRole}{selected.staffEmail ? ` · ${selected.staffEmail}` : ""}</small>}</div>
+            <div className="selectedRange"><strong>{selected.start} - {selected.end}</strong><span>{dateLabel(selectedDate)} · {selected.staff}</span>{selected.staffRole && <small>{selected.staffRole}{selected.staffEmail ? ` · ${selected.staffEmail}` : ""}</small>}</div>
             <div className="formGrid modalForm">
               <label>{c.customer}<input value={selected.customer} onChange={(event) => setSelected({ ...selected, customer: event.target.value })} placeholder={c.customer} /></label>
               <label>{c.phone}<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
