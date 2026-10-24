@@ -86,7 +86,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [bookingError, setBookingError] = useState("");
   const { bookings, setBookings, removeBooking } = useBookingStore();
   const { staff: staffMembers } = useStaffStore();
-  const { accounts } = useAccountStore();
+  const { accounts, currentAccount } = useAccountStore();
   const staff = staffMembers.length ? staffMembers : seedStaff;
   const pressRef = useRef(null);
   const paintRef = useRef(null);
@@ -190,6 +190,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   }
 
   async function notifyAssignedStaff(booking, previousBooking) {
+    const actorEmail = String(currentAccount?.email || "").trim().toLowerCase();
     const accountFor = (member, bookingRecord) => accounts.find((account) => account.email === member?.email || account.name === member?.name || account.staffName === member?.name || account.id === `staff-${member?.id}`) || accounts.find((account) => account.email === bookingRecord?.staffEmail);
     const assigned = staff.find((member) => member.name === booking.staff);
     const previousAssigned = previousBooking && staff.find((member) => member.name === previousBooking.staff);
@@ -200,7 +201,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const recipients = [...new Map(recipientPairs.filter(([member, account, storedEmail]) => member?.email || account?.email || storedEmail).map(([member, account, storedEmail]) => {
       const email = String(member?.email || account?.email || storedEmail || "").trim().toLowerCase();
       return [email, { ...(member || {}), ...(account || {}), email, name: member?.name || account?.name || booking.staff }];
-    })).values()];
+    })).values()].filter((recipient) => !actorEmail || recipient.email !== actorEmail);
     if (!recipients.length) return;
     const isNew = !previousBooking;
     const relevantFields = ["day", "start", "end", "customer", "phone", "service", "source", "status", "staff", "note"];
