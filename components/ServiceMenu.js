@@ -29,6 +29,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
   const [draft, setDraft] = useState({ ...emptyService });
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
+  const [translatingExisting, setTranslatingExisting] = useState(false);
   const groups = [...bookingGroups, fallbackBookingGroup];
   const languageKey = language === "ja" ? "ja" : language === "en" ? "en" : "vi";
   const categoryLabel = language === "ja" ? "サービス分類" : language === "en" ? "Service group" : "Nhóm dịch vụ";
@@ -52,19 +53,33 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     reader.readAsDataURL(file);
   }
 
+  async function translateText(text) {
+    if (!text?.trim()) return {};
+    const response = await fetch("/api/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, targets: ["VI", "JA", "EN", "ZH", "KO"] }) });
+    const result = await response.json().catch(() => ({}));
+    return result.ok ? result.translations : {};
+  }
+
+  async function translateExistingServices() {
+    setTranslatingExisting(true);
+    try {
+      const translated = await Promise.all(services.map(async (service) => {
+        const missingName = ["nameVi", "nameJa", "nameEn", "nameZh", "nameKo"].some((key) => !service[key]);
+        const missingDescription = service.description && ["descriptionVi", "descriptionJa", "descriptionEn", "descriptionZh", "descriptionKo"].some((key) => !service[key]);
+        const [names, descriptions] = await Promise.all([missingName ? translateText(service.name) : {}, missingDescription ? translateText(service.description) : {}]);
+        return { ...service, nameVi: names.VI || service.nameVi || service.name, nameJa: names.JA || service.nameJa || service.name, nameEn: names.EN || service.nameEn || service.name, nameZh: names.ZH || service.nameZh || service.name, nameKo: names.KO || service.nameKo || service.name, descriptionVi: descriptions.VI ?? service.descriptionVi ?? service.description, descriptionJa: descriptions.JA ?? service.descriptionJa ?? service.description, descriptionEn: descriptions.EN ?? service.descriptionEn ?? service.description, descriptionZh: descriptions.ZH ?? service.descriptionZh ?? service.description, descriptionKo: descriptions.KO ?? service.descriptionKo ?? service.description, translationSourceName: service.name, translationSourceDescription: service.description };
+      }));
+      setServices(translated);
+    } finally { setTranslatingExisting(false); }
+  }
+
   async function saveService() {
     if (!draft.name.trim()) return;
-    const translate = async (text) => {
-      if (!text?.trim()) return {};
-      const response = await fetch("/api/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, targets: ["VI", "JA", "EN", "ZH", "KO"] }) });
-      const result = await response.json().catch(() => ({}));
-      return result.ok ? result.translations : {};
-    };
     const hasNameTranslations = ["nameVi", "nameJa", "nameEn", "nameZh", "nameKo"].every((key) => draft[key]);
     const hasDescriptionTranslations = !draft.description.trim() || ["descriptionVi", "descriptionJa", "descriptionEn", "descriptionZh", "descriptionKo"].every((key) => draft[key]);
     const nameChanged = draft.translationSourceName !== draft.name;
     const descriptionChanged = draft.translationSourceDescription !== draft.description;
-    const [names, descriptions] = await Promise.all([nameChanged || !hasNameTranslations ? translate(draft.name) : Promise.resolve({}), descriptionChanged || !hasDescriptionTranslations ? translate(draft.description) : Promise.resolve({})]);
+    const [names, descriptions] = await Promise.all([nameChanged || !hasNameTranslations ? translateText(draft.name) : Promise.resolve({}), descriptionChanged || !hasDescriptionTranslations ? translateText(draft.description) : Promise.resolve({})]);
     const record = { ...draft, id: draft.id || `svc-${Date.now()}`, nameVi: names.VI || draft.nameVi || draft.name, nameJa: names.JA || draft.nameJa || draft.name, nameEn: names.EN || draft.nameEn || draft.name, nameZh: names.ZH || draft.nameZh || draft.name, nameKo: names.KO || draft.nameKo || draft.name, descriptionVi: descriptions.VI ?? draft.descriptionVi ?? draft.description, descriptionJa: descriptions.JA ?? draft.descriptionJa ?? draft.description, descriptionEn: descriptions.EN ?? draft.descriptionEn ?? draft.description, descriptionZh: descriptions.ZH ?? draft.descriptionZh ?? draft.description, descriptionKo: descriptions.KO ?? draft.descriptionKo ?? draft.description, translationSourceName: draft.name, translationSourceDescription: draft.description };
     setServices((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
     setDraft({ ...emptyService });
@@ -74,7 +89,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     <>
       <div className="pageHead">
         <div><p className="eyebrow">SERVICE MENU</p><h1>{label}</h1><p>{c.desc}</p></div>
-        <button className="primary" onClick={saveService}>{c.save}</button>
+        <div className="buttonRow"><button className="ghost" type="button" onClick={translateExistingServices} disabled={translatingExisting}>{translatingExisting ? "Đang dịch menu…" : "Dịch toàn bộ menu cũ"}</button><button className="primary" onClick={saveService}>{c.save}</button></div>
       </div>
 
       <section className="card staffEditor serviceEditorPanel">
