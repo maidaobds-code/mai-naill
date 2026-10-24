@@ -8,7 +8,8 @@ import { useProductCatalog, useServiceCatalog } from "../lib/catalogStore";
 import { useStoreOrders } from "../lib/orderStore";
 import { getAppSettings } from "./Settings";
 import { languages, t, tx } from "../lib/i18nClean";
-import { staff } from "../lib/salonData";
+import { staff as seedStaff } from "../lib/salonData";
+import { useStaffStore } from "../lib/staffStore";
 import { CustomerProfile } from "./AccountAccess";
 import { useAccountStore } from "../lib/accountStore";
 import { getPublicKv } from "../lib/supabaseBrowser";
@@ -56,6 +57,8 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
   const tc = (key) => tx(language, "common", key);
   const [products] = useProductCatalog();
   const [services] = useServiceCatalog();
+  const { staff: storedStaff } = useStaffStore();
+  const staff = storedStaff.length ? storedStaff : seedStaff;
   const { orders, addOrder, updateOrder, addChatMessage } = useStoreOrders();
   const { currentAccount } = useAccountStore();
   const [settings, setSettings] = useState(() => ({ ...getAppSettings(), qrImageUrl: "/api/qr-image" }));
@@ -324,7 +327,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     const assignedStaff = staff.find((member) => member.name === draft.staff);
     let saved;
     try {
-    saved = await addBooking({ day: draft.day, date: draft.date, language, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration + bookingOptions.reduce((sum, option) => sum + option.duration, 0)), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: [selectedService.name, ...bookingOptions.map(option => option.name)].join(" + "), staff: assignedStaff?.name || "Chưa phân công", staffId: assignedStaff?.id || "", staffEmail: assignedStaff?.email || "", assignmentStatus: assignedStaff ? "ASSIGNED" : "PENDING_ASSIGNMENT", source: "direct", origin: localCopy.websiteBooking, price: Number(selectedService.price) + bookingOptions.reduce((sum, option) => sum + option.price, 0), commissionRule: localCopy.websiteBooking });
+    saved = await addBooking({ day: draft.day, date: draft.date, language, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration + bookingOptions.reduce((sum, option) => sum + option.duration, 0)), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: [selectedService.name, ...bookingOptions.map(option => option.name)].join(" + "), staff: assignedStaff?.name || "Chưa phân công", staffId: assignedStaff?.id || "", staffEmail: assignedStaff?.email || "", staffDisplayName: assignedStaff?.displayName || assignedStaff?.name || "", designationFee: Number(assignedStaff?.designationFee || 0), assignmentStatus: assignedStaff ? "ASSIGNED" : "PENDING_ASSIGNMENT", source: "direct", origin: localCopy.websiteBooking, price: Number(selectedService.price) + bookingOptions.reduce((sum, option) => sum + option.price, 0) + Number(assignedStaff?.designationFee || 0), commissionRule: localCopy.websiteBooking });
     } catch { setMessage(language === "ja" ? "予約を保存できませんでした。もう一度お試しください。" : language === "vi" ? "Chưa lưu được lịch hẹn. Vui lòng thử lại." : "Could not save your appointment. Please try again."); return false; }
     notifyByEmail({ to: [draft.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách hàng: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
     if (assignedStaff?.email) notifyByEmail({ to: assignedStaff.email, subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });

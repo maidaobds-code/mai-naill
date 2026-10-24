@@ -18,6 +18,12 @@ function newStaff(nextId) {
     email: "",
     accountPassword: "",
     credentialStatus: "Not saved",
+    displayName: "",
+    designationFee: 1100,
+    bookingDescription: "",
+    bookingVisible: true,
+    avatarUrl: "",
+    avatarFileName: "",
   };
 }
 
@@ -38,6 +44,8 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const [resetDraft, setResetDraft] = useState({});
   const [roleDraft, setRoleDraft] = useState({});
   const [accountMessage, setAccountMessage] = useState("");
+  const [bookingDraft, setBookingDraft] = useState(null);
+  const bookingCopy = language === "ja" ? { title: "指名設定", edit: "表示設定", displayName: "表示名", fee: "指名料（円）", description: "お客様向け説明", image: "スタッフ画像", visible: "Web予約で表示", save: "指名設定を保存", cancel: "キャンセル" } : language === "en" ? { title: "Booking designation settings", edit: "Display settings", displayName: "Display name", fee: "Designation fee (JPY)", description: "Customer-facing description", image: "Staff image", visible: "Show in online booking", save: "Save designation settings", cancel: "Cancel" } : { title: "Cài đặt chỉ định nhân viên", edit: "Cài đặt hiển thị", displayName: "Tên hiển thị", fee: "Phí chỉ định (JPY)", description: "Mô tả hiển thị cho khách", image: "Ảnh nhân viên", visible: "Hiển thị trên Booking", save: "Lưu cài đặt chỉ định", cancel: "Hủy" };
   const draftChanged = Boolean(draft.name || draft.email || draft.accountPassword || draft.role !== "staff");
 
   function updateDraft(field, value) {
@@ -78,6 +86,25 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     setStaff((current) => current.filter((member) => member.id !== id));
   }
 
+  function editBookingDisplay(member) {
+    setBookingDraft({ ...member, displayName: member.displayName || member.name, designationFee: Number(member.designationFee ?? 1100), bookingDescription: member.bookingDescription || "", bookingVisible: member.bookingVisible !== false, avatarUrl: member.avatarUrl || "", avatarFileName: member.avatarFileName || "" });
+  }
+
+  function uploadBookingAvatar(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setBookingDraft((current) => ({ ...current, avatarUrl: reader.result, avatarFileName: file.name }));
+    reader.readAsDataURL(file);
+  }
+
+  function saveBookingDisplay() {
+    if (!bookingDraft) return;
+    setStaff((current) => current.map((member) => member.id === bookingDraft.id ? { ...member, displayName: bookingDraft.displayName.trim() || member.name, designationFee: Math.max(0, Number(bookingDraft.designationFee || 0)), bookingDescription: bookingDraft.bookingDescription.trim(), bookingVisible: bookingDraft.bookingVisible, avatarUrl: bookingDraft.avatarUrl, avatarFileName: bookingDraft.avatarFileName } : member));
+    setAccountMessage(`Đã lưu cài đặt hiển thị cho ${bookingDraft.displayName || bookingDraft.name}.`);
+    setBookingDraft(null);
+  }
+
   async function saveStaffRole(account) {
     if (!account) return;
     const role = roleDraft[account.id] || account.role;
@@ -113,6 +140,19 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
         {accountMessage && <p className="storeNote">{accountMessage}</p>}
       </section>
 
+      {bookingDraft && <section className="card staffBookingEditor">
+        <div className="sectionTitle"><div><p className="eyebrow">ONLINE BOOKING</p><h2>{bookingCopy.title} · {bookingDraft.name}</h2><p>Thay đổi tại đây sẽ đồng bộ sang bước chọn nhân viên của khách.</p></div></div>
+        <div className="staffBookingForm">
+          <label>{bookingCopy.displayName}<input value={bookingDraft.displayName} onChange={(event) => setBookingDraft({ ...bookingDraft, displayName: event.target.value })} /></label>
+          <label>{bookingCopy.fee}<input type="number" min="0" step="100" value={bookingDraft.designationFee} onChange={(event) => setBookingDraft({ ...bookingDraft, designationFee: Number(event.target.value) })} /></label>
+          <label className="fullField">{bookingCopy.description}<textarea rows="3" value={bookingDraft.bookingDescription} onChange={(event) => setBookingDraft({ ...bookingDraft, bookingDescription: event.target.value })} placeholder="Ví dụ: Chuyên vẽ design, tư vấn mẫu theo yêu cầu…" /></label>
+          <label>{bookingCopy.image}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadBookingAvatar} /></label>
+          <label className="staffBookingToggle"><input type="checkbox" checked={bookingDraft.bookingVisible} onChange={(event) => setBookingDraft({ ...bookingDraft, bookingVisible: event.target.checked })} />{bookingCopy.visible}</label>
+        </div>
+        {bookingDraft.avatarUrl && <div className="staffBookingPreview"><img src={bookingDraft.avatarUrl} alt={bookingDraft.displayName || bookingDraft.name} /><div><strong>{bookingDraft.displayName || bookingDraft.name}</strong><span>Phí chỉ định ¥{Number(bookingDraft.designationFee || 0).toLocaleString("ja-JP")}</span><small>{bookingDraft.bookingDescription}</small></div></div>}
+        <div className="staffBookingActions"><button className="ghost" type="button" onClick={() => setBookingDraft(null)}>{bookingCopy.cancel}</button><button className="primary" type="button" onClick={saveBookingDisplay}>{bookingCopy.save}</button></div>
+      </section>}
+
       <section className="card tableWrap">
         <table>
           <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>{tc("action")}</th></tr></thead>
@@ -126,7 +166,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{effectiveRole}</span></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
               <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={roleDraft[account.id] || effectiveRole} onChange={(event) => setRoleDraft((current) => ({ ...current, [account.id]: event.target.value }))}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
-              <td><div className="staffAccountActions"><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
+              <td><div className="staffAccountActions"><button className="ghost bookingDisplayButton" onClick={() => editBookingDisplay(member)}>{bookingCopy.edit} · ¥{Number(member.designationFee || 0).toLocaleString("ja-JP")}</button><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
 	                </>;
 	              })()}
             </tr>

@@ -1,4 +1,4 @@
-import { isAdminRequest, isStaffRequest } from "../../../lib/serverAuth";
+import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -24,7 +24,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  if (!isAdminRequest(request)) return Response.json({ ok: false, message: "Chỉ chủ quán được cập nhật danh sách nhân viên." }, { status: 401 });
+  if (!isAdminRequest(request) && !isOwnerRequest(request)) return Response.json({ ok: false, message: "Chỉ chủ quán được cập nhật danh sách nhân viên." }, { status: 401 });
   const body = await request.json().catch(() => null);
   if (!Array.isArray(body?.value)) return Response.json({ ok: false, message: "Invalid staff list" }, { status: 400 });
   const value = body.value.map(({ accountPassword, ...member }) => member);
