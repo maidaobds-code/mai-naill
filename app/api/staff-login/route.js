@@ -1,4 +1,4 @@
-import { createStaffSession, staffCookie } from "../../../lib/serverAuth";
+import { createOwnerSession, createStaffSession, ownerCookie, staffCookie } from "../../../lib/serverAuth";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -19,12 +19,12 @@ export async function POST(request) {
     const fallback = await fetch(`${URL}/rest/v1/app_kv?key=eq.${KV}&select=value,owner_id&limit=1`, { cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}` } }).catch(() => null);
     const fallbackRows = fallback?.ok ? await fallback.json().catch(() => []) : [];
     if (fallbackRows.length === 1) {
-      const account = fallbackRows[0]?.value?.find((item) => ["staff", "manager"].includes(item.role) && item.email?.trim().toLowerCase() === String(body.email).trim().toLowerCase());
+      const account = fallbackRows[0]?.value?.find((item) => ["owner", "staff", "manager"].includes(item.role) && item.email?.trim().toLowerCase() === String(body.email).trim().toLowerCase());
       if (account && account.passwordHash !== await hash(body.password)) return Response.json({ ok: false, message: "Sai email hoặc mật khẩu." }, { status: 401 });
       if (account?.passwordHash === await hash(body.password)) {
         const { passwordHash, ...safe } = account;
         const result = Response.json({ ok: true, account: safe });
-        result.headers.set("Set-Cookie", staffCookie(createStaffSession(account.id)));
+        result.headers.set("Set-Cookie", account.role === "owner" ? ownerCookie(createOwnerSession(account.id)) : staffCookie(createStaffSession(account.id)));
         return result;
       }
     }
@@ -36,12 +36,12 @@ export async function POST(request) {
   if (!response.ok) return Response.json({ ok: false, message: "Không thể đọc tài khoản từ Supabase." }, { status: 503 });
   const rows = await response.json().catch(() => []);
   const normalizedEmail = email.trim().toLowerCase();
-  const account = rows?.[0]?.value?.find((item) => ["staff", "manager"].includes(item.role) && item.email?.trim().toLowerCase() === normalizedEmail);
+  const account = rows?.[0]?.value?.find((item) => ["owner", "manager", "staff"].includes(item.role) && item.email?.trim().toLowerCase() === normalizedEmail);
   if (!account) return Response.json({ ok: false, code: "ACCOUNT_NOT_SYNCED", message: "Tài khoản nhân viên chưa được đồng bộ lên server." }, { status: 404 });
   if (!account.passwordHash) return Response.json({ ok: false, code: "PASSWORD_MISSING", message: "Tài khoản chưa có mật khẩu trên server." }, { status: 409 });
   if (!account?.passwordHash || account.passwordHash !== await hash(password)) return Response.json({ ok: false, message: "Sai email hoặc mật khẩu." }, { status: 401 });
   const { passwordHash, ...safe } = account;
   const result = Response.json({ ok: true, account: safe });
-  result.headers.set("Set-Cookie", staffCookie(createStaffSession(account.id)));
+  result.headers.set("Set-Cookie", account.role === "owner" ? ownerCookie(createOwnerSession(account.id)) : staffCookie(createStaffSession(account.id)));
   return result;
 }
