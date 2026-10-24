@@ -473,7 +473,7 @@ export default function GroupedBooking({
                       "Before your visit",
                     )}
                   </h2>
-                  <div className="maiPolicy" lang={lang}><p style={{ whiteSpace: "pre-line" }}>{settings.bookingNotice || copy("予約の変更・キャンセルは前日営業時間内にご連絡ください。", "Vui lòng liên hệ salon trong giờ làm việc trước ngày hẹn nếu cần đổi hoặc hủy lịch.", "Please contact the salon during business hours before your appointment to change or cancel.")}</p></div>
+                  <div className="maiPolicy" lang={lang}><p style={{ whiteSpace: "pre-line" }}>{settings[`bookingNotice${lang === "ja" ? "Ja" : lang === "zh" ? "Zh" : lang === "ko" ? "Ko" : lang === "en" ? "En" : "Vi"}`] || settings.bookingNotice || copy("予約の変更・キャンセルは前日営業時間内にご連絡ください。", "Vui lòng liên hệ salon trong giờ làm việc trước ngày hẹn nếu cần đổi hoặc hủy lịch.", "Please contact the salon during business hours before your appointment to change or cancel.")}</p></div>
                   <label className="maiConsent">
                     <input
                       type="checkbox"
