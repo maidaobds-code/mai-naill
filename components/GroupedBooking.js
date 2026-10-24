@@ -292,7 +292,7 @@ export default function GroupedBooking({
             {step === 1 && (
               <section className="maiPanel maiDetails">
                 <h2>{steps[1]}</h2>
-                <div className="maiFields">
+                <div className="maiFields maiScheduleFields">
                   <label>
                     {copy("来店日", "Ngày đến", "Visit date")}
                     <input
@@ -306,19 +306,8 @@ export default function GroupedBooking({
                       }}
                     />
                   </label>
+                  <div className="maiStaffField"><span>{copy("指名するスタッフ", "Chọn nhân viên mong muốn", "Choose a staff member")}</span><button type="button" className="maiStaffBar" onClick={() => setStaffOpen(true)}><span className="maiStaffAvatar noPreference">{draft.staff ? "✓" : "○"}</span><span><strong>{draft.staff || copy("指名なし", "Không chỉ định", "No preference")}</strong><small>{draft.staff ? copy("指名スタッフを選択中", "Đã chọn nhân viên", "Selected artist") : copy("タップしてスタッフを選択", "Chạm để chọn nhân viên", "Tap to choose an artist")}</small></span><b>{draft.staff ? yen(designationFee) : "¥0"}　›</b></button></div>
                 </div>
-                <h3>
-                  {copy(
-                    "指名するスタッフを選択してください。",
-                    "Chọn nhân viên mong muốn",
-                    "Choose a staff member",
-                  )}
-                </h3>
-                <button type="button" className="maiStaffBar" onClick={() => setStaffOpen(true)}>
-                  <span className="maiStaffAvatar noPreference">{draft.staff ? "✓" : "○"}</span>
-                  <span><strong>{draft.staff || copy("指名なし", "Không chỉ định", "No preference")}</strong><small>{draft.staff ? copy("指名スタッフを選択中", "Đã chọn nhân viên", "Selected artist") : copy("タップしてスタッフを選択", "Chạm để chọn nhân viên", "Tap to choose an artist")}</small></span>
-                  <b>{draft.staff ? yen(designationFee) : "¥0"}　›</b>
-                </button>
                 {staffOpen && <div className="maiStaffPopover" role="dialog" aria-modal="true">
                   <div className="maiStaffPopoverHead"><strong>{copy("指名するスタッフを選択してください。", "Chọn nhân viên mong muốn", "Choose a staff member")}</strong><button type="button" onClick={() => setStaffOpen(false)} aria-label={copy("閉じる", "Đóng", "Close")}>×</button></div>
                   <div className="maiStaffPicker">
