@@ -7,6 +7,8 @@ import { useStaffStore } from "../lib/staffStore";
 import { useAccountStore } from "../lib/accountStore";
 
 const copy = {
+  zh: { desc: "服务菜单图片将同步到网站预约表单。", save: "+ 保存服务", name: "服务名称", duration: "时长（分钟）", owner: "负责人", image: "美甲图片", selectedImage: "已选择图片", headers: ["服务", "价格", "时长", "可服务员工", "操作"], minutes: "分钟" },
+  ko: { desc: "서비스 메뉴 이미지는 웹 예약 양식에 동기화됩니다.", save: "+ 서비스 저장", name: "서비스 이름", duration: "소요 시간(분)", owner: "담당자", image: "네일 이미지", selectedImage: "선택한 이미지", headers: ["서비스", "가격", "시간", "가능한 직원", "작업"], minutes: "분" },
   vi: { desc: "Ảnh menu sẽ đồng bộ sang form đặt lịch hẹn trên website.", save: "+ Lưu dịch vụ", name: "Tên dịch vụ", duration: "Thời lượng phút", owner: "Chủ sở hữu", image: "Ảnh mẫu nail", selectedImage: "Ảnh đã chọn từ máy tính", headers: ["Dịch vụ", "Giá", "Thời lượng", "Nhân viên làm được", "Thao tác"], minutes: "phút" },
   ja: { desc: "メニュー画像はWeb予約フォームへ同期されます。", save: "+ サービスを保存", name: "サービス名", duration: "所要時間（分）", owner: "担当者", image: "ネイル画像", selectedImage: "選択済み画像", headers: ["サービス", "価格", "時間", "対応スタッフ", "操作"], minutes: "分" },
   en: { desc: "Menu images sync to the website booking form.", save: "+ Save service", name: "Service name", duration: "Duration minutes", owner: "Owner", image: "Nail sample image", selectedImage: "Selected image from computer", headers: ["Service", "Price", "Duration", "Available staff", "Actions"], minutes: "min" },
