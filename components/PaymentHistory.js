@@ -84,6 +84,7 @@ export default function PaymentHistory({ language = "vi" }) {
   const [sales, setSales] = useState(() => getStoredPosSales());
   const [selectedId, setSelectedId] = useState("");
   const [printing, setPrinting] = useState(false);
+  const [printMode, setPrintMode] = useState("receipt");
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState(false);
   const [editStaff, setEditStaff] = useState("");
@@ -163,6 +164,7 @@ export default function PaymentHistory({ language = "vi" }) {
         setNotice(c.printError);
       }
     }
+    setPrintMode("receipt");
     window.print();
     setPrinting(false);
   }
@@ -250,7 +252,7 @@ export default function PaymentHistory({ language = "vi" }) {
             >
               {printing ? c.printing : c.reprint}
             </button>
-            {!selected.voided && <div className="paymentHistoryActions"><button type="button" className="ghost" onClick={() => { setNotice(""); window.print(); }}>{actionText.receipt}</button><button type="button" className="ghost" onClick={() => setEditing((value) => !value)}>{actionText.edit}</button></div>}
+            {!selected.voided && <div className="paymentHistoryActions"><button type="button" className="ghost" onClick={() => { setNotice(""); setPrintMode("receipt"); window.setTimeout(() => window.print(), 80); }}>{actionText.receipt}</button><button type="button" className="ghost" onClick={() => { setNotice(""); setPrintMode("ryoshusho"); window.setTimeout(() => window.print(), 80); }}>領収書を印刷</button><button type="button" className="ghost" onClick={() => setEditing((value) => !value)}>{actionText.edit}</button></div>}
             {editing && !selected.voided && <div className="paymentEditBox"><label>{actionText.staff}<select value={editStaff} onChange={(event) => { setEditStaff(event.target.value); setEditPassword(""); }}><option value="">{actionText.choose}</option>{staffList.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label><label>Mật khẩu nhân viên<input type="password" value={editPassword} onChange={(event) => setEditPassword(event.target.value)} autoComplete="current-password" /></label><label>支払方法<select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)}>{paymentChoices.map((method) => <option key={method}>{method}</option>)}</select></label><div className="paymentEditLines">{editLines.map((line, index) => <div className="paymentEditLine" key={line.id || index}><input value={line.name || ""} placeholder="サービス / 商品" onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /><input type="number" min="1" value={line.quantity || 1} onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: event.target.value } : item))} /><input type="number" min="0" value={line.unitPrice || 0} onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, unitPrice: event.target.value } : item))} /><button type="button" className="ghost" onClick={() => setEditLines((current) => current.filter((_, itemIndex) => itemIndex !== index))}>削除</button></div>)}</div><button type="button" className="ghost" onClick={() => setEditLines((current) => [...current, { id: `new-line-${Date.now()}`, name: "", quantity: 1, unitPrice: 0, discountValue: 0 }])}>＋サービス・商品を追加</button><label>{c.total}<input type="number" min="0" value={editTotal} onChange={(event) => setEditTotal(event.target.value)} /></label><button type="button" className="primary" onClick={saveEditedPayment}>{actionText.save}</button></div>}
             {notice && <p className="printerNotice">{notice}</p>}
             <div className="orderInfoGrid">
@@ -303,13 +305,15 @@ export default function PaymentHistory({ language = "vi" }) {
                 </p>
               ))}
             </div>
-            <div className="printDocument active paymentHistoryPrintDocument">
+            <div className={`printDocument ${printMode === "receipt" ? "active" : ""} paymentHistoryPrintDocument`}>
               <div className="printPaper">
                 <div className="printStore">
+                  {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
                   <strong>
                     {selected.storeSnapshot?.salonName || "Mai Beauty Salon"}
                   </strong>
                   <span>{selected.storeSnapshot?.address || ""}</span>
+                  <span>{selected.storeSnapshot?.phone || ""}</span>
                 </div>
                 <div className="printMeta">
                   <span>
@@ -344,6 +348,28 @@ export default function PaymentHistory({ language = "vi" }) {
                   <span>{c.method}</span>
                   <strong>{selected.paymentMethodText || "-"}</strong>
                 </p>
+                <p><span>Đã nhận</span><strong>{yen(selected.cashReceived || selected.paid)}</strong></p>
+                <p><span>Còn thiếu</span><strong>{yen(Math.max(0, Number(selected.total || 0) - Number(selected.paid || 0)))}</strong></p>
+                <p><span>Tiền thừa</span><strong>{yen(selected.change)}</strong></p>
+              </div>
+            </div>
+            <div className={`printDocument ${printMode === "ryoshusho" ? "active" : ""} paymentHistoryPrintDocument printRyoshusho`}>
+              <div className="printPaper">
+                <div className="printStore">
+                  {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
+                  <strong>{selected.storeSnapshot?.salonName || "Mai Beauty Salon"}</strong>
+                  <span>{selected.storeSnapshot?.address || ""}</span>
+                  <span>{selected.storeSnapshot?.phone || ""}</span>
+                </div>
+                <h3>領収書</h3>
+                <p className="printRecipient"><span>{selected.customer || ""}</span><strong>様</strong></p>
+                <div className="printRule" />
+                <p><span>{new Date(selected.issuedAt || Date.now()).toLocaleDateString("ja-JP")}</span><strong>{selected.paymentMethodText || "現金"}</strong></p>
+                <div className="printRule" />
+                <p><span>小計</span><strong>{yen((selected.lines || []).reduce((sum, line) => sum + Number(line.unitPrice || 0) * Number(line.quantity || 1) - Number(line.discountValue || 0), 0))}</strong></p>
+                <p className="printTotal"><span>合計</span><strong>{yen(selected.total)}</strong></p>
+                <p><span>但し書き</span><strong>ネイルサービス代として</strong></p>
+                <small>領収書番号: {selected.receiptNumber || selected.orderNumber}</small>
               </div>
             </div>
           </aside>
