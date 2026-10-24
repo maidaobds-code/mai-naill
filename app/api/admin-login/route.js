@@ -20,7 +20,7 @@ export async function POST(request) {
     ok: true,
     account: {
       id: "owner",
-      role: "owner",
+      role: "admin",
       name: "Chủ quán",
       email: adminUser,
       phone: "",

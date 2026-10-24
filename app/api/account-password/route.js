@@ -21,7 +21,7 @@ export async function POST(request) {
   const response = await fetch(base, { cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}` } });
   const rows = await response.json().catch(() => []);
   const accounts = Array.isArray(rows?.[0]?.value) ? rows[0].value : [];
-  const account = accounts.find((item) => item.id === accountId && item.role === "staff");
+  const account = accounts.find((item) => item.id === accountId && ["manager", "staff"].includes(item.role));
   if (!account || account.passwordHash !== await hash(currentPassword)) return Response.json({ ok: false, message: "Mật khẩu hiện tại không đúng." }, { status: 403 });
   const newHash = await hash(newPassword);
   const next = accounts.map((item) => item.id === accountId ? { ...item, passwordHash: newHash } : item);

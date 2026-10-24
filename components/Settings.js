@@ -57,7 +57,7 @@ export default function Settings({ language = "vi" }) {
   const [saved, setSaved] = useState(false);
   const [qrUploadError, setQrUploadError] = useState("");
   const [currentAccount] = useState(getCurrentAccount);
-  const isStaff = currentAccount?.role === "staff";
+  const isStaff = ["staff", "manager"].includes(currentAccount?.role);
   const [activePanel, setActivePanel] = useState(isStaff ? "password" : "salon");
   const [passwordForm, setPasswordForm] = useState({ current: "", next: "", confirm: "" });
   const [passwordMessage, setPasswordMessage] = useState("");

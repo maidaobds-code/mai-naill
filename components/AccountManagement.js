@@ -23,8 +23,8 @@ export default function AccountManagement({ label = "Quản lý tài khoản", e
     return (roleOrder[a.role] ?? 3) - (roleOrder[b.role] ?? 3) || String(a.name || a.email).localeCompare(String(b.name || b.email));
   }), [accounts]);
 
-  function changeRole(accountId, role) {
-    const result = updateAccountRole(accountId, role);
+  async function changeRole(accountId, role) {
+    const result = await updateAccountRole(accountId, role);
     setMessage(result.ok ? "Đã cập nhật quyền tài khoản." : result.message);
   }
 

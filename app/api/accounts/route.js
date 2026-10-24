@@ -30,7 +30,7 @@ export async function POST(request) {
   const body = await request.json().catch(() => null);
   const account = body?.account;
   const fullValue = Array.isArray(body?.value) ? body.value : null;
-  if (!fullValue && (!account?.id || !account?.email || account.role !== "staff" || !account.passwordHash)) return Response.json({ ok: false, message: "Dữ liệu tài khoản nhân viên không hợp lệ" }, { status: 400 });
+  if (!fullValue && (!account?.id || !account?.email || !["manager", "staff"].includes(account.role) || !account.passwordHash)) return Response.json({ ok: false, message: "Dữ liệu tài khoản không hợp lệ" }, { status: 400 });
   try {
     const rows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${KV}&select=value&limit=1`);
     const current = Array.isArray(rows?.[0]?.value) ? rows[0].value : [];
