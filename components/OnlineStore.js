@@ -665,7 +665,7 @@ export default function OnlineStore({
       booking: saved,
       settings,
       language,
-      bookingUrl: `${window.location.origin}/booking`,
+      bookingUrl: `${window.location.origin}/booking?appointment=${encodeURIComponent(saved.id)}`,
     });
     notifyByEmail({ to: [draft.email].filter(Boolean), ...customerEmail });
     if (assignedStaff?.email)
