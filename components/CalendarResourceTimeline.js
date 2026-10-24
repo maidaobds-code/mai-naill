@@ -15,6 +15,7 @@ const slots = [
 const intervalSlots = slots.slice(0, -1);
 const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthDays = Array.from({ length: 31 }, (_, index) => index + 1);
+const todayDay = new Date().getDate();
 const timelineStart = 9 * 60;
 const timelineEnd = 23 * 60;
 
@@ -78,8 +79,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const c = copy[language] || copy.vi;
   const tc = (key) => tx(language, "common", key);
   const [view, setView] = useState("day");
-  const [selectedDay, setSelectedDay] = useState(6);
-  const [selected, setSelected] = useState(blankBooking(6, "10:00", seedStaff[0]));
+  const [selectedDay, setSelectedDay] = useState(todayDay);
+  const [selected, setSelected] = useState(blankBooking(todayDay, "10:00", seedStaff[0]));
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
