@@ -306,10 +306,6 @@ export default function GroupedBooking({
                       }}
                     />
                   </label>
-                  <label className="maiConsent marketingConsent">
-                    <span>{copy("お得な情報やイベントのお知らせ", "Nhận email giảm giá và sự kiện", "Discount and event emails")}</span>
-                    <span className="marketingChoices"><button type="button" className={draft.marketingConsent === true ? "selected" : ""} onClick={() => updateDraft("marketingConsent", true)}>{copy("はい", "Có", "Yes")}</button><button type="button" className={draft.marketingConsent === false ? "selected" : ""} onClick={() => updateDraft("marketingConsent", false)}>{copy("いいえ", "Không", "No")}</button></span>
-                  </label>
                 </div>
                 <h3>
                   {copy(
@@ -517,6 +513,10 @@ export default function GroupedBooking({
                       "Tôi đã đọc lưu ý và đồng ý với nội dung đặt lịch",
                       "I have read the policies and agree to the booking details",
                     )}
+                  </label>
+                  <label className="maiConsent marketingConsent">
+                    <span>{copy("お得な情報やイベントのお知らせ", "Nhận email giảm giá và sự kiện", "Discount and event emails")}</span>
+                    <span className="marketingChoices"><button type="button" className={draft.marketingConsent === true ? "selected" : ""} onClick={() => updateDraft("marketingConsent", true)}>{copy("はい", "Có", "Yes")}</button><button type="button" className={draft.marketingConsent === false ? "selected" : ""} onClick={() => updateDraft("marketingConsent", false)}>{copy("いいえ", "Không", "No")}</button></span>
                   </label>
                 </section>
               </form>
