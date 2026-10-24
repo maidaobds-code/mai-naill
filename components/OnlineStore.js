@@ -14,6 +14,7 @@ import { CustomerProfile } from "./AccountAccess";
 import { useAccountStore } from "../lib/accountStore";
 import { getPublicKv } from "../lib/supabaseBrowser";
 import { appointmentConfirmationEmail } from "../lib/appointmentEmail";
+import { localizedProduct } from "../lib/productTranslation";
 
 const timeSlots = Array.from({ length: 29 }, (_, index) => {
   const minutes = 9 * 60 + index * 30;
@@ -164,6 +165,7 @@ export default function OnlineStore({
   );
   const showShop = mode !== "booking";
   const showBooking = mode !== "shop";
+  const productText = (product) => localizedProduct(product, language);
   const accountContact = {
     customer: currentAccount?.name || "",
     phone: currentAccount?.phone || "",
@@ -851,8 +853,8 @@ export default function OnlineStore({
                             index + 1,
                           )}
                       </span>
-                      <h3>{product.name}</h3>
-                      <p>{product.description || product.shortDescription}</p>
+                      <h3>{productText(product).name}</h3>
+                      <p>{productText(product).description}</p>
                       <div>
                         <strong>
                           {money(product.salePrice || product.basePrice)}
@@ -934,8 +936,8 @@ export default function OnlineStore({
                       {product.brandName ||
                         localCopy.productFallback.replace("{index}", index + 1)}
                     </span>
-                    <h3>{product.name}</h3>
-                    <p>{product.description || product.shortDescription}</p>
+                    <h3>{productText(product).name}</h3>
+                    <p>{productText(product).description}</p>
                     <div>
                       <strong>
                         {money(product.salePrice || product.basePrice)}

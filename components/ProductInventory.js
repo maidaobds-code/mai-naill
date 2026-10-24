@@ -22,6 +22,7 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [draft, setDraft] = useState(emptyProduct);
+  const [translating, setTranslating] = useState(false);
   const inventoryRows = getInventoryRows();
   const visible = products.filter((product) => {
     const matchesQuery = product.name.toLowerCase().includes(query.toLowerCase()) || product.sku?.toLowerCase().includes(query.toLowerCase());
@@ -37,8 +38,16 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
     reader.readAsDataURL(file);
   }
 
-  function saveProduct() {
+  async function translateText(text) {
+    if (!text?.trim()) return {};
+    const response = await fetch("/api/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, targets: ["VI", "JA", "EN", "ZH", "KO"] }) });
+    const result = await response.json().catch(() => ({}));
+    return result.ok ? result.translations : {};
+  }
+
+  async function saveProduct() {
     if (!draft.name.trim()) return;
+    const [names, descriptions] = await Promise.all([translateText(draft.name), translateText(draft.description || draft.shortDescription || "")]);
     const record = {
       ...draft,
       id: draft.id || `product-${Date.now()}`,
@@ -53,9 +62,16 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
       posEnabled: true,
       salePrice: draft.salePrice || null,
       isLowStock: Number(draft.stock) <= Number(draft.lowStockThreshold),
+      nameVi: names.VI || draft.name, nameJa: names.JA || draft.name, nameEn: names.EN || draft.name, nameZh: names.ZH || draft.name, nameKo: names.KO || draft.name,
+      descriptionVi: descriptions.VI || draft.description || draft.shortDescription || "", descriptionJa: descriptions.JA || draft.description || draft.shortDescription || "", descriptionEn: descriptions.EN || draft.description || draft.shortDescription || "", descriptionZh: descriptions.ZH || draft.description || draft.shortDescription || "", descriptionKo: descriptions.KO || draft.description || draft.shortDescription || "",
     };
     setProducts((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
     setDraft(emptyProduct);
+  }
+
+  async function translateExistingProducts() {
+    setTranslating(true);
+    try { const next = await Promise.all(products.map(async (product) => { const [names, descriptions] = await Promise.all([["nameVi","nameJa","nameEn","nameZh","nameKo"].every((key) => product[key]) ? {} : translateText(product.name), ["descriptionVi","descriptionJa","descriptionEn","descriptionZh","descriptionKo"].every((key) => product[key]) ? {} : translateText(product.description || product.shortDescription || "")]); return { ...product, nameVi: names.VI || product.nameVi || product.name, nameJa: names.JA || product.nameJa || product.name, nameEn: names.EN || product.nameEn || product.name, nameZh: names.ZH || product.nameZh || product.name, nameKo: names.KO || product.nameKo || product.name, descriptionVi: descriptions.VI || product.descriptionVi || product.description || product.shortDescription || "", descriptionJa: descriptions.JA || product.descriptionJa || product.description || product.shortDescription || "", descriptionEn: descriptions.EN || product.descriptionEn || product.description || product.shortDescription || "", descriptionZh: descriptions.ZH || product.descriptionZh || product.description || product.shortDescription || "", descriptionKo: descriptions.KO || product.descriptionKo || product.description || product.shortDescription || "" }; })); setProducts(next); } finally { setTranslating(false); }
   }
 
   function deleteProduct(id) {
@@ -66,7 +82,7 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
     <>
       <div className="pageHead">
         <div><p className="eyebrow">CATALOG SYNC</p><h1>{label}</h1><p>{copy.desc}</p></div>
-        <button className="primary" onClick={saveProduct}>{copy.save}</button>
+        <div className="buttonRow"><button className="ghost" onClick={translateExistingProducts} disabled={translating}>{translating ? "Đang dịch sản phẩm…" : "Dịch sản phẩm cũ"}</button><button className="primary" onClick={saveProduct}>{copy.save}</button></div>
       </div>
       <section className="card staffEditor productEditorPanel">
         <div className="sectionTitle"><div><h2>{copy.editor}</h2><p>{copy.editorDesc}</p></div></div>
