@@ -76,10 +76,10 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     setStaff((current) => current.filter((member) => member.id !== id));
   }
 
-  function saveStaffRole(account) {
+  async function saveStaffRole(account) {
     if (!account) return;
     const role = roleDraft[account.id] || account.role;
-    const result = updateAccountRole(account.id, role);
+    const result = await updateAccountRole(account.id, role);
     setAccountMessage(result.ok ? "Đã lưu vai trò cho nhân viên." : result.message);
   }
 
