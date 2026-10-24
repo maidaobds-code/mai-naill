@@ -29,7 +29,7 @@ export default function GroupedBooking({
   const [consent, setConsent] = useState(false);
   const [search, setSearch] = useState("");
   const [staffOpen, setStaffOpen] = useState(false);
-  const lang = language === "ja" ? "ja" : language === "vi" ? "vi" : "en";
+  const lang = ["ja", "vi", "zh", "ko"].includes(language) ? language : "en";
   const copy = (ja, vi, en) => (lang === "ja" ? ja : lang === "vi" ? vi : en);
   const groups = [...bookingGroups, fallbackBookingGroup];
   const eligibleStaff = staff.filter(

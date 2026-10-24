@@ -52,9 +52,16 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     reader.readAsDataURL(file);
   }
 
-  function saveService() {
+  async function saveService() {
     if (!draft.name.trim()) return;
-    const record = { ...draft, id: draft.id || `svc-${Date.now()}` };
+    const translate = async (text) => {
+      if (!text?.trim()) return {};
+      const response = await fetch("/api/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, targets: ["VI", "JA", "EN", "ZH", "KO"] }) });
+      const result = await response.json().catch(() => ({}));
+      return result.ok ? result.translations : {};
+    };
+    const [names, descriptions] = await Promise.all([translate(draft.name), translate(draft.description)]);
+    const record = { ...draft, id: draft.id || `svc-${Date.now()}`, nameVi: names.VI || draft.name, nameJa: names.JA || draft.name, nameEn: names.EN || draft.name, nameZh: names.ZH || draft.name, nameKo: names.KO || draft.name, descriptionVi: descriptions.VI || draft.description, descriptionJa: descriptions.JA || draft.description, descriptionEn: descriptions.EN || draft.description, descriptionZh: descriptions.ZH || draft.description, descriptionKo: descriptions.KO || draft.description };
     setServices((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
     setDraft({ ...emptyService });
   }
