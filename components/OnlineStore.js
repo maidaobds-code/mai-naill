@@ -321,14 +321,15 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
       return;
     }
 
+    const assignedStaff = staff.find((member) => member.name === draft.staff);
     let saved;
     try {
-    saved = await addBooking({ day: draft.day, date: draft.date, language, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration + bookingOptions.reduce((sum, option) => sum + option.duration, 0)), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: [selectedService.name, ...bookingOptions.map(option => option.name)].join(" + "), staff: draft.staff || selectedService.staff?.[0] || staff[0].name, source: "direct", origin: localCopy.websiteBooking, price: Number(selectedService.price) + bookingOptions.reduce((sum, option) => sum + option.price, 0), commissionRule: localCopy.websiteBooking });
+    saved = await addBooking({ day: draft.day, date: draft.date, language, customerAccountId: currentAccount?.id || "", start: draft.time, end: addMinutes(draft.time, selectedService.duration + bookingOptions.reduce((sum, option) => sum + option.duration, 0)), customer: draft.customer.trim(), phone: draft.phone.trim(), email: draft.email.trim(), service: [selectedService.name, ...bookingOptions.map(option => option.name)].join(" + "), staff: assignedStaff?.name || "Chưa phân công", staffId: assignedStaff?.id || "", staffEmail: assignedStaff?.email || "", assignmentStatus: assignedStaff ? "ASSIGNED" : "PENDING_ASSIGNMENT", source: "direct", origin: localCopy.websiteBooking, price: Number(selectedService.price) + bookingOptions.reduce((sum, option) => sum + option.price, 0), commissionRule: localCopy.websiteBooking });
     } catch { setMessage(language === "ja" ? "予約を保存できませんでした。もう一度お試しください。" : language === "vi" ? "Chưa lưu được lịch hẹn. Vui lòng thử lại." : "Could not save your appointment. Please try again."); return false; }
     notifyByEmail({ to: [draft.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách hàng: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
-    const assignedStaff = staff.find((member) => member.name === saved.staff);
-    notifyByEmail({ to: [assignedStaff?.email].filter(Boolean), subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
-    setMessage(tr("bookingCreated", { time: saved.start, date: draft.date }));
+    if (assignedStaff?.email) notifyByEmail({ to: assignedStaff.email, subject: `Lịch hẹn mới - ${saved.customer}`, html: `<h2>Lịch hẹn mới</h2><p>Khách: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>` });
+    const assignmentEmailFailed = saved.assignmentStatus === "PENDING_ASSIGNMENT" && saved.assignmentNotifications?.some((item) => !item.ok);
+    setMessage(`${tr("bookingCreated", { time: saved.start, date: draft.date })}${assignmentEmailFailed ? (language === "ja" ? " 管理者メールの設定を確認してください。" : language === "en" ? " The appointment was saved, but the manager email could not be sent." : " Lịch đã lưu nhưng chưa gửi được email cho quản lý; hãy kiểm tra cấu hình email.") : ""}`);
     setDraft((current) => ({ ...current, customer: accountContact.customer, phone: accountContact.phone, email: accountContact.email }));
     return true;
   }

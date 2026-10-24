@@ -1,3 +1,6 @@
+import { createBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
+import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const OWNER_ID = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
@@ -10,6 +13,30 @@ async function supabaseRest(path, options = {}) {
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) throw new Error(JSON.stringify(data));
   return data;
+}
+
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
+}
+
+function isPendingAssignment(booking) {
+  return booking?.assignmentStatus === "PENDING_ASSIGNMENT" || (!booking?.staffId && ["", "Chưa phân công", "指名なし", "No preference"].includes(String(booking?.staff || "")));
+}
+
+function publicOrigin(request) {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
+  return configured.replace(/\/$/, "") || new URL(request.url).origin;
+}
+
+async function notifyManagementForAssignment(request, booking) {
+  const recipients = await managementEmails();
+  if (!recipients.length) return { ok: false, skipped: true, reason: "No owner or manager email is configured" };
+  const token = createBookingAssignmentToken(booking.id);
+  const assignUrl = `${publicOrigin(request)}/assign-booking?token=${encodeURIComponent(token)}`;
+  const subject = `Mai Beauty Salon · Cần chọn nhân viên · ${booking.customer || "Khách hàng"}`;
+  const text = `Có lịch hẹn mới chưa chọn nhân viên.\nKhách: ${booking.customer}\nNgày: ${booking.date}\nGiờ: ${booking.start} - ${booking.end}\nDịch vụ: ${booking.service}\nChọn nhân viên: ${assignUrl}`;
+  const html = `<div style="margin:0;background:#fff7fb;padding:28px 14px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:20px 26px;background:#f6d8ec;font-weight:700">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="font-size:22px">Lịch hẹn mới chưa chọn nhân viên</h1><p><strong>Khách:</strong> ${escapeHtml(booking.customer)}</p><p><strong>Ngày:</strong> ${escapeHtml(booking.date)}</p><p><strong>Giờ:</strong> ${escapeHtml(booking.start)} - ${escapeHtml(booking.end)}</p><p><strong>Dịch vụ:</strong> ${escapeHtml(booking.service)}</p><p style="margin:26px 0"><a href="${escapeHtml(assignUrl)}" style="display:inline-block;padding:13px 22px;border-radius:999px;background:#a93670;color:#fff;text-decoration:none;font-weight:700">Chọn nhân viên</a></p><small>Liên kết có hiệu lực trong 48 giờ.</small></div></div></div>`;
+  return sendEmail({ to: recipients, subject, text, html });
 }
 
 export async function GET() {
@@ -25,9 +52,12 @@ export async function POST(request) {
   try {
     const currentRows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
     const current = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
+    const currentIds = new Set(current.map((item) => item?.id).filter(Boolean));
     const incomingIds = new Set(body.bookings.map((item) => item?.id).filter(Boolean));
     const merged = [...body.bookings, ...current.filter((item) => item?.id && !incomingIds.has(item.id))];
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
-    return Response.json({ ok: true, value: rows?.[0]?.value || merged });
+    const pending = body.bookings.filter((booking) => booking?.id && !currentIds.has(booking.id) && isPendingAssignment(booking));
+    const notifications = await Promise.all(pending.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
+    return Response.json({ ok: true, value: rows?.[0]?.value || merged, assignmentNotifications: notifications });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
 }
