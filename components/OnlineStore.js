@@ -90,7 +90,7 @@ export default function OnlineStore({ language: initialLanguage = "vi", setLangu
     vi: { search: "Tìm sản phẩm", noProducts: "Không tìm thấy sản phẩm phù hợp.", auto: "Tự động chạy", autoText: "Sản phẩm nổi bật được sắp xếp gọn để khách dễ chọn.", shop: "Mua hàng", previous: "Sản phẩm trước", next: "Sản phẩm tiếp theo", viewProduct: "Xem sản phẩm {index}", productFallback: "Sản phẩm {index}", productList: "Danh sách sản phẩm", productListText: "Tất cả sản phẩm đang bật bán trên web.", branch: "Chi nhánh", websiteBooking: "Đặt lịch website", minutes: "phút" },
     ja: { search: "商品を検索", noProducts: "該当する商品が見つかりません。", auto: "自動再生", autoText: "おすすめ商品を見やすく整理しています。", shop: "買い物", previous: "前の商品", next: "次の商品", viewProduct: "商品 {index} を表示", productFallback: "商品 {index}", productList: "商品一覧", productListText: "Web販売が有効な商品をすべて表示しています。", branch: "店舗", websiteBooking: "Web予約", minutes: "分" },
     en: { search: "Search products", noProducts: "No matching products found.", auto: "Auto play", autoText: "Featured products are arranged for easy browsing.", shop: "Shop", previous: "Previous product", next: "Next product", viewProduct: "View product {index}", productFallback: "Product {index}", productList: "Product list", productListText: "All products enabled for web sales.", branch: "Branch", websiteBooking: "Website booking", minutes: "min" },
-  }[language] || {};
+  }[language] || { productFallback: "Product {index}", viewProduct: "View product {index}", websiteBooking: "Website booking", minutes: "min" };
   const visibleFeatured = featured.filter((product) => {
     const term = productSearch.trim().toLowerCase();
     if (!term) return true;

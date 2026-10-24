@@ -34,7 +34,7 @@ export default function DashboardEnhanced({ language = "vi" }) {
       <div className="stats">
         <Stat label={c.bookings} value={bookings.length} sub="Nailie / Hot Pepper / minimo" />
         <Stat label={c.salonRevenue} value={`¥${salonRevenue.toLocaleString("ja-JP")}`} sub={c.bookedServices} />
-        <Stat label={c.productRevenue} value={`¥${productRevenue.toLocaleString("ja-JP")}`} sub={c.onlineOrders.replace("{count}", orders.length)} />
+        <Stat label={c.productRevenue} value={`¥${productRevenue.toLocaleString("ja-JP")}`} sub={String(c.onlineOrders || "Online orders {count}").replace("{count}", orders.length)} />
         <Stat label={c.dailyClosing} value={`¥${paymentTotal.toLocaleString("ja-JP")}`} sub={c.paymentSub} />
       </div>
       <div className="grid2">

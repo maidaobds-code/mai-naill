@@ -389,7 +389,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     );
                   })}
                   {!dayBookings.length && <span className="weekEmptyState">{c.noBooking}</span>}
-                  {dayBookings.length > 3 && <span className="weekMore">{c.more.replace("{count}", dayBookings.length - 3)}</span>}
+                  {dayBookings.length > 3 && <span className="weekMore">{String(c.more || "+{count} more").replace("{count}", dayBookings.length - 3)}</span>}
                 </span>
               </button>
             );

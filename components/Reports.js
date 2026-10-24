@@ -62,9 +62,9 @@ export default function Reports({ language = "vi" }) {
         <button className="primary">{c.export}</button>
       </div>
       <div className="stats">
-        <div className="stat card"><span>{c.serviceRevenue}</span><strong>{yen(serviceRevenue)}</strong><small>{c.bookings.replace("{count}", bookings.length)}</small></div>
-        <div className="stat card"><span>{c.productRevenue}</span><strong>{yen(productRevenue)}</strong><small>{c.onlineOrders.replace("{count}", orders.length)}</small></div>
-        <div className="stat card"><span>{c.posRevenue}</span><strong>{yen(posRevenue)}</strong><small>{c.paidSales.replace("{count}", paidSales.length)}</small></div>
+        <div className="stat card"><span>{c.serviceRevenue}</span><strong>{yen(serviceRevenue)}</strong><small>{String(c.bookings || "Bookings {count}").replace("{count}", bookings.length)}</small></div>
+        <div className="stat card"><span>{c.productRevenue}</span><strong>{yen(productRevenue)}</strong><small>{String(c.onlineOrders || "Online orders {count}").replace("{count}", orders.length)}</small></div>
+        <div className="stat card"><span>{c.posRevenue}</span><strong>{yen(posRevenue)}</strong><small>{String(c.paidSales || "Paid sales {count}").replace("{count}", paidSales.length)}</small></div>
         <div className="stat card"><span>{c.vsLastWeek}</span><strong>{weekDelta.toFixed(1)}%</strong><small>{c.growth}</small></div>
       </div>
       <div className="reportGrid">
