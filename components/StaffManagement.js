@@ -80,6 +80,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     if (!account) return;
     const role = roleDraft[account.id] || account.role;
     const result = await updateAccountRole(account.id, role);
+    if (result.ok) setStaff((current) => current.map((item) => item.email?.trim().toLowerCase() === account.email?.trim().toLowerCase() ? { ...item, role } : item));
     setAccountMessage(result.ok ? "Đã lưu vai trò cho nhân viên." : result.message);
   }
 
@@ -116,11 +117,13 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <tbody>{staff.map((member) => (
             <tr key={member.id}>
 	              {(() => {
-                const account = accounts.find((item) => item.id === `staff-${member.id}`) || accounts.find((item) => item.name === member.name || item.staffName === member.name) || (() => { const matches = accounts.filter((item) => item.email && member.email && item.email.toLowerCase() === member.email.toLowerCase()); return matches.length === 1 ? matches[0] : null; })();
+                const emailMatches = accounts.filter((item) => item.email && member.email && item.email.trim().toLowerCase() === member.email.trim().toLowerCase());
+                const account = emailMatches.length === 1 ? emailMatches[0] : accounts.find((item) => item.id === `staff-${member.id}`) || accounts.find((item) => item.name === member.name || item.staffName === member.name) || null;
+                const effectiveRole = account?.role || member.role || "staff";
 	                return <>
-              <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{member.role}</span></div></div></td>
+              <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{effectiveRole}</span></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
-              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={roleDraft[account.id] || account.role} onChange={(event) => setRoleDraft((current) => ({ ...current, [account.id]: event.target.value }))}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
+              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={roleDraft[account.id] || effectiveRole} onChange={(event) => setRoleDraft((current) => ({ ...current, [account.id]: event.target.value }))}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
               <td><div className="staffAccountActions"><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
 	                </>;
 	              })()}
