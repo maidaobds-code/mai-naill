@@ -21,6 +21,7 @@ export default function GroupedBooking({
   submitBooking,
   message,
   language,
+  settings = {},
 }) {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -472,24 +473,7 @@ export default function GroupedBooking({
                       "Before your visit",
                     )}
                   </h2>
-                  <div className="maiPolicy" lang={lang}>
-                    <p className="policyLanguageLead">{copy("キャンセル・遅刻・施術保証についてのご案内です。", "Vui lòng đọc các quy định về đổi/hủy lịch, đi trễ và bảo hành trước khi đặt lịch.", "Please review our cancellation, lateness, service and repair policies before booking.")}</p>
-                    <strong>■予約のキャンセル・変更について</strong>
-                    <p>
-                      キャンセルや日時変更は、予約日前日の営業時間内までにメッセージにてお願いします。当日キャンセルや日時変更はキャンセル料100%を請求し、次回以降のご予約をお断りさせて頂く場合がございます。
-                    </p>
-                    <p>
-                      当日のコース変更、施術代金の返金は出来かねます。5分以上遅れた場合、施術内容の変更または予約自体をお断りする場合がございます。10分遅刻で遅刻料1,000円。30分遅刻の場合、当日の時間変更は2,000円頂いております。
-                    </p>
-                    <strong>■施術について</strong>
-                    <p>
-                      指名のない場合、男性スタッフが施術させて頂く事もございます。スタッフの状況によっては両手の同時施術の場合もございます。グリーンネイル等爪の病気の疑いがある指には施術出来ません。
-                    </p>
-                    <strong>■お直しについて</strong>
-                    <p>
-                      施術日から1週間以内のご連絡で無料お直し保証がございます。無料お直しは1回限り、デザインと色の変更は出来ません。1週間を過ぎてのお直し、爪の亀裂や折れは有料となります。
-                    </p>
-                  </div>
+                  <div className="maiPolicy" lang={lang}><p style={{ whiteSpace: "pre-line" }}>{settings.bookingNotice || copy("予約の変更・キャンセルは前日営業時間内にご連絡ください。", "Vui lòng liên hệ salon trong giờ làm việc trước ngày hẹn nếu cần đổi hoặc hủy lịch.", "Please contact the salon during business hours before your appointment to change or cancel.")}</p></div>
                   <label className="maiConsent">
                     <input
                       type="checkbox"
@@ -589,7 +573,7 @@ export default function GroupedBooking({
                   className="primary"
                   type="submit"
                   form="mai-confirm"
-                  disabled={!consent || submitting}
+                  disabled={!consent || typeof draft.marketingConsent !== "boolean" || submitting}
                 >
                   {submitting
                     ? "…"

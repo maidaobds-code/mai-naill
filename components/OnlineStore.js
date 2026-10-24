@@ -145,6 +145,7 @@ export default function OnlineStore({
     customer: "",
     phone: "",
     email: "",
+    marketingConsent: undefined,
   });
   const selectedService = useMemo(
     () =>
@@ -299,6 +300,17 @@ export default function OnlineStore({
   }, []);
 
   useEffect(() => {
+    if (!currentAccount || typeof window === "undefined") return;
+    try {
+      const savedDraft = JSON.parse(window.sessionStorage.getItem("nail-japan-pending-booking") || "null");
+      if (!savedDraft) return;
+      setDraft((current) => ({ ...current, ...savedDraft.draft, customer: savedDraft.draft?.customer || currentAccount.name || current.customer, phone: savedDraft.draft?.phone || currentAccount.phone || current.phone, email: savedDraft.draft?.email || currentAccount.email || current.email }));
+      setBookingOptions(savedDraft.options || []);
+      window.sessionStorage.removeItem("nail-japan-pending-booking");
+    } catch {}
+  }, [currentAccount?.id]);
+
+  useEffect(() => {
     if (externalSetLanguage) setLanguage(initialLanguage);
   }, [externalSetLanguage, initialLanguage]);
 
@@ -402,6 +414,7 @@ export default function OnlineStore({
 
   function openBuy(product) {
     if (!currentAccount) {
+      window.sessionStorage.setItem("nail-japan-pending-booking", JSON.stringify({ draft, options: bookingOptions }));
       window.location.assign("/");
       return;
     }
@@ -1043,6 +1056,7 @@ export default function OnlineStore({
           submitBooking={submitBooking}
           message={message}
           language={language}
+          settings={settings}
         />
       )}
       {profileOpen && (
