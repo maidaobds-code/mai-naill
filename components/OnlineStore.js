@@ -650,6 +650,9 @@ export default function OnlineStore({
           assignedStaff?.displayName || assignedStaff?.name || "",
         designationFee: Number(assignedStaff?.designationFee || 0),
         assignmentStatus: assignedStaff ? "ASSIGNED" : "PENDING_ASSIGNMENT",
+        approvalStatus: "PENDING_OWNER_CONFIRMATION",
+        requestedStaff: assignedStaff?.name || "",
+        requestedStaffId: assignedStaff?.id || "",
         source: "direct",
         origin: localCopy.websiteBooking,
         price:
@@ -668,13 +671,8 @@ export default function OnlineStore({
       );
       return false;
     }
-    const customerEmail = appointmentConfirmationEmail({
-      booking: saved,
-      settings,
-      language,
-      bookingUrl: `${window.location.origin}/booking?appointment=${encodeURIComponent(saved.id)}`,
-    });
-    notifyByEmail({ to: [draft.email].filter(Boolean), ...customerEmail });
+    // The customer confirmation is sent by the server only after the salon
+    // owner has reviewed the staff assignment.
     if (assignedStaff?.email)
       notifyByEmail({
         to: assignedStaff.email,

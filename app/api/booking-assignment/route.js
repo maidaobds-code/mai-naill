@@ -1,4 +1,4 @@
-import { verifyBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
+import { createBookingCancellationToken, verifyBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
 import { sendEmail, staffCatalog } from "../../../lib/serverEmail.js";
 import { staff as seedStaff } from "../../../lib/salonData.js";
 
@@ -65,11 +65,14 @@ export async function POST(request) {
   try {
     const [allBookings, staff] = await Promise.all([bookings(), availableStaff()]);
     const booking = allBookings.find((item) => item.id === claim.bookingId && !item.deletedAt);
-    const member = staff.find((item) => String(item.id) === String(body.staffId));
+    const requestedNoPreference = body.staffId === "__NO_PREFERENCE__";
+    const member = requestedNoPreference ? staff.find((item) => availability(item, booking, allBookings).available) : staff.find((item) => String(item.id) === String(body.staffId));
     if (!booking || !member) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn hoặc nhân viên." }, { status: 404 });
     const conflict = allBookings.find((item) => item.id !== booking.id && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()) && (String(item.staffId || "") === String(member.id) || item.staff === member.name) && overlaps(item, booking));
     if (conflict) return Response.json({ ok: false, message: `${member.name} đã có lịch trong khung giờ này.` }, { status: 409 });
-    const assigned = { ...booking, staff: member.name, staffId: member.id, staffEmail: member.email || "", staffRole: member.role || "", assignmentStatus: "ASSIGNED", assignedAt: new Date().toISOString() };
+    const originallyRequested = booking.requestedStaff || booking.staff || "";
+    const staffChanged = Boolean(originallyRequested && !["Chưa phân công", "指名なし", "No preference"].includes(originallyRequested) && originallyRequested !== member.name);
+    const assigned = { ...booking, staff: member.name, staffId: member.id, staffEmail: member.email || "", staffRole: member.role || "", assignmentStatus: "ASSIGNED", approvalStatus: "OWNER_CONFIRMED", noPreference: requestedNoPreference, assignedAt: new Date().toISOString() };
     const next = allBookings.map((item) => item.id === assigned.id ? assigned : item);
     await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: next, updated_at: new Date().toISOString() }]) });
     const notification = await sendEmail({
@@ -78,6 +81,18 @@ export async function POST(request) {
       text: `Bạn được phân công lịch hẹn mới.\nNgày: ${assigned.date}\nGiờ: ${assigned.start} - ${assigned.end}\nDịch vụ: ${assigned.service}`,
       html: `<div style="font-family:Arial,sans-serif;color:#332936"><h2>Bạn được phân công lịch hẹn mới</h2><p><strong>Khách:</strong> ${escapeHtml(assigned.customer)}</p><p><strong>Ngày:</strong> ${escapeHtml(assigned.date)}</p><p><strong>Giờ:</strong> ${escapeHtml(assigned.start)} - ${escapeHtml(assigned.end)}</p><p><strong>Dịch vụ:</strong> ${escapeHtml(assigned.service)}</p></div>`,
     });
-    return Response.json({ ok: true, booking: assigned, notification });
+    const origin = new URL(request.url).origin;
+    const assignmentToken = new URL(request.url).searchParams.get("token") || body.token;
+    const cancelToken = createBookingCancellationToken(assigned.id);
+    const changeUrl = `${origin}/assign-booking?token=${encodeURIComponent(assignmentToken)}`;
+    const cancelUrl = `${origin}/cancel-booking?token=${encodeURIComponent(cancelToken)}`;
+    const customerReason = staffChanged ? `Nhân viên ${originallyRequested} hiện không tiện phục vụ trong khung giờ này, salon đã sắp xếp ${member.name}.` : requestedNoPreference ? `Bạn không yêu cầu chỉ định, salon đã sắp xếp ${member.name}.` : `Salon đã xác nhận ${member.name} phục vụ bạn.`;
+    const customerNotification = await sendEmail({
+      to: assigned.email,
+      subject: `Mai Beauty Salon · Lịch hẹn đã được chấp nhận · ${assigned.date}`,
+      text: `Lịch hẹn của bạn đã được chấp nhận.\n${customerReason}\nNgày: ${assigned.date}\nGiờ: ${assigned.start} - ${assigned.end}\nChọn nhân viên khác hoặc không chỉ định: ${changeUrl}\nHủy hẹn: ${cancelUrl}`,
+      html: `<div style="font-family:Arial,sans-serif;color:#332936;max-width:600px;margin:auto"><h2>Lịch hẹn đã được chấp nhận</h2><p>${escapeHtml(customerReason)}</p><p><strong>Ngày:</strong> ${escapeHtml(assigned.date)}<br><strong>Giờ:</strong> ${escapeHtml(assigned.start)} - ${escapeHtml(assigned.end)}<br><strong>Dịch vụ:</strong> ${escapeHtml(assigned.service)}</p><p><a href="${escapeHtml(changeUrl)}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#a93670;color:#fff;text-decoration:none;font-weight:700">Chọn nhân viên khác / Không chỉ định</a></p><p><a href="${escapeHtml(cancelUrl)}" style="display:inline-block;padding:11px 18px;border-radius:999px;border:1px solid #c4455d;color:#a62f46;text-decoration:none;font-weight:700">Hủy hẹn</a></p></div>`,
+    });
+    return Response.json({ ok: true, booking: assigned, notification, customerNotification });
   } catch (error) { return Response.json({ ok: false, message: error.message || "Không thể phân công nhân viên." }, { status: 500 }); }
 }
