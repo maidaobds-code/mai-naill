@@ -375,7 +375,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
-                  <div className="resourceLane" style={{ backgroundSize: `${100 / Math.max(1, visibleIntervalSlots.length)}% 100%` }}>
+                  <div className="resourceLane" style={{ backgroundSize: "64px 100%" }}>
                     <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, 64px)` }}>
                       {visibleIntervalSlots.map((hour) => (
                         <button
