@@ -31,6 +31,23 @@ function publicOrigin(request) {
 function minutes(value) { const [hour, minute] = String(value || "").split(":").map(Number); return hour * 60 + minute; }
 function overlaps(left, right) { return left.date && left.date === right.date && minutes(left.start) < minutes(right.end) && minutes(left.end) > minutes(right.start); }
 
+function normalizeId(booking) {
+  return booking?.id === undefined || booking?.id === null ? booking : { ...booking, id: String(booking.id) };
+}
+
+function compactBookings(list) {
+  const byId = new Map();
+  for (const raw of Array.isArray(list) ? list : []) {
+    const booking = normalizeId(raw);
+    if (!booking?.id) continue;
+    const previous = byId.get(booking.id);
+    // A tombstone is immutable and must win over every live duplicate. This
+    // also repairs old rows where numeric and string IDs were stored together.
+    if (!previous || booking.deletedAt || !previous.deletedAt) byId.set(booking.id, previous?.deletedAt && !booking.deletedAt ? previous : booking);
+  }
+  return [...byId.values()];
+}
+
 async function notifyManagementForAssignment(request, booking) {
   const recipients = await managementEmails();
   if (!recipients.length) return { ok: false, skipped: true, reason: "No owner or manager email is configured" };
@@ -45,7 +62,8 @@ async function notifyManagementForAssignment(request, booking) {
 export async function GET() {
   try {
     const rows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
-    return Response.json({ ok: true, value: Array.isArray(rows?.[0]?.value) ? rows[0].value : [] }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    const value = compactBookings(rows?.[0]?.value);
+    return Response.json({ ok: true, value }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch { return Response.json({ ok: false, value: [], message: "Không thể đọc lịch hẹn." }, { status: 500 }); }
 }
 
@@ -54,22 +72,23 @@ export async function POST(request) {
   if (!Array.isArray(body.bookings)) return Response.json({ ok: false, message: "Invalid bookings" }, { status: 400 });
   try {
     const currentRows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
-    const current = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
-    const currentIds = new Set(current.map((item) => item?.id).filter(Boolean));
-    const incomingIds = new Set(body.bookings.map((item) => item?.id).filter(Boolean));
-    const protectedBookings = body.bookings.map((item) => {
-      const previous = current.find((value) => value?.id === item?.id);
+    const current = compactBookings(currentRows?.[0]?.value);
+    const submitted = compactBookings(body.bookings);
+    const currentIds = new Set(current.map((item) => item.id));
+    const incomingIds = new Set(submitted.map((item) => item.id));
+    const protectedBookings = submitted.map((item) => {
+      const previous = current.find((value) => value.id === item.id);
       return previous?.deletedAt && !item?.restoreDeleted ? previous : item;
     });
     const incoming = protectedBookings.filter((item) => item && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()));
-    const allForConflict = [...current.filter((item) => !incomingIds.has(item?.id)), ...incoming];
+    const allForConflict = [...current.filter((item) => !item.deletedAt && !incomingIds.has(item.id)), ...incoming];
     for (const booking of incoming) {
       const conflict = allForConflict.find((item) => item.id !== booking.id && item.date === booking.date && item.staff && booking.staff && item.staff === booking.staff && overlaps(item, booking));
       if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
     }
-    const merged = [...protectedBookings, ...current.filter((item) => item?.id && !incomingIds.has(item.id))];
+    const merged = compactBookings([...protectedBookings, ...current.filter((item) => item.id && !incomingIds.has(item.id))]);
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
-    const pending = body.bookings.filter((booking) => booking?.id && !currentIds.has(booking.id) && isPendingAssignment(booking));
+    const pending = submitted.filter((booking) => booking.id && !currentIds.has(booking.id) && isPendingAssignment(booking));
     const notifications = await Promise.all(pending.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
     return Response.json({ ok: true, value: rows?.[0]?.value || merged, assignmentNotifications: notifications });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
