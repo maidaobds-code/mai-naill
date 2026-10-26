@@ -29,6 +29,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
   const [bookingOptions, setBookingOptions] = useBookingOptionCatalog();
   const [optionDraft, setOptionDraft] = useState({ id: "", name: "", price: 0, duration: 30 });
   const editorRef = useRef(null);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [draft, setDraft] = useState({ ...emptyService });
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
@@ -98,10 +99,11 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     <>
       <div className="pageHead">
         <div><p className="eyebrow">SERVICE MENU</p><h1>{label}</h1><p>{c.desc}</p></div>
-        <div className="buttonRow"><button className="ghost" type="button" onClick={translateExistingServices} disabled={translatingExisting}>{translatingExisting ? "Đang dịch menu…" : "Dịch toàn bộ menu cũ"}</button><button className="primary" type="button" onClick={() => { setDraft({ ...emptyService }); editorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>＋ Thêm menu</button></div>
+        <div className="buttonRow"><button className="ghost" type="button" onClick={translateExistingServices} disabled={translatingExisting}>{translatingExisting ? "Đang dịch menu…" : "Dịch toàn bộ menu cũ"}</button><button className="primary" type="button" onClick={() => { setDraft({ ...emptyService }); setEditorOpen(true); }}>＋ Thêm menu</button></div>
       </div>
 
-      <section ref={editorRef} className="card staffEditor serviceEditorPanel">
+      <section ref={editorRef} className="card staffEditor serviceEditorPanel serviceEditorModal" style={{ display: editorOpen ? "block" : "none" }}>
+        <div className="modalHead"><div><p className="eyebrow">SERVICE EDITOR</p><h2>{draft.id ? "Sửa dịch vụ" : "Thêm dịch vụ"}</h2></div><button className="ghost" type="button" onClick={() => setEditorOpen(false)}>Đóng</button></div>
         <div className="staffForm">
           <label>{c.name}<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
           <label>{categoryLabel}<select value={draft.category || "existing"} onChange={(event) => setDraft({ ...draft, category: event.target.value })}>{groups.map((group) => <option key={group.id} value={group.id}>{group[languageKey]}</option>)}</select></label>
@@ -114,6 +116,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
 
         {draft.imageUrl && <div className="imagePreview"><img src={draft.imageUrl} alt={draft.name || "Nail sample"} /><span>{draft.imageFileName || c.selectedImage}</span></div>}
         <div className="staffPicker">{staff.map((member) => <button type="button" key={member.id} className={draft.staff.includes(member.name) ? "ghost activeSoft" : "ghost"} onClick={() => toggleStaff(member.name)}>{member.name}</button>)}</div>
+        <div className="serviceEditorModalActions"><button className="ghost dangerButton" type="button" disabled={!draft.id} onClick={() => { if (draft.category === "addons") setBookingOptions((current) => current.filter((item) => item.id !== draft.id)); else setServices((current) => current.filter((item) => item.id !== draft.id)); setEditorOpen(false); setDraft({ ...emptyService }); }}>Xóa</button><button className="primary" type="button" onClick={async () => { await saveService(); setEditorOpen(false); }}>Lưu</button></div>
       </section>
 
       <div className="serviceCatalogTools">
@@ -126,15 +129,15 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
         <table>
           <thead><tr>{c.headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
           <tbody>{visibleServices.map((service) => (
-            <tr key={service.id}>
+            <tr key={service.id} onDoubleClick={() => { setDraft({ ...emptyService, ...service }); setEditorOpen(true); }} onTouchEnd={() => { setDraft({ ...emptyService, ...service }); setEditorOpen(true); }}>
               <td><div className="serviceCell">{service.imageUrl ? <img src={service.imageUrl} alt={service.name} /> : <span className="serviceThumb">NA</span>}<div><strong>{service.name}</strong><br /><small>{service.description}</small></div></div></td>
               <td><span className="serviceGroupBadge">{bookingGroupLabel(service.category, language)}</span></td>
               <td>JPY {service.price.toLocaleString("ja-JP")}</td>
               <td>{service.duration} {c.minutes}</td>
               <td>{service.staff.join(", ")}</td>
-              <td><button className="ghost" onClick={() => { setDraft({ ...emptyService, ...service }); editorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{tc("edit")}</button>{" "}<button className="primary" onClick={saveService}>Lưu</button>{" "}<button className="ghost dangerButton" onClick={() => setServices((current) => current.filter((item) => item.id !== service.id))}>{tc("delete")}</button></td>
+              <td>Chạm hoặc double-click để sửa</td>
             </tr>
-          ))}{(!groupFilter || groupFilter === "addons") && bookingOptions.filter((option) => !query || option.name.toLowerCase().includes(query.toLowerCase())).map((option) => <tr key={option.id}><td><div className="serviceCell"><span className="serviceThumb">＋</span><div><strong>{option.name}</strong><br /><small>Dịch vụ bổ sung</small></div></div></td><td><span className="serviceGroupBadge">{bookingGroupLabel("addons", language)}</span></td><td>JPY {Number(option.price).toLocaleString("ja-JP")}</td><td>{option.duration} {c.minutes}</td><td>—</td><td><button className="ghost" onClick={() => { setDraft({ ...emptyService, ...option, category: "addons" }); editorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{tc("edit")}</button>{" "}<button className="primary" onClick={saveService}>Lưu</button>{" "}<button className="ghost dangerButton" onClick={() => setBookingOptions((current) => current.filter((item) => item.id !== option.id))}>{tc("delete")}</button></td></tr>)}</tbody>
+          ))}{(!groupFilter || groupFilter === "addons") && bookingOptions.filter((option) => !query || option.name.toLowerCase().includes(query.toLowerCase())).map((option) => <tr key={option.id} onDoubleClick={() => { setDraft({ ...emptyService, ...option, category: "addons" }); setEditorOpen(true); }} onTouchEnd={() => { setDraft({ ...emptyService, ...option, category: "addons" }); setEditorOpen(true); }}><td><div className="serviceCell"><span className="serviceThumb">＋</span><div><strong>{option.name}</strong><br /><small>Dịch vụ bổ sung</small></div></div></td><td><span className="serviceGroupBadge">{bookingGroupLabel("addons", language)}</span></td><td>JPY {Number(option.price).toLocaleString("ja-JP")}</td><td>{option.duration} {c.minutes}</td><td>—</td><td>Chạm hoặc double-click để sửa</td></tr>)}</tbody>
         </table>
       </section>
     </>
