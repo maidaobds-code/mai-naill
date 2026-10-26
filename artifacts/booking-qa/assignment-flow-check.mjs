@@ -39,7 +39,7 @@ globalThis.fetch = async (url, options = {}) => {
 
 const bookingRoute = await import('../../app/api/bookings/route.js');
 const assignmentRoute = await import('../../app/api/booking-assignment/route.js');
-const pending = { id: 'web-test-1', date: '2026-11-02', day: 2, start: '10:00', end: '11:00', customer: 'Test Customer', email: 'customer@example.com', service: 'Gel Nail', staff: 'Chưa phân công', staffId: '', assignmentStatus: 'PENDING_ASSIGNMENT', approvalStatus: 'PENDING_OWNER_CONFIRMATION', status: 'CONFIRMED', source: 'direct' };
+const pending = { id: 'web-test-1', date: '2026-11-02', day: 2, start: '10:00', end: '11:00', customer: 'Test Customer', email: 'customer@example.com', language: 'vi', service: 'Gel Nail', staff: 'Chưa phân công', staffId: '', assignmentStatus: 'PENDING_ASSIGNMENT', approvalStatus: 'PENDING_OWNER_CONFIRMATION', status: 'CONFIRMED', source: 'direct' };
 const createResponse = await bookingRoute.POST(new Request('https://salon.example.com/api/bookings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bookings: [pending] }) }));
 const createResult = await createResponse.json();
 assert.equal(createResult.ok, true);

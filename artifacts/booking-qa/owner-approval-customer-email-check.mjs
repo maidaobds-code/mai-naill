@@ -12,7 +12,7 @@ assert.doesNotMatch(store, /notifyByEmail\(\{ to: \[draft\.email\]/);
 assert.match(assignment, /approvalStatus: "OWNER_CONFIRMED"/);
 assert.match(assignment, /Nhân viên .* hiện không tiện phục vụ/);
 assert.match(assignment, /appointmentConfirmationEmail/);
-assert.match(assignment, /staffChangeReason: staffChanged \? customerReason : ""/);
+assert.match(assignment, /staffChangeReason: customerReason/);
 assert.match(emailTemplate, /Chọn nhân viên khác \/ Không chỉ định/);
 assert.match(emailTemplate, /Hủy hẹn/);
 assert.match(picker, /__NO_PREFERENCE__/);

@@ -95,8 +95,16 @@ export async function POST(request) {
     const cancelToken = createBookingCancellationToken(assigned.id);
     const changeUrl = `${origin}/assign-booking?token=${encodeURIComponent(assignmentToken)}`;
     const cancelUrl = `${origin}/cancel-booking?token=${encodeURIComponent(cancelToken)}`;
-    const customerReason = staffChanged ? `Nhân viên ${originallyRequested} hiện không tiện phục vụ trong khung giờ này, salon đã sắp xếp ${member.name}.` : requestedNoPreference ? `Bạn không yêu cầu chỉ định, salon đã sắp xếp ${member.name}.` : `Salon đã xác nhận ${member.name} phục vụ bạn.`;
-    const confirmation = appointmentConfirmationEmail({ booking: assigned, settings, language: assigned.language || "vi", bookingUrl: `${origin}/booking?appointment=${encodeURIComponent(assigned.id)}`, changeUrl, cancelUrl, staffChangeReason: staffChanged ? customerReason : "" });
+    const customerLanguage = ["vi", "ja", "en", "zh", "ko"].includes(assigned.language) ? assigned.language : "en";
+    const changedReasons = {
+      vi: `Nhân viên ${originallyRequested} hiện không tiện phục vụ trong khung giờ này, salon đã sắp xếp ${member.name}.`,
+      ja: `ご指名の${originallyRequested}はこの時間帯の対応が難しいため、${member.name}が担当いたします。`,
+      en: `${originallyRequested} is unavailable at this time, so the salon has arranged ${member.name} for your appointment.`,
+      zh: `您指定的${originallyRequested}在该时段无法服务，沙龙已为您安排${member.name}。`,
+      ko: `지정하신 ${originallyRequested} 직원이 해당 시간에 서비스하기 어려워 ${member.name} 직원으로 배정되었습니다.`,
+    };
+    const customerReason = staffChanged ? changedReasons[customerLanguage] : "";
+    const confirmation = appointmentConfirmationEmail({ booking: assigned, settings, language: customerLanguage, bookingUrl: `${origin}/booking?appointment=${encodeURIComponent(assigned.id)}`, changeUrl, cancelUrl, staffChangeReason: customerReason });
     const customerNotification = await sendEmail({ to: assigned.email, ...confirmation });
     return Response.json({ ok: true, booking: assigned, notification, customerNotification });
   } catch (error) { return Response.json({ ok: false, message: error.message || "Không thể phân công nhân viên." }, { status: 500 }); }

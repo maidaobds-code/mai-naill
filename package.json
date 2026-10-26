@@ -13,6 +13,7 @@
     "test:owner-closed-staff": "node artifacts/booking-qa/owner-closed-staff-action-check.mjs",
     "test:gmail-staff-button": "node artifacts/booking-qa/gmail-staff-button-check.mjs",
     "test:owner-approval-email": "node artifacts/booking-qa/owner-approval-customer-email-check.mjs",
+    "test:customer-email-language": "node artifacts/booking-qa/customer-email-language-check.mjs",
     "start": "next start"
   },
   "dependencies": {
