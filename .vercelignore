@@ -1,0 +1,12 @@
+# Local build and test output
+.next/
+out/
+dist/
+coverage/
+artifacts/
+
+# Local dependencies and editor files
+node_modules/
+.git/
+.env*
+*.log
