@@ -1,0 +1,24 @@
+Booking verification — 2026-10-24
+
+Implemented:
+- 29 reference services across 7 groups; 11 add-ons.
+- Existing catalog composed into a separate group, without catalog migration or writes.
+- Service selection, date/time in Japan timezone, customer details, policy acknowledgement and summary.
+- One removal type plus optional Para gel; total and estimated duration included in booking.
+- Server-confirmed save before completion, with retry on failure.
+
+Validation:
+- npm run build: PASS (22 pages generated).
+- Webpack reports circular chunk dependencies (webpack/498 and webpack-runtime/863).
+- Edge headless responsive checks: 320, 390, 768, 1024, 1440 px PASS, no horizontal overflow.
+- Selection, add-on exclusivity, total, consent gate, save failure/retry and booking payload PASS.
+- No browser page errors during QA.
+- Browser API calls intercepted; no test bookings or catalog changes sent to Supabase.
+
+Limits:
+- Reference screenshots specify prices, not durations. Reference durations are estimates, labelled in UI.
+- Time choices are opening-hour choices, not a real-time availability guarantee.
+- Live Supabase save and email delivery were not exercised.
+
+Re-run browser checks with the production server on port 3012:
+node artifacts/booking-qa/check.cjs

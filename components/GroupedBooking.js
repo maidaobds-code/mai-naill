@@ -22,6 +22,7 @@ export default function GroupedBooking({
   message,
   language,
   settings = {},
+  bookings = [],
 }) {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -73,13 +74,22 @@ export default function GroupedBooking({
           ],
     );
   }
-  const times = Array.from({ length: 25 }, (_, i) => {
-    const m = 600 + i * 30;
+  const toMinutes = (value) => { const [h, m] = String(value || "").split(":").map(Number); return h * 60 + m; };
+  const openMinutes = toMinutes(settings.openTime || "09:00");
+  const closeMinutes = toMinutes(settings.closeTime || "23:00");
+  const closed = (time, end) => (settings.closedPeriods || []).some((period) => {
+    const match = String(period).match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+    return match && match[1] === draft.date && toMinutes(time) < toMinutes(match[3]) && toMinutes(end) > toMinutes(match[2]);
+  });
+  const times = Array.from({ length: 48 }, (_, i) => {
+    const m = openMinutes + i * 30;
     return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
   }).filter((time) => {
     const [h, m] = time.split(":").map(Number);
     return (
-      h * 60 + m + duration <= 22 * 60 &&
+      h * 60 + m + duration <= closeMinutes &&
+      !closed(time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) &&
+      !(draft.staff && bookings.some((booking) => booking.date === draft.date && String(booking.staffId || booking.staff) === String(selectedStaff?.id || draft.staff) && !["cancelled", "completed"].includes(String(booking.status).toLowerCase()) && toMinutes(booking.start) < h * 60 + m + duration && toMinutes(booking.end) > h * 60 + m)) &&
       (draft.date !== japanToday() ||
         new Date(`${draft.date}T${time}:00+09:00`) > new Date())
     );

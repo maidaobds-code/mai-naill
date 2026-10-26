@@ -122,7 +122,7 @@ export default function OnlineStore({
   );
   const activeServices = services;
   const [bookingOptions, setBookingOptions] = useState([]);
-  const { addBookingConfirmed: addBooking } = useBookingStore();
+  const { bookings, addBookingConfirmed: addBooking } = useBookingStore();
   const [message, setMessage] = useState("");
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [checkout, setCheckout] = useState(emptyCheckout);
@@ -1059,6 +1059,7 @@ export default function OnlineStore({
           message={message}
           language={language}
           settings={settings}
+          bookings={bookings}
         />
       )}
       {profileOpen && (
