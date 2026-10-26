@@ -81,10 +81,15 @@ export default function GroupedBooking({
     const match = String(period).match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
     return match && match[1] === draft.date && toMinutes(time) < toMinutes(match[3]) && toMinutes(end) > toMinutes(match[2]);
   });
-  const staffClosed = (time, end) => (settings.staffClosedPeriods || []).some((period) => {
+  const isStaffClosed = (member, time, end) => (settings.staffClosedPeriods || []).some((period) => {
     const match = String(period).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-    return match && selectedStaff && String(match[1]) === String(selectedStaff.id) && match[2] === draft.date && toMinutes(time) < toMinutes(match[4]) && toMinutes(end) > toMinutes(match[3]);
+    return match && member && String(match[1]) === String(member.id) && match[2] === draft.date && toMinutes(time) < toMinutes(match[4]) && toMinutes(end) > toMinutes(match[3]);
   });
+  const hasStaffClosureOnDate = (member) => (settings.staffClosedPeriods || []).some((period) => {
+    const match = String(period).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+    return match && member && String(match[1]) === String(member.id) && match[2] === draft.date;
+  });
+  const selectedEnd = draft.time ? `${String(Math.floor((toMinutes(draft.time) + duration) / 60)).padStart(2, "0")}:${String((toMinutes(draft.time) + duration) % 60).padStart(2, "0")}` : "";
   const staffBusy = (member, time, end) => bookings.some((booking) => booking.date === draft.date && String(booking.staffId || booking.staff) === String(member.id || member.name) && !["cancelled", "completed"].includes(String(booking.status).toLowerCase()) && toMinutes(booking.start) < toMinutes(end) && toMinutes(booking.end) > toMinutes(time));
   const times = Array.from({ length: 48 }, (_, i) => {
     const m = openMinutes + i * 30;
@@ -94,8 +99,8 @@ export default function GroupedBooking({
     return (
       h * 60 + m + duration <= closeMinutes &&
       !closed(time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) &&
-      !staffClosed(time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) &&
-      (draft.staff ? !staffBusy(selectedStaff, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) : eligibleStaff.some((member) => !staffBusy(member, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`))) &&
+      !(draft.staff && isStaffClosed(selectedStaff, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`)) &&
+      (draft.staff ? !staffBusy(selectedStaff, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) : eligibleStaff.some((member) => !isStaffClosed(member, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) && !staffBusy(member, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`))) &&
       !(draft.staff && bookings.some((booking) => booking.date === draft.date && String(booking.staffId || booking.staff) === String(selectedStaff?.id || draft.staff) && !["cancelled", "completed"].includes(String(booking.status).toLowerCase()) && toMinutes(booking.start) < h * 60 + m + duration && toMinutes(booking.end) > h * 60 + m)) &&
       (draft.date !== japanToday() ||
         new Date(`${draft.date}T${time}:00+09:00`) > new Date())
@@ -350,12 +355,17 @@ export default function GroupedBooking({
                     </span>
                     <b>¥0</b>
                   </button>
-                  {eligibleStaff.map((member) => (
+                  {eligibleStaff.map((member) => {
+                    const closedAtSelectedTime = Boolean(draft.time && selectedEnd && isStaffClosed(member, draft.time, selectedEnd));
+                    const hasClosure = hasStaffClosureOnDate(member);
+                    return (
                     <button
                       type="button"
                       key={member.id}
-                      className={draft.staff === member.name ? "selected" : ""}
+                      className={`${draft.staff === member.name ? "selected" : ""}${closedAtSelectedTime ? " staffClosedChoice" : ""}`.trim()}
                       aria-pressed={draft.staff === member.name}
+                      aria-disabled={closedAtSelectedTime}
+                      disabled={closedAtSelectedTime}
                       onClick={() => { updateDraft("staff", member.name); setStaffOpen(false); }}
                     >
                       {member.avatarUrl ? (
@@ -375,14 +385,12 @@ export default function GroupedBooking({
                       <span>
                         <strong>{member.displayName || member.name}</strong>
                         <small>
-                          {member.bookingDescription ||
-                            member.role ||
-                            "Nailist"}
+                          {closedAtSelectedTime ? copy("この時間は受付停止中", "Đang đóng lịch trong giờ này", "Closed for this time") : hasClosure ? copy("この日は受付停止時間あり", "Có thời gian đóng lịch trong ngày", "Has closed hours on this date") : member.bookingDescription || member.role || "Nailist"}
                         </small>
                       </span>
-                      <b>{yen(member.designationFee)}</b>
+                      <b>{closedAtSelectedTime ? copy("受付停止", "Đóng lịch", "Closed") : yen(member.designationFee)}</b>
                     </button>
-                  ))}
+                  );})}
                   </div>
                 </div>}
                 <h3>
