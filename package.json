@@ -10,6 +10,7 @@
     "test:timeline-alignment": "node artifacts/booking-qa/timeline-alignment-check.mjs",
     "test:mobile-calendar": "node artifacts/booking-qa/mobile-calendar-check.mjs",
     "test:staff-closure": "node artifacts/booking-qa/staff-closure-booking-check.mjs",
+    "test:owner-closed-staff": "node artifacts/booking-qa/owner-closed-staff-action-check.mjs",
     "start": "next start"
   },
   "dependencies": {

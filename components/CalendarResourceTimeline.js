@@ -145,11 +145,22 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     }
     return ranges.map((range) => ({ ...range, left: `${Math.max(0, (toMinutes(range.start) - startMinutes) / Math.max(1, endMinutes - startMinutes) * 100)}%`, width: `${Math.max(0, Math.min(100, (toMinutes(range.end) - toMinutes(range.start)) / Math.max(1, endMinutes - startMinutes) * 100))}%` }));
   }
+  function staffIsClosedForRange(member, start, end) {
+    return (settings.staffClosedPeriods || []).some((raw) => {
+      const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+      return match && String(match[1]) === String(member?.id) && match[2] === selectedDate && toMinutes(start) < toMinutes(match[4]) && toMinutes(end) > toMinutes(match[3]);
+    });
+  }
   const selectedStaffId = selected.staffId || staff.find((member) => member.name === selected.staff)?.id || selected.staff;
   const periodKey = `${selectedDate} ${selected.start}-${selected.end}`;
   const staffPeriodKey = `${selectedStaffId} ${periodKey}`;
   const isStaffClosed = (settings.staffClosedPeriods || []).includes(staffPeriodKey);
   const isSalonClosed = (settings.closedPeriods || []).includes(periodKey);
+  const selectedStaffClosedPeriods = (settings.staffClosedPeriods || []).filter((raw) => {
+    const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+    return match && String(match[1]) === String(selectedStaffId) && match[2] === selectedDate && toMinutes(selected.start) < toMinutes(match[4]) && toMinutes(selected.end) > toMinutes(match[3]);
+  });
+  const selectedStaffIsClosed = selectedStaffClosedPeriods.length > 0;
   const pressRef = useRef(null);
   const paintRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
@@ -361,14 +372,14 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     setModalOpen(false);
   }
 
-  async function reopenSchedule(scope) {
+  async function reopenSchedule(scope, keepModalOpen = false) {
     const next = { ...settings, closedPeriods: [...(settings.closedPeriods || [])], staffClosedPeriods: [...(settings.staffClosedPeriods || [])] };
     if (scope === "salon") next.closedPeriods = next.closedPeriods.filter((value) => value !== periodKey);
-    else next.staffClosedPeriods = next.staffClosedPeriods.filter((value) => value !== staffPeriodKey);
+    else next.staffClosedPeriods = next.staffClosedPeriods.filter((value) => selectedStaffClosedPeriods.length ? !selectedStaffClosedPeriods.includes(value) : value !== staffPeriodKey);
     setSettings(next);
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
     try { await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(next) }); } catch {}
-    setModalOpen(false);
+    if (!keepModalOpen) setModalOpen(false);
   }
 
   async function deleteBooking() {
@@ -538,14 +549,15 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
             <div className="formGrid modalForm">
               <label>{c.customer}<input value={selected.customer} onChange={(event) => setSelected({ ...selected, customer: event.target.value })} placeholder={c.customer} /></label>
               <label>{c.phone}<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
-              <label>{c.staff}<select value={selected.staff} onChange={(event) => { const assigned = staff.find((member) => member.name === event.target.value); setSelected({ ...selected, staff: event.target.value, staffId: assigned?.id || "", staffEmail: assigned?.email || "", staffRole: assigned?.role || "", staffPhone: assigned?.phone || "" }); }}>{staff.map((member) => <option key={member.id} value={member.name}>{member.name}{member.role ? ` · ${member.role}` : ""}</option>)}</select></label>
+              <label>{c.staff}<select className={selectedStaffIsClosed ? "closedStaffSelect" : ""} value={selected.staff} onChange={(event) => { const assigned = staff.find((member) => member.name === event.target.value); setSelected({ ...selected, staff: event.target.value, staffId: assigned?.id || "", staffEmail: assigned?.email || "", staffRole: assigned?.role || "", staffPhone: assigned?.phone || "" }); }}>{staff.map((member) => { const memberClosed = staffIsClosedForRange(member, selected.start, selected.end); return <option className={memberClosed ? "closedStaffOption" : ""} key={member.id} value={member.name}>{member.name}{member.role ? ` · ${member.role}` : ""}{memberClosed ? " · ĐANG ĐÓNG LỊCH" : ""}</option>; })}</select></label>
               <label>{c.platform}<select value={selected.source} onChange={(event) => setSelected({ ...selected, source: event.target.value })}>{platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}</select></label>
               <label>{c.start}<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{visibleSlots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
               <label>{c.end}<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{visibleSlots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
             </div>
+            {selectedStaffIsClosed && <div className="closedStaffActionMenu" role="status"><div><strong>Nhân viên đang đóng lịch</strong><span>{selected.start} - {selected.end}. Chủ quán vẫn có thể chọn nhân viên này.</span></div><button className="ghost" type="button" onClick={() => reopenSchedule("staff")}>Bỏ đóng lịch</button><button className="primary" type="button" onClick={() => reopenSchedule("staff", true)}>Bỏ đóng lịch và thêm lịch hẹn</button></div>}
             {bookingError && <p className="bookingConflictNotice" role="alert">{bookingError}</p>}
             <div className="modalActions">
-              <button className="ghost" type="button" onClick={() => (selected.closedScope === "staff" || isStaffClosed) ? reopenSchedule("staff") : closeSchedule("staff")}>{(selected.closedScope === "staff" || isStaffClosed) ? "Bỏ khóa" : "Đóng lịch nhân viên"}</button>
+              <button className="ghost" type="button" onClick={() => (selected.closedScope === "staff" || isStaffClosed || selectedStaffIsClosed) ? reopenSchedule("staff") : closeSchedule("staff")}>{(selected.closedScope === "staff" || isStaffClosed || selectedStaffIsClosed) ? "Bỏ khóa" : "Đóng lịch nhân viên"}</button>
               <button className="ghost" type="button" onClick={() => (selected.closedScope === "salon" || isSalonClosed) ? reopenSchedule("salon") : closeSchedule("salon")}>{(selected.closedScope === "salon" || isSalonClosed) ? "Bỏ khóa" : "Đóng lịch cả quán"}</button>
               <button className="ghost dangerButton" disabled={selected.draft} onClick={deleteBooking}>{c.deleteBooking}</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>{tc("cancel")}</button>
