@@ -7,7 +7,7 @@ const OWNER = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-00
 const KV = "nail-japan-staff";
 
 function authorized(request) { return isAdminRequest(request) || isOwnerRequest(request) || isStaffRequest(request); }
-function isLegacySample(value) { return Array.isArray(value) && value.length === legacySampleStaff.length && value.every((member, index) => String(member?.id) === String(legacySampleStaff[index].id) && String(member?.name) === String(legacySampleStaff[index].name)); }
+function isLegacySample(value) { return Array.isArray(value) && value.length > 0 && value.every((member) => legacySampleStaff.some((sample) => String(member?.id) === String(sample.id) && member?.name === sample.name && member?.role === sample.role && member?.color === sample.color && member?.external?.hotpepper === sample.external.hotpepper && member?.external?.nailie === sample.external.nailie && member?.external?.minimo === sample.external.minimo)); }
 
 async function rest(path, options = {}) {
   if (!SUPABASE_URL || !KEY) throw new Error("Supabase server configuration is missing");
