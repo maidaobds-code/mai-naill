@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "test:booking-sync": "node artifacts/booking-qa/shared-sync-check.mjs",
     "test:staff-sync": "node artifacts/booking-qa/staff-sync-check.mjs",
+    "test:timeline-alignment": "node artifacts/booking-qa/timeline-alignment-check.mjs",
     "start": "next start"
   },
   "dependencies": {

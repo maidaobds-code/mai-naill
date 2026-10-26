@@ -405,9 +405,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <div className="calendarHeader">
               <strong>{dateLabel(selectedDate)} · {c.dayView}</strong>
           </div>
-          <div className="resourceTimeline" style={{ gridTemplateColumns: `136px ${Math.max(1, visibleSlots.length) * 64}px` }}>
+          <div className="resourceTimeline" style={{ gridTemplateColumns: `var(--timeline-staff-width) calc(${Math.max(1, visibleIntervalSlots.length)} * var(--timeline-slot-width))` }}>
             <div className="resourceHeader">{c.staff}</div>
-            <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleSlots.length}, 64px)` }}>{visibleSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
+            <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>{visibleIntervalSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {staff.map((member) => {
               const memberBookings = selectedDayBookings.filter((booking) => booking.staff === member.name || String(booking.staffId || "") === String(member.id));
               return (
@@ -416,9 +416,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
-                  <div className="resourceLane" style={{ backgroundSize: "64px 100%" }}>
+                  <div className="resourceLane" style={{ backgroundSize: "var(--timeline-slot-width) 100%" }}>
                     {closedRangesFor(member).map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`} />)}
-                    <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, 64px)` }}>
+                    <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>
                       {visibleIntervalSlots.map((hour) => (
                         <button
                           className={isPainted(hour, member.id) ? "slotHit painting" : "slotHit"}
