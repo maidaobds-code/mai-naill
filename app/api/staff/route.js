@@ -2,10 +2,10 @@ import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/ser
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-const OWNER = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
+const OWNER = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001").trim().replace(/^['\"]|['\"]$/g, "");
 const KV = "nail-japan-staff";
 
-function authorized(request) { return isAdminRequest(request) || isStaffRequest(request); }
+function authorized(request) { return isAdminRequest(request) || isOwnerRequest(request) || isStaffRequest(request); }
 
 async function rest(path, options = {}) {
   if (!URL || !KEY) throw new Error("Supabase server configuration is missing");

@@ -2,7 +2,7 @@ import { isAdminRequest, isOwnerRequest } from "../../../lib/serverAuth";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-const SETTINGS_OWNER_ID = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
+const SETTINGS_OWNER_ID = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001").trim().replace(/^['\"]|['\"]$/g, "");
 const SETTINGS_KEY = "nail-japan-settings";
 
 async function supabaseRest(path, options = {}) {

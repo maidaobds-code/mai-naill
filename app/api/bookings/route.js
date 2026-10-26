@@ -3,7 +3,7 @@ import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
-const OWNER_ID = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
+const OWNER_ID = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001").trim().replace(/^['\"]|['\"]$/g, "");
 const BOOKINGS_KEY = "nail-japan-bookings";
 
 async function supabaseRest(path, options = {}) {
@@ -57,13 +57,17 @@ export async function POST(request) {
     const current = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
     const currentIds = new Set(current.map((item) => item?.id).filter(Boolean));
     const incomingIds = new Set(body.bookings.map((item) => item?.id).filter(Boolean));
-    const incoming = body.bookings.filter((item) => item && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()));
+    const protectedBookings = body.bookings.map((item) => {
+      const previous = current.find((value) => value?.id === item?.id);
+      return previous?.deletedAt && !item?.restoreDeleted ? previous : item;
+    });
+    const incoming = protectedBookings.filter((item) => item && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()));
     const allForConflict = [...current.filter((item) => !incomingIds.has(item?.id)), ...incoming];
     for (const booking of incoming) {
       const conflict = allForConflict.find((item) => item.id !== booking.id && item.date === booking.date && item.staff && booking.staff && item.staff === booking.staff && overlaps(item, booking));
       if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
     }
-    const merged = [...body.bookings, ...current.filter((item) => item?.id && !incomingIds.has(item.id))];
+    const merged = [...protectedBookings, ...current.filter((item) => item?.id && !incomingIds.has(item.id))];
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
     const pending = body.bookings.filter((booking) => booking?.id && !currentIds.has(booking.id) && isPendingAssignment(booking));
     const notifications = await Promise.all(pending.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
