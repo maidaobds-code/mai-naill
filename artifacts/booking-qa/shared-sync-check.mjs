@@ -69,9 +69,18 @@ const accountA = await (await route.GET()).json();
 const accountB = await (await route.GET()).json();
 assert.deepEqual(accountA.value, accountB.value);
 
+// A new manual booking must be persisted and visible to the next account read.
+const newBooking = { id: "booking-new-test", date: "2026-10-26", start: "12:00", end: "13:00", customer: "New booking", staff: "Mai", staffId: "staff-1", status: "CONFIRMED" };
+const createResult = await (await route.POST(request([newBooking]))).json();
+assert.equal(createResult.ok, true);
+assert.equal(createResult.value.some((item) => item.id === newBooking.id && !item.deletedAt), true);
+const readAfterCreate = await (await route.GET()).json();
+assert.equal(readAfterCreate.value.some((item) => item.id === newBooking.id && !item.deletedAt), true);
+
 console.log("PASS numeric ID is normalized to string ID");
 console.log("PASS unauthenticated deletion is rejected");
 console.log("PASS deletion remains after server reload");
 console.log("PASS stale account cannot restore deleted booking");
 console.log("PASS legacy duplicate with another ID is deleted in the same slot");
 console.log("PASS owner and staff reads are identical");
+console.log("PASS new manual booking remains visible after server reload");

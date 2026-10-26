@@ -1,6 +1,6 @@
-import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth";
+import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth.js";
 
-const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const OWNER = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001").trim().replace(/^['\"]|['\"]$/g, "");
 const KV = "nail-japan-staff";
@@ -8,8 +8,8 @@ const KV = "nail-japan-staff";
 function authorized(request) { return isAdminRequest(request) || isOwnerRequest(request) || isStaffRequest(request); }
 
 async function rest(path, options = {}) {
-  if (!URL || !KEY) throw new Error("Supabase server configuration is missing");
-  const response = await fetch(`${URL}/rest/v1/${path}`, { ...options, cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}`, "content-type": "application/json", ...(options.headers || {}) } });
+  if (!SUPABASE_URL || !KEY) throw new Error("Supabase server configuration is missing");
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...options, cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}`, "content-type": "application/json", ...(options.headers || {}) } });
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(JSON.stringify(data));
   return data;

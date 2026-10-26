@@ -117,7 +117,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [paintRange, setPaintRange] = useState(null);
   const [bookingError, setBookingError] = useState("");
   const [settings, setSettings] = useState(getAppSettings);
-  const { bookings, setBookings, removeBooking } = useBookingStore();
+  const { bookings, saveBookingRecord, removeBooking } = useBookingStore();
   const { staff: staffMembers } = useStaffStore();
   const { accounts, currentAccount } = useAccountStore();
   const staff = staffMembers.length ? staffMembers : seedStaff;
@@ -317,14 +317,14 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       return;
     }
     setBookingError("");
-    setBookings((current) => {
-      const exists = current.some((booking) => booking.id === selected.id);
-      if (exists) return current.map((booking) => booking.id === selected.id ? bookingToSave : booking);
-      return [...current, bookingToSave];
-    });
-    setSelected(bookingToSave);
-    setModalOpen(false);
-    try { await notifyAssignedStaff(bookingToSave, previousBooking); } catch (error) { console.warn(error); }
+    try {
+      const saved = await saveBookingRecord(bookingToSave);
+      setSelected(saved);
+      setModalOpen(false);
+      try { await notifyAssignedStaff(saved, previousBooking); } catch (error) { console.warn(error); }
+    } catch (error) {
+      setBookingError(error.message || "Không thể lưu lịch hẹn lên Supabase.");
+    }
   }
 
   async function closeSchedule(scope) {
