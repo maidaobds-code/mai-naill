@@ -137,6 +137,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     }
     return ranges.map((range) => ({ ...range, left: `${Math.max(0, (toMinutes(range.start) - startMinutes) / Math.max(1, endMinutes - startMinutes) * 100)}%`, width: `${Math.max(0, Math.min(100, (toMinutes(range.end) - toMinutes(range.start)) / Math.max(1, endMinutes - startMinutes) * 100))}%` }));
   }
+  const selectedStaffId = selected.staffId || staff.find((member) => member.name === selected.staff)?.id || selected.staff;
+  const periodKey = `${selectedDate} ${selected.start}-${selected.end}`;
+  const staffPeriodKey = `${selectedStaffId} ${periodKey}`;
+  const isStaffClosed = (settings.staffClosedPeriods || []).includes(staffPeriodKey);
+  const isSalonClosed = (settings.closedPeriods || []).includes(periodKey);
   const pressRef = useRef(null);
   const paintRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
@@ -330,6 +335,16 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     setModalOpen(false);
   }
 
+  async function reopenSchedule(scope) {
+    const next = { ...settings, closedPeriods: [...(settings.closedPeriods || [])], staffClosedPeriods: [...(settings.staffClosedPeriods || [])] };
+    if (scope === "salon") next.closedPeriods = next.closedPeriods.filter((value) => value !== periodKey);
+    else next.staffClosedPeriods = next.staffClosedPeriods.filter((value) => value !== staffPeriodKey);
+    setSettings(next);
+    window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
+    try { await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(next) }); } catch {}
+    setModalOpen(false);
+  }
+
   function deleteBooking() {
     removeBooking(selected.id);
     setSelected(blankBooking(selectedDate, "10:00", staff[0] || seedStaff[0]));
@@ -493,8 +508,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
             </div>
             {bookingError && <p className="bookingConflictNotice" role="alert">{bookingError}</p>}
             <div className="modalActions">
-              <button className="ghost" type="button" onClick={() => closeSchedule("staff")}>Đóng lịch nhân viên</button>
-              <button className="ghost" type="button" onClick={() => closeSchedule("salon")}>Đóng lịch cả quán</button>
+              <button className="ghost" type="button" onClick={() => isStaffClosed ? reopenSchedule("staff") : closeSchedule("staff")}>{isStaffClosed ? "Mở tất cả lịch" : "Đóng lịch nhân viên"}</button>
+              <button className="ghost" type="button" onClick={() => isSalonClosed ? reopenSchedule("salon") : closeSchedule("salon")}>{isSalonClosed ? "Mở tất cả lịch" : "Đóng lịch cả quán"}</button>
               <button className="ghost dangerButton" onClick={deleteBooking}>{c.deleteBooking}</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>{tc("cancel")}</button>
               <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
