@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "test:booking-sync": "node artifacts/booking-qa/shared-sync-check.mjs",
     "start": "next start"
   },
   "dependencies": {

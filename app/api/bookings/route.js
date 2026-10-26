@@ -30,6 +30,11 @@ function publicOrigin(request) {
 
 function minutes(value) { const [hour, minute] = String(value || "").split(":").map(Number); return hour * 60 + minute; }
 function overlaps(left, right) { return left.date && left.date === right.date && minutes(left.start) < minutes(right.end) && minutes(left.end) > minutes(right.start); }
+function sameSlot(left, right) {
+  const leftStaff = String(left?.staffId || left?.staff || "").trim().toLowerCase();
+  const rightStaff = String(right?.staffId || right?.staff || "").trim().toLowerCase();
+  return Boolean(left?.date && leftStaff && left.date === right?.date && left.start === right?.start && left.end === right?.end && leftStaff === rightStaff);
+}
 
 function normalizeId(booking) {
   return booking?.id === undefined || booking?.id === null ? booking : { ...booking, id: String(booking.id) };
@@ -80,13 +85,18 @@ export async function POST(request) {
       const previous = current.find((value) => value.id === item.id);
       return previous?.deletedAt && !item?.restoreDeleted ? previous : item;
     });
+    const submittedTombstones = protectedBookings.filter((item) => item.deletedAt);
+    const currentAfterRelatedDeletes = current.map((item) => {
+      const matchingDeletion = submittedTombstones.find((deleted) => deleted.id === item.id || sameSlot(deleted, item));
+      return matchingDeletion && !item.deletedAt ? { ...item, deletedAt: matchingDeletion.deletedAt } : item;
+    });
     const incoming = protectedBookings.filter((item) => item && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()));
-    const allForConflict = [...current.filter((item) => !item.deletedAt && !incomingIds.has(item.id)), ...incoming];
+    const allForConflict = [...currentAfterRelatedDeletes.filter((item) => !item.deletedAt && !incomingIds.has(item.id)), ...incoming];
     for (const booking of incoming) {
       const conflict = allForConflict.find((item) => item.id !== booking.id && item.date === booking.date && item.staff && booking.staff && item.staff === booking.staff && overlaps(item, booking));
       if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
     }
-    const merged = compactBookings([...protectedBookings, ...current.filter((item) => item.id && !incomingIds.has(item.id))]);
+    const merged = compactBookings([...protectedBookings, ...currentAfterRelatedDeletes.filter((item) => item.id && !incomingIds.has(item.id))]);
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
     const pending = submitted.filter((booking) => booking.id && !currentIds.has(booking.id) && isPendingAssignment(booking));
     const notifications = await Promise.all(pending.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
