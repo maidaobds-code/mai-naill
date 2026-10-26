@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useMemo, useState } from "react";
-import { emptyService, useServiceCatalog } from "../lib/catalogStore";
+import { emptyService, useServiceCatalog, useBookingOptionCatalog } from "../lib/catalogStore";
 import { bookingGroups, fallbackBookingGroup, bookingGroupLabel } from "../lib/bookingMenu";
 import { tx } from "../lib/i18nClean";
 import { useStaffStore } from "../lib/staffStore";
@@ -26,6 +26,8 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     return [...storedStaff, { id: `account-${currentAccount.id}`, name: ownName, role: "Nailist", color: "#7c3aed", external: {} }];
   })();
   const [services, setServices] = useServiceCatalog();
+  const [bookingOptions, setBookingOptions] = useBookingOptionCatalog();
+  const [optionDraft, setOptionDraft] = useState({ id: "", name: "", price: 0, duration: 30 });
   const [draft, setDraft] = useState({ ...emptyService });
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
@@ -85,6 +87,13 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     setDraft({ ...emptyService });
   }
 
+  function saveOption() {
+    if (!optionDraft.name.trim()) return;
+    const record = { ...optionDraft, id: optionDraft.id || `option-${Date.now()}`, price: Number(optionDraft.price) || 0, duration: Number(optionDraft.duration) || 0 };
+    setBookingOptions((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
+    setOptionDraft({ id: "", name: "", price: 0, duration: 30 });
+  }
+
   return (
     <>
       <div className="pageHead">
@@ -105,6 +114,17 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
 
         {draft.imageUrl && <div className="imagePreview"><img src={draft.imageUrl} alt={draft.name || "Nail sample"} /><span>{draft.imageFileName || c.selectedImage}</span></div>}
         <div className="staffPicker">{staff.map((member) => <button type="button" key={member.id} className={draft.staff.includes(member.name) ? "ghost activeSoft" : "ghost"} onClick={() => toggleStaff(member.name)}>{member.name}</button>)}</div>
+      </section>
+
+      <section className="card staffEditor serviceEditorPanel">
+        <h2>Dịch vụ bổ sung đồng bộ với Booking</h2>
+        <div className="staffForm">
+          <label>Tên dịch vụ bổ sung<input value={optionDraft.name} onChange={(event) => setOptionDraft({ ...optionDraft, name: event.target.value })} placeholder="Ví dụ: Đổi gel Para" /></label>
+          <label>Giá (JPY)<input type="number" value={optionDraft.price} onChange={(event) => setOptionDraft({ ...optionDraft, price: Number(event.target.value) })} /></label>
+          <label>Thời lượng (phút)<input type="number" value={optionDraft.duration} onChange={(event) => setOptionDraft({ ...optionDraft, duration: Number(event.target.value) })} /></label>
+          <button className="primary" type="button" onClick={saveOption}>{optionDraft.id ? "Cập nhật dịch vụ bổ sung" : "Thêm dịch vụ bổ sung"}</button>
+        </div>
+        <div className="serviceAddonList">{bookingOptions.map((option) => <div className="serviceAddonRow" key={option.id}><span><strong>{option.name}</strong><small>{option.duration} phút · JPY {Number(option.price).toLocaleString("ja-JP")}</small></span><button className="ghost" type="button" onClick={() => setOptionDraft({ ...option })}>Sửa</button><button className="ghost dangerButton" type="button" onClick={() => setBookingOptions((current) => current.filter((item) => item.id !== option.id))}>Xóa</button></div>)}</div>
       </section>
 
       <div className="serviceCatalogTools">

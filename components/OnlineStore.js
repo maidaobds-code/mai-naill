@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useBookingStore } from "../lib/bookingStore";
 import GroupedBooking from "./GroupedBooking";
 import { japanToday } from "../lib/bookingMenu";
-import { useProductCatalog, useServiceCatalog } from "../lib/catalogStore";
+import { useProductCatalog, useServiceCatalog, useBookingOptionCatalog } from "../lib/catalogStore";
 import { useStoreOrders } from "../lib/orderStore";
 import { getAppSettings } from "./Settings";
 import { languages, t, tx } from "../lib/i18nClean";
@@ -106,6 +106,7 @@ export default function OnlineStore({
   const tc = (key) => tx(language, "common", key);
   const [products] = useProductCatalog();
   const [services] = useServiceCatalog();
+  const [catalogBookingOptions] = useBookingOptionCatalog();
   const { staff: storedStaff } = useStaffStore();
   const staff = storedStaff.length ? storedStaff : seedStaff;
   const { orders, addOrder, updateOrder, addChatMessage } = useStoreOrders();
@@ -1060,6 +1061,7 @@ export default function OnlineStore({
           language={language}
           settings={settings}
           bookings={bookings}
+          bookingOptionsCatalog={catalogBookingOptions}
         />
       )}
       {profileOpen && (

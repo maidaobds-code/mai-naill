@@ -2,7 +2,6 @@
 import { useState } from "react";
 import {
   bookingGroups,
-  bookingOptions,
   fallbackBookingGroup,
   japanToday,
   localizedOption,
@@ -23,6 +22,7 @@ export default function GroupedBooking({
   language,
   settings = {},
   bookings = [],
+  bookingOptionsCatalog = [],
 }) {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -283,7 +283,7 @@ export default function GroupedBooking({
                         />
                         {copy("なし", "Không thêm", "None")}
                       </label>
-                      {bookingOptions.map((o) => (
+                      {bookingOptionsCatalog.map((o) => (
                         <label key={o.id}>
                           <input
                             type="checkbox"
