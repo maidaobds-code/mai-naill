@@ -5,9 +5,29 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const OWNER = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001").trim().replace(/^['\"]|['\"]$/g, "");
 const KV = "nail-japan-staff";
+const ACCOUNTS_KV = "nail-japan-accounts-v1";
+const STAFF_COLORS = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f97316", "#06b6d4", "#e879f9", "#84cc16"];
 
 function authorized(request) { return isAdminRequest(request) || isOwnerRequest(request) || isStaffRequest(request); }
 function isLegacySample(value) { return Array.isArray(value) && value.length > 0 && value.every((member) => legacySampleStaff.some((sample) => String(member?.id) === String(sample.id) && member?.name === sample.name && member?.role === sample.role && member?.color === sample.color && member?.external?.hotpepper === sample.external.hotpepper && member?.external?.nailie === sample.external.nailie && member?.external?.minimo === sample.external.minimo)); }
+function staffFromAccounts(accounts) {
+  return (Array.isArray(accounts) ? accounts : []).filter((account) => ["owner", "manager", "staff"].includes(account?.role) && account?.name && !(account.id === "owner" && account.email === "owner@salon.local" && !account.passwordHash)).map((account, index) => ({
+    id: String(account.id || `account-${index + 1}`).replace(/^staff-/, ""),
+    name: account.staffName || account.name,
+    displayName: account.staffName || account.name,
+    role: account.role,
+    email: account.email || "",
+    phone: account.phone || "",
+    status: "Working",
+    color: STAFF_COLORS[index % STAFF_COLORS.length],
+    external: {},
+    bookingVisible: true,
+    designationFee: 1100,
+    bookingDescription: "",
+    avatarUrl: account.avatarUrl || "",
+    avatarFileName: "",
+  }));
+}
 
 async function rest(path, options = {}) {
   if (!SUPABASE_URL || !KEY) throw new Error("Supabase server configuration is missing");
@@ -26,6 +46,14 @@ export async function GET(request) {
     if (isLegacySample(value)) {
       value = [];
       await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      const accountRows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${ACCOUNTS_KV}&select=value&limit=1`);
+      const restored = staffFromAccounts(accountRows?.[0]?.value);
+      if (restored.length) {
+        value = restored;
+        await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
+      }
     }
     const safeValue = isPublicBookingRequest && !authorized(request) && Array.isArray(value) ? value.filter((member) => member.bookingVisible !== false).map(({ email, phone, accountPassword, ...member }) => member) : value;
     return Response.json({ ok: true, value: safeValue }, { headers: { "Cache-Control": "no-store" } });
