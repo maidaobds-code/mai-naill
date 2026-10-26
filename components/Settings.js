@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { tx } from "../lib/i18nClean";
 import { bookingProviders } from "../lib/booking-providers/registry";
 import { platforms, syncEvents } from "../lib/salonData";
-import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
+import { supabaseReady } from "../lib/supabaseBrowser";
 import StaffManagement from "./StaffManagement";
 import PrinterManager from "./PrinterManager";
 import { getCurrentAccount } from "../lib/accountStore";
@@ -143,9 +143,7 @@ export default function Settings({ language = "vi" }) {
       try {
         const response = await fetch("/api/settings", { cache: "no-store" });
         const result = await response.json();
-        const remote =
-          result.value ||
-          (supabaseReady() ? await getKv("nail-japan-settings") : null);
+        const remote = result.value;
         if (mounted && remote) {
           const next = { ...defaultSettings, ...remote };
           setSettings(next);
@@ -282,8 +280,6 @@ export default function Settings({ language = "vi" }) {
     window.dispatchEvent(new CustomEvent("nail-japan-settings-updated"));
     try {
       await saveServerSettings(settings);
-      if (supabaseReady())
-        saveKv("nail-japan-settings", settings).catch(() => {});
       setSaved(true);
     } catch (error) {
       setSaved(false);

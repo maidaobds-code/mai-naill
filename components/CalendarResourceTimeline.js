@@ -129,11 +129,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const ranges = [];
     for (const raw of settings.closedPeriods || []) {
       const match = String(raw).match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-      if (match && match[1] === selectedDate) ranges.push({ start: match[2], end: match[3], label: "Đóng cả quán" });
+      if (match && match[1] === selectedDate) ranges.push({ start: match[2], end: match[3], label: "Đóng cả quán", scope: "salon" });
     }
     for (const raw of settings.staffClosedPeriods || []) {
       const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-      if (match && match[1] === String(member.id) && match[2] === selectedDate) ranges.push({ start: match[3], end: match[4], label: "Đóng nhân viên" });
+      if (match && match[1] === String(member.id) && match[2] === selectedDate) ranges.push({ start: match[3], end: match[4], label: "Đóng nhân viên", scope: "staff" });
     }
     return ranges.map((range) => ({ ...range, left: `${Math.max(0, (toMinutes(range.start) - startMinutes) / Math.max(1, endMinutes - startMinutes) * 100)}%`, width: `${Math.max(0, Math.min(100, (toMinutes(range.end) - toMinutes(range.start)) / Math.max(1, endMinutes - startMinutes) * 100))}%` }));
   }
@@ -152,7 +152,10 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const monthTotal = bookings.filter((booking) => visibleMonthDates.some((date) => sameBookingDate(booking, date))).length;
 
   useEffect(() => {
-    fetch("/api/settings", { cache: "no-store" }).then((response) => response.json()).then((result) => result.value && setSettings((current) => ({ ...current, ...result.value }))).catch(() => {});
+    const loadSettings = () => fetch("/api/settings?public=1", { cache: "no-store" }).then((response) => response.json()).then((result) => result.value && setSettings((current) => ({ ...current, ...result.value }))).catch(() => {});
+    loadSettings();
+    const timer = window.setInterval(loadSettings, 10000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -403,7 +406,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
                   <div className="resourceLane" style={{ backgroundSize: "64px 100%" }}>
-                    {closedRangesFor(member).map((range) => <div className="closedScheduleBlock" key={`${member.id}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`}><span>ĐÃ KHÓA</span></div>)}
+                    {closedRangesFor(member).map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`} />)}
                     <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, 64px)` }}>
                       {visibleIntervalSlots.map((hour) => (
                         <button
@@ -508,8 +511,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
             </div>
             {bookingError && <p className="bookingConflictNotice" role="alert">{bookingError}</p>}
             <div className="modalActions">
-              <button className="ghost" type="button" onClick={() => isStaffClosed ? reopenSchedule("staff") : closeSchedule("staff")}>{isStaffClosed ? "Mở tất cả lịch" : "Đóng lịch nhân viên"}</button>
-              <button className="ghost" type="button" onClick={() => isSalonClosed ? reopenSchedule("salon") : closeSchedule("salon")}>{isSalonClosed ? "Mở tất cả lịch" : "Đóng lịch cả quán"}</button>
+              <button className="ghost" type="button" onClick={() => (selected.closedScope === "staff" || isStaffClosed) ? reopenSchedule("staff") : closeSchedule("staff")}>{(selected.closedScope === "staff" || isStaffClosed) ? "Bỏ khóa" : "Đóng lịch nhân viên"}</button>
+              <button className="ghost" type="button" onClick={() => (selected.closedScope === "salon" || isSalonClosed) ? reopenSchedule("salon") : closeSchedule("salon")}>{(selected.closedScope === "salon" || isSalonClosed) ? "Bỏ khóa" : "Đóng lịch cả quán"}</button>
               <button className="ghost dangerButton" onClick={deleteBooking}>{c.deleteBooking}</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>{tc("cancel")}</button>
               <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>

@@ -12,7 +12,6 @@ import { staff as seedStaff } from "../lib/salonData";
 import { useStaffStore } from "../lib/staffStore";
 import { CustomerProfile } from "./AccountAccess";
 import { useAccountStore } from "../lib/accountStore";
-import { getPublicKv } from "../lib/supabaseBrowser";
 import { appointmentConfirmationEmail } from "../lib/appointmentEmail";
 import { localizedProduct } from "../lib/productTranslation";
 
@@ -278,7 +277,7 @@ export default function OnlineStore({
 
   useEffect(() => {
     setSettings({ ...getAppSettings(), qrImageUrl: "/api/qr-image" });
-    fetch("/api/settings", { cache: "no-store" })
+    const loadSettings = () => fetch("/api/settings?public=1", { cache: "no-store" })
       .then((response) => response.json())
       .then((result) => {
         if (result.value)
@@ -288,18 +287,10 @@ export default function OnlineStore({
             qrImageUrl: "/api/qr-image",
           }));
       })
-      .catch(() =>
-        getPublicKv("nail-japan-settings")
-          .then((remote) => {
-            if (remote)
-              setSettings((current) => ({
-                ...current,
-                ...remote,
-                qrImageUrl: "/api/qr-image",
-              }));
-          })
-          .catch(() => {}),
-      );
+      .catch(() => {});
+    loadSettings();
+    const timer = window.setInterval(loadSettings, 10000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
