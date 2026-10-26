@@ -1,5 +1,6 @@
 import { createBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
 import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
+import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -102,4 +103,30 @@ export async function POST(request) {
     const notifications = await Promise.all(pending.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
     return Response.json({ ok: true, value: rows?.[0]?.value || merged, assignmentNotifications: notifications });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
+}
+
+export async function DELETE(request) {
+  if (!isAdminRequest(request) && !isOwnerRequest(request) && !isStaffRequest(request)) return Response.json({ ok: false, message: "Phiên đăng nhập không có quyền xóa lịch." }, { status: 401 });
+  const body = await request.json().catch(() => ({}));
+  const id = String(body.id || "");
+  if (!id) return Response.json({ ok: false, message: "Thiếu mã lịch hẹn." }, { status: 400 });
+  try {
+    const currentRows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
+    const current = compactBookings(currentRows?.[0]?.value);
+    const target = current.find((item) => item.id === id);
+    if (!target) return Response.json({ ok: false, message: "Lịch hẹn không còn tồn tại trên server." }, { status: 404 });
+    const deletedAt = target.deletedAt || new Date().toISOString();
+    const next = current.map((item) => item.id === id || sameSlot(item, target) ? { ...item, deletedAt: item.deletedAt || deletedAt } : item);
+    const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {
+      method: "POST",
+      headers: { prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: next, updated_at: new Date().toISOString() }]),
+    });
+    const saved = compactBookings(rows?.[0]?.value || next);
+    const deleted = saved.find((item) => item.id === id);
+    if (!deleted?.deletedAt) throw new Error("Supabase did not persist the booking tombstone");
+    return Response.json({ ok: true, value: saved, deletedId: id, deletedAt: deleted.deletedAt }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  } catch (error) {
+    return Response.json({ ok: false, message: error.message || "Không thể xóa lịch hẹn trên Supabase." }, { status: 500 });
+  }
 }

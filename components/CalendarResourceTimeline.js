@@ -348,10 +348,16 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     setModalOpen(false);
   }
 
-  function deleteBooking() {
-    removeBooking(selected.id);
-    setSelected(blankBooking(selectedDate, "10:00", staff[0] || seedStaff[0]));
-    setModalOpen(false);
+  async function deleteBooking() {
+    if (selected.draft || !selected.id) return;
+    setBookingError("");
+    try {
+      await removeBooking(selected.id);
+      setSelected(blankBooking(selectedDate, "10:00", staff[0] || seedStaff[0]));
+      setModalOpen(false);
+    } catch (error) {
+      setBookingError(error.message || "Không thể xóa lịch hẹn trên Supabase.");
+    }
   }
 
   function checkoutSelected() {
@@ -513,7 +519,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
             <div className="modalActions">
               <button className="ghost" type="button" onClick={() => (selected.closedScope === "staff" || isStaffClosed) ? reopenSchedule("staff") : closeSchedule("staff")}>{(selected.closedScope === "staff" || isStaffClosed) ? "Bỏ khóa" : "Đóng lịch nhân viên"}</button>
               <button className="ghost" type="button" onClick={() => (selected.closedScope === "salon" || isSalonClosed) ? reopenSchedule("salon") : closeSchedule("salon")}>{(selected.closedScope === "salon" || isSalonClosed) ? "Bỏ khóa" : "Đóng lịch cả quán"}</button>
-              <button className="ghost dangerButton" onClick={deleteBooking}>{c.deleteBooking}</button>
+              <button className="ghost dangerButton" disabled={selected.draft} onClick={deleteBooking}>{c.deleteBooking}</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>{tc("cancel")}</button>
               <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
               <button className="primary" onClick={saveBooking}>{c.save}</button>
