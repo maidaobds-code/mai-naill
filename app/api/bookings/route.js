@@ -28,6 +28,9 @@ function publicOrigin(request) {
   return configured.replace(/\/$/, "") || new URL(request.url).origin;
 }
 
+function minutes(value) { const [hour, minute] = String(value || "").split(":").map(Number); return hour * 60 + minute; }
+function overlaps(left, right) { return left.date && left.date === right.date && minutes(left.start) < minutes(right.end) && minutes(left.end) > minutes(right.start); }
+
 async function notifyManagementForAssignment(request, booking) {
   const recipients = await managementEmails();
   if (!recipients.length) return { ok: false, skipped: true, reason: "No owner or manager email is configured" };
@@ -54,6 +57,12 @@ export async function POST(request) {
     const current = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
     const currentIds = new Set(current.map((item) => item?.id).filter(Boolean));
     const incomingIds = new Set(body.bookings.map((item) => item?.id).filter(Boolean));
+    const incoming = body.bookings.filter((item) => item && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()));
+    const allForConflict = [...current.filter((item) => !incomingIds.has(item?.id)), ...incoming];
+    for (const booking of incoming) {
+      const conflict = allForConflict.find((item) => item.id !== booking.id && item.date === booking.date && item.staff && booking.staff && item.staff === booking.staff && overlaps(item, booking));
+      if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
+    }
     const merged = [...body.bookings, ...current.filter((item) => item?.id && !incomingIds.has(item.id))];
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
     const pending = body.bookings.filter((booking) => booking?.id && !currentIds.has(booking.id) && isPendingAssignment(booking));
