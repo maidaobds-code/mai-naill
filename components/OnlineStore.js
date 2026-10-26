@@ -711,7 +711,7 @@ export default function OnlineStore({
           className="storeToolbarBrand"
           href={mode === "booking" ? "/booking" : "/shop"}
         >
-          <span className="brandMark">M</span>
+          {settings.logoUrl ? <img className="storeBrandLogo" src={settings.logoUrl} alt={settings.salonName || "Mai Beauty Salon"} /> : <span className="brandMark">M</span>}
           <strong>Mai Beauty Salon</strong>
         </a>
         <nav className="storeToolbarLinks">
