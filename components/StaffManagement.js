@@ -38,7 +38,7 @@ const copy = {
 export default function StaffManagement({ label = "Staff", embedded = false, language = "vi" }) {
   const c = copy[language] || copy.vi;
   const tc = (key) => tx(language, "common", key);
-  const { staff, setStaff, syncStatus, syncError, syncNow } = useStaffStore();
+  const { staff, setStaff, syncStatus, syncError } = useStaffStore();
   const { accounts, upsertStaffAccount, resetPassword, updateAccountRole } = useAccountStore();
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
   const [resetDraft, setResetDraft] = useState({});
@@ -87,12 +87,6 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     setAccountMessage("Đang xóa và đồng bộ danh sách nhân viên lên server…");
   }
 
-  async function synchronizeStaff() {
-    setAccountMessage("Đang đồng bộ danh sách nhân viên lên server…");
-    const result = await syncNow();
-    setAccountMessage(result.ok ? "Đã đồng bộ danh sách nhân viên lên server. Các máy sẽ nhận dữ liệu này." : "Không thể đồng bộ. Hãy đăng xuất rồi đăng nhập lại bằng tài khoản admin/chủ quán đã cấu hình trên Vercel.");
-  }
-
   function editBookingDisplay(member) {
     setBookingDraft({ ...member, displayName: member.displayName || member.name, designationFee: Number(member.designationFee ?? 1100), bookingDescription: member.bookingDescription || "", bookingVisible: member.bookingVisible !== false, avatarUrl: member.avatarUrl || "", avatarFileName: member.avatarFileName || "" });
   }
@@ -132,7 +126,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
       </div>}
 
       <section className="card staffEditor">
-        <div className="sectionTitle"><div><h2>{embedded ? label : c.newStaff}</h2><p>{c.secureNote}</p></div><div className="staffBookingActions"><button className="ghost" type="button" onClick={synchronizeStaff}>Đồng bộ lên server</button>{embedded && <button className="primary" onClick={addStaff}>{c.addStaff}</button>}</div></div>
+        <div className="sectionTitle"><div><h2>{embedded ? label : c.newStaff}</h2><p>{c.secureNote} Mọi thay đổi được tự động đồng bộ lên server.</p></div>{embedded && <button className="primary" onClick={addStaff}>{c.addStaff}</button>}</div>
         <div className="staffForm">
           <label>{c.name}<input value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} placeholder={c.namePlaceholder} /></label>
           <label>{c.role}<select value={draft.role} onChange={(event) => updateDraft("role", event.target.value)}><option value="staff">{c.staffRole}</option><option value="manager">Quản lý</option><option value="owner">{c.owner}</option></select></label>
