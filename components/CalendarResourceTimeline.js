@@ -364,7 +364,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <div className="calendarHeader">
               <strong>{dateLabel(selectedDate)} · {c.dayView}</strong>
           </div>
-          <div className="resourceTimeline">
+          <div className="resourceTimeline" style={{ gridTemplateColumns: `136px ${Math.max(1, visibleSlots.length) * 64}px` }}>
             <div className="resourceHeader">{c.staff}</div>
             <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleSlots.length}, 64px)` }}>{visibleSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {staff.map((member) => {
