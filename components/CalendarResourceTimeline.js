@@ -45,6 +45,13 @@ function addDays(date, amount) {
   return value.toISOString().slice(0, 10);
 }
 
+function addMonths(date, amount) {
+  const value = new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(1);
+  value.setUTCMonth(value.getUTCMonth() + amount);
+  return value.toISOString().slice(0, 10);
+}
+
 function dateLabel(date) {
   return String(date || "").replaceAll("-", "/");
 }
@@ -169,6 +176,17 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     setSelectedDate(date);
     setView("day");
     setSelected(blankBooking(date, "10:00", staff[0] || seedStaff[0]));
+  }
+
+  function navigatePeriod(amount) {
+    setSelectedDate((current) => view === "month" ? addMonths(current, amount) : addDays(current, amount * (view === "week" ? 7 : 1)));
+  }
+
+  function openNewBookingForDate(date) {
+    if (!staff.length) return;
+    setSelectedDate(date);
+    setSelected(blankBooking(date, "10:00", staff[0]));
+    setModalOpen(true);
   }
 
   function beginSelect(hour, member) {
@@ -382,9 +400,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <p>{c.desc}</p>
         </div>
         <div className="toolbar">
-          <button className="ghost" onClick={() => setSelectedDate(addDays(selectedDate, -1))}>{c.previous}</button>
+          <button className="ghost" onClick={() => navigatePeriod(-1)}>← <span>{c.previous}</span></button>
           <button className="ghost" onClick={() => setSelectedDate(japanToday())}>{c.today}</button>
-          <button className="ghost" onClick={() => setSelectedDate(addDays(selectedDate, 1))}>{c.next}</button>
+          <button className="ghost" onClick={() => navigatePeriod(1)}><span>{c.next}</span> →</button>
           <button className={view === "day" ? "ghost activeSoft" : "ghost"} onClick={() => setView("day")}>{c.day}</button>
           <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>{c.week}</button>
           <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>{c.month}</button>
@@ -463,18 +481,19 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       )}
 
       {view === "week" && (
-        <section className="card weekGrid weekCalendar">
+        <section className="card calendarPeriodCard">
+          <div className="calendarPeriodNav"><button type="button" className="calendarArrow" onClick={() => navigatePeriod(-1)} aria-label="Tuần trước">←</button><strong>{dateLabel(weekDates[0])} – {dateLabel(weekDates[6])}</strong><button type="button" className="calendarArrow" onClick={() => navigatePeriod(1)} aria-label="Tuần sau">→</button></div>
+          <div className="weekGrid weekCalendar">
           {weekDates.map((date) => {
             const dayName = new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : language === "vi" ? "vi-VN" : "en-US", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
             const dayNumber = Number(date.slice(-2));
             const dayBookings = bookings.filter((booking) => sameBookingDate(booking, date)).sort((a, b) => a.start.localeCompare(b.start));
             const isSelected = date === selectedDate;
             return (
-              <button className={isSelected ? "weekCol weekDayButton selectedWeekDay" : "weekCol weekDayButton"} key={date} onClick={() => openDay(date)}>
-                <span className="weekDayTop"><small>{dayName}</small><em>{date.slice(5).replace("-", "/")}</em></span>
-                <strong className="weekDayNumber">{dayNumber}</strong>
-                <span className="weekCountBadge">{dayBookings.length} {c.appointment}</span>
-                <span className="weekBookingList">
+              <div className={isSelected ? "weekCol weekDayButton selectedWeekDay" : "weekCol weekDayButton"} key={date}>
+                <div className="calendarCellTop"><button type="button" className="calendarDateButton" onClick={() => openDay(date)}><span className="weekDayTop"><small>{dayName}</small><em>{date.slice(5).replace("-", "/")}</em></span><strong className="weekDayNumber">{dayNumber}</strong></button><button type="button" className="calendarAddButton" disabled={!staff.length} onClick={() => openNewBookingForDate(date)} aria-label={`Thêm lịch ${date}`}>+</button></div>
+                <button type="button" className="weekCountBadge" onClick={() => openDay(date)}>{dayBookings.length} {c.appointment}</button>
+                <div className="weekBookingList">
                   {dayBookings.slice(0, 3).map((booking) => {
                     const member = staffFor(booking.staff);
                     const platform = platformFor(booking.source);
@@ -488,22 +507,26 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                   })}
                   {!dayBookings.length && <span className="weekEmptyState">{c.noBooking}</span>}
                   {dayBookings.length > 3 && <span className="weekMore">{String(c.more || "+{count} more").replace("{count}", dayBookings.length - 3)}</span>}
-                </span>
-              </button>
+                </div>
+              </div>
             );
           })}
+          </div>
         </section>
       )}
 
       {view === "month" && (
-        <section className="card monthGrid">
+        <section className="card calendarPeriodCard">
+          <div className="calendarPeriodNav"><button type="button" className="calendarArrow" onClick={() => navigatePeriod(-1)} aria-label="Tháng trước">←</button><strong>{selectedDate.slice(0, 7).replace("-", "/")}</strong><button type="button" className="calendarArrow" onClick={() => navigatePeriod(1)} aria-label="Tháng sau">→</button></div>
+          <div className="monthGrid">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((dayName) => <div className="monthHead" key={dayName}>{dayName}</div>)}
           {Array.from({ length: (new Date(`${visibleMonthDates[0]}T12:00:00Z`).getUTCDay() + 6) % 7 }, (_, index) => <div className="monthDay monthBlank" key={`blank-${index}`} />)}
           {visibleMonthDates.map((date) => {
             const day = Number(date.slice(-2));
             const dayBookings = bookings.filter((booking) => sameBookingDate(booking, date));
-            return <button className={date === selectedDate ? "monthDay selectedMonthDay" : "monthDay"} key={date} onClick={() => openDay(date)}><strong>{day}</strong><span>{dayBookings.length} {c.appointment}</span><em>{dayBookings.slice(0, 4).map((booking) => <i key={booking.id} style={{ background: staffFor(booking.staff).color }} />)}</em></button>;
+            return <div className={date === selectedDate ? "monthDay selectedMonthDay" : "monthDay"} key={date}><div className="calendarCellTop"><button type="button" className="calendarDateButton" onClick={() => openDay(date)}><strong>{day}</strong></button><button type="button" className="calendarAddButton" disabled={!staff.length} onClick={() => openNewBookingForDate(date)} aria-label={`Thêm lịch ${date}`}>+</button></div><button type="button" className="monthBookingCount" onClick={() => openDay(date)}>{dayBookings.length} {c.appointment}</button><div className="monthBookingPreview">{dayBookings.slice(0, 2).map((booking) => <button type="button" key={booking.id} onClick={() => { setSelectedDate(date); setSelected(booking); setModalOpen(true); }}><i style={{ background: staffFor(booking.staff).color }} /><span>{booking.start} {booking.customer}</span></button>)}</div><em>{dayBookings.slice(0, 4).map((booking) => <i key={booking.id} style={{ background: staffFor(booking.staff).color }} />)}</em></div>;
           })}
+          </div>
         </section>
       )}
 
