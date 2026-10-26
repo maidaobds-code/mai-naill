@@ -1,4 +1,5 @@
 import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth.js";
+import { legacySampleStaff } from "../../../lib/salonData.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -6,6 +7,7 @@ const OWNER = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-00
 const KV = "nail-japan-staff";
 
 function authorized(request) { return isAdminRequest(request) || isOwnerRequest(request) || isStaffRequest(request); }
+function isLegacySample(value) { return Array.isArray(value) && value.length === legacySampleStaff.length && value.every((member, index) => String(member?.id) === String(legacySampleStaff[index].id) && String(member?.name) === String(legacySampleStaff[index].name)); }
 
 async function rest(path, options = {}) {
   if (!SUPABASE_URL || !KEY) throw new Error("Supabase server configuration is missing");
@@ -20,7 +22,11 @@ export async function GET(request) {
   if (!authorized(request) && !isPublicBookingRequest) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   try {
     const rows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${KV}&select=value&limit=1`);
-    const value = Array.isArray(rows?.[0]?.value) ? rows[0].value : null;
+    let value = Array.isArray(rows?.[0]?.value) ? rows[0].value : null;
+    if (isLegacySample(value)) {
+      value = [];
+      await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
+    }
     const safeValue = isPublicBookingRequest && !authorized(request) && Array.isArray(value) ? value.filter((member) => member.bookingVisible !== false).map(({ email, phone, accountPassword, ...member }) => member) : value;
     return Response.json({ ok: true, value: safeValue }, { headers: { "Cache-Control": "no-store" } });
   } catch { return Response.json({ ok: false, value: [], message: "Không thể đọc danh sách nhân viên." }, { status: 500 }); }

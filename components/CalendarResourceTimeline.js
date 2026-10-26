@@ -17,6 +17,7 @@ const slots = [
 const intervalSlots = slots.slice(0, -1);
 const timelineStart = 9 * 60;
 const timelineEnd = 23 * 60;
+const EMPTY_STAFF = { id: "", name: "", role: "", color: "#cbd5e1", status: "" };
 
 const copy = {
   zh: { desc: "时间横向显示，员工按行排列，预约块按时长展示。", previous: "上一页", today: "今天", next: "下一页", day: "日", week: "周", month: "月", checkout: "收银", newBooking: "+ 新预约", selectedDay: "已选日期", dayBookings: "当天预约", weekTotal: "本周预约", monthTotal: "本月预约", dayView: "日视图", staff: "员工", appointment: "预约", noBooking: "暂无预约", more: "+{count} 个预约", newLabel: "新预约", editLabel: "编辑预约", customer: "客户", phone: "电话号码", platform: "平台", start: "开始", end: "结束", deleteBooking: "删除预约", save: "保存更改", conflict: "该员工此时间段已有其他预约，请选择其他时间。" },
@@ -31,7 +32,7 @@ function platformFor(id) {
 }
 
 function staffFor(name, staffList = seedStaff) {
-  return staffList.find((member) => member.name === name) || staffList[0] || seedStaff[0];
+  return staffList.find((member) => member.name === name) || staffList[0] || EMPTY_STAFF;
 }
 
 function bookingDay(booking) {
@@ -80,7 +81,7 @@ function bookingStyle(booking, rangeStart = timelineStart, rangeEnd = timelineEn
   };
 }
 
-function blankBooking(date, hour, member) {
+function blankBooking(date, hour, member = EMPTY_STAFF) {
   const day = Number(String(date).slice(-2));
   return {
     id: `draft-${day}-${hour}-${member.id}`,
@@ -111,7 +112,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [view, setView] = useState("day");
   const [selectedDate, setSelectedDate] = useState(japanToday);
   const selectedDay = Number(selectedDate.slice(-2));
-  const [selected, setSelected] = useState(() => blankBooking(japanToday(), "10:00", seedStaff[0]));
+  const [selected, setSelected] = useState(() => blankBooking(japanToday(), "10:00", EMPTY_STAFF));
   const [modalOpen, setModalOpen] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
@@ -120,7 +121,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const { bookings, saveBookingRecord, removeBooking } = useBookingStore();
   const { staff: staffMembers } = useStaffStore();
   const { accounts, currentAccount } = useAccountStore();
-  const staff = staffMembers.length ? staffMembers : seedStaff;
+  const staff = staffMembers;
   const startMinutes = toMinutes(settings.openTime || "09:00");
   const endMinutes = toMinutes(settings.closeTime || "23:00");
   const visibleSlots = slots.filter((slot) => toMinutes(slot) >= startMinutes && toMinutes(slot) <= endMinutes);
@@ -289,7 +290,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
   async function saveBooking() {
     const previousBooking = selected.draft ? null : bookings.find((booking) => booking.id === selected.id) || selected;
-    const assigned = staff.find((member) => member.name === selected.staff) || staff.find((member) => String(member.id) === String(selected.staffId)) || staff[0] || seedStaff[0];
+    const assigned = staff.find((member) => member.name === selected.staff) || staff.find((member) => String(member.id) === String(selected.staffId)) || staff[0];
+    if (!assigned) {
+      setBookingError("Chưa có nhân viên thật trên Supabase. Hãy tạo tài khoản nhân viên trước khi thêm lịch.");
+      return;
+    }
     const bookingToSave = {
       ...selected,
       staff: assigned.name,
@@ -384,7 +389,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>{c.week}</button>
           <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>{c.month}</button>
           <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
-          <button className="primary" onClick={() => { setSelected(blankBooking(selectedDate, "10:00", staff[0] || seedStaff[0])); setModalOpen(true); }}>{c.newBooking}</button>
+          <button className="primary" disabled={!staff.length} title={!staff.length ? "Hãy tạo nhân viên thật trước" : ""} onClick={() => { setSelected(blankBooking(selectedDate, "10:00", staff[0])); setModalOpen(true); }}>{c.newBooking}</button>
         </div>
       </div>
 
