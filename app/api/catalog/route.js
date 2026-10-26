@@ -10,6 +10,7 @@ const keys = {
   services: "nail-japan-services",
   "nail-japan-products": "nail-japan-products",
   "nail-japan-services": "nail-japan-services",
+  "nail-japan-booking-options": "nail-japan-booking-options",
 };
 
 function catalogKey(value) {
@@ -40,8 +41,8 @@ export async function GET(request) {
   if (!key) return Response.json({ ok: false, message: "Invalid catalog key", value: [] }, { status: 400 });
 
   try {
-    const rows = await supabaseRest(`app_kv?key=eq.${encodeURIComponent(key)}&select=value,updated_at&order=updated_at.desc&limit=1`, {}, Boolean(SERVICE_ROLE_KEY));
-    return Response.json({ ok: true, value: rows?.[0]?.value || [] });
+    const rows = await supabaseRest(`app_kv?owner_id=eq.${CATALOG_OWNER_ID}&key=eq.${encodeURIComponent(key)}&select=value,updated_at&limit=1`, {}, Boolean(SERVICE_ROLE_KEY));
+    return Response.json({ ok: true, value: Array.isArray(rows?.[0]?.value) ? rows[0].value : null });
   } catch (error) {
     return Response.json({ ok: false, message: error.message, value: [] }, { status: 200 });
   }

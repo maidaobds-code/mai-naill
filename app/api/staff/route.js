@@ -20,8 +20,8 @@ export async function GET(request) {
   if (!authorized(request) && !isPublicBookingRequest) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   try {
     const rows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${KV}&select=value&limit=1`);
-    const value = Array.isArray(rows?.[0]?.value) ? rows[0].value : [];
-    const safeValue = isPublicBookingRequest && !authorized(request) ? value.filter((member) => member.bookingVisible !== false).map(({ email, phone, accountPassword, ...member }) => member) : value;
+    const value = Array.isArray(rows?.[0]?.value) ? rows[0].value : null;
+    const safeValue = isPublicBookingRequest && !authorized(request) && Array.isArray(value) ? value.filter((member) => member.bookingVisible !== false).map(({ email, phone, accountPassword, ...member }) => member) : value;
     return Response.json({ ok: true, value: safeValue }, { headers: { "Cache-Control": "no-store" } });
   } catch { return Response.json({ ok: false, value: [], message: "Không thể đọc danh sách nhân viên." }, { status: 500 }); }
 }
