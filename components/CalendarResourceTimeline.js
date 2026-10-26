@@ -366,7 +366,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           </div>
           <div className="resourceTimeline">
             <div className="resourceHeader">{c.staff}</div>
-            <div className="timeAxis">{visibleSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
+            <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleSlots.length}, 64px)` }}>{visibleSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {staff.map((member) => {
               const memberBookings = selectedDayBookings.filter((booking) => booking.staff === member.name || String(booking.staffId || "") === String(member.id));
               return (
@@ -375,8 +375,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
-                  <div className="resourceLane">
-                    <div className="slotHitGrid">
+                  <div className="resourceLane" style={{ backgroundSize: `${100 / Math.max(1, visibleIntervalSlots.length)}% 100%` }}>
+                    <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, 64px)` }}>
                       {visibleIntervalSlots.map((hour) => (
                         <button
                           className={isPainted(hour, member.id) ? "slotHit painting" : "slotHit"}
