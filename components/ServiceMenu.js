@@ -77,6 +77,12 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
 
   async function saveService() {
     if (!draft.name.trim()) return;
+    if (draft.category === "addons") {
+      const option = { id: draft.id || `option-${Date.now()}`, name: draft.name.trim(), price: Number(draft.price) || 0, duration: Number(draft.duration) || 0 };
+      setBookingOptions((current) => current.some((item) => item.id === option.id) ? current.map((item) => item.id === option.id ? option : item) : [...current, option]);
+      setDraft({ ...emptyService });
+      return;
+    }
     const hasNameTranslations = ["nameVi", "nameJa", "nameEn", "nameZh", "nameKo"].every((key) => draft[key]);
     const hasDescriptionTranslations = !draft.description.trim() || ["descriptionVi", "descriptionJa", "descriptionEn", "descriptionZh", "descriptionKo"].every((key) => draft[key]);
     const nameChanged = draft.translationSourceName !== draft.name;
@@ -85,13 +91,6 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     const record = { ...draft, id: draft.id || `svc-${Date.now()}`, nameVi: names.VI || draft.nameVi || draft.name, nameJa: names.JA || draft.nameJa || draft.name, nameEn: names.EN || draft.nameEn || draft.name, nameZh: names.ZH || draft.nameZh || draft.name, nameKo: names.KO || draft.nameKo || draft.name, descriptionVi: descriptions.VI ?? draft.descriptionVi ?? draft.description, descriptionJa: descriptions.JA ?? draft.descriptionJa ?? draft.description, descriptionEn: descriptions.EN ?? draft.descriptionEn ?? draft.description, descriptionZh: descriptions.ZH ?? draft.descriptionZh ?? draft.description, descriptionKo: descriptions.KO ?? draft.descriptionKo ?? draft.description, translationSourceName: draft.name, translationSourceDescription: draft.description };
     setServices((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
     setDraft({ ...emptyService });
-  }
-
-  function saveOption() {
-    if (!optionDraft.name.trim()) return;
-    const record = { ...optionDraft, id: optionDraft.id || `option-${Date.now()}`, price: Number(optionDraft.price) || 0, duration: Number(optionDraft.duration) || 0 };
-    setBookingOptions((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
-    setOptionDraft({ id: "", name: "", price: 0, duration: 30 });
   }
 
   return (
@@ -116,17 +115,6 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
         <div className="staffPicker">{staff.map((member) => <button type="button" key={member.id} className={draft.staff.includes(member.name) ? "ghost activeSoft" : "ghost"} onClick={() => toggleStaff(member.name)}>{member.name}</button>)}</div>
       </section>
 
-      <section className="card staffEditor serviceEditorPanel">
-        <h2>Dịch vụ bổ sung đồng bộ với Booking</h2>
-        <div className="staffForm">
-          <label>Tên dịch vụ bổ sung<input value={optionDraft.name} onChange={(event) => setOptionDraft({ ...optionDraft, name: event.target.value })} placeholder="Ví dụ: Đổi gel Para" /></label>
-          <label>Giá (JPY)<input type="number" value={optionDraft.price} onChange={(event) => setOptionDraft({ ...optionDraft, price: Number(event.target.value) })} /></label>
-          <label>Thời lượng (phút)<input type="number" value={optionDraft.duration} onChange={(event) => setOptionDraft({ ...optionDraft, duration: Number(event.target.value) })} /></label>
-          <button className="primary" type="button" onClick={saveOption}>{optionDraft.id ? "Cập nhật dịch vụ bổ sung" : "Thêm dịch vụ bổ sung"}</button>
-        </div>
-        <div className="serviceAddonList">{bookingOptions.map((option) => <div className="serviceAddonRow" key={option.id}><span><strong>{option.name}</strong><small>{option.duration} phút · JPY {Number(option.price).toLocaleString("ja-JP")}</small></span><button className="ghost" type="button" onClick={() => setOptionDraft({ ...option })}>Sửa</button><button className="ghost dangerButton" type="button" onClick={() => setBookingOptions((current) => current.filter((item) => item.id !== option.id))}>Xóa</button></div>)}</div>
-      </section>
-
       <div className="serviceCatalogTools">
         <input aria-label={searchLabel} placeholder={searchLabel} value={query} onChange={(event) => setQuery(event.target.value)} />
         <select aria-label={categoryLabel} value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}><option value="">{allGroupsLabel}</option>{groups.map((group) => <option key={group.id} value={group.id}>{group[languageKey]}</option>)}</select>
@@ -145,7 +133,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
               <td>{service.staff.join(", ")}</td>
               <td><button className="ghost" onClick={() => setDraft({ ...emptyService, ...service })}>{tc("edit")}</button>{" "}<button className="ghost dangerButton" onClick={() => setServices((current) => current.filter((item) => item.id !== service.id))}>{tc("delete")}</button></td>
             </tr>
-          ))}</tbody>
+          ))}{(!groupFilter || groupFilter === "addons") && bookingOptions.filter((option) => !query || option.name.toLowerCase().includes(query.toLowerCase())).map((option) => <tr key={option.id}><td><div className="serviceCell"><span className="serviceThumb">＋</span><div><strong>{option.name}</strong><br /><small>Dịch vụ bổ sung</small></div></div></td><td><span className="serviceGroupBadge">{bookingGroupLabel("addons", language)}</span></td><td>JPY {Number(option.price).toLocaleString("ja-JP")}</td><td>{option.duration} {c.minutes}</td><td>—</td><td><button className="ghost" onClick={() => setDraft({ ...emptyService, ...option, category: "addons" })}>{tc("edit")}</button>{" "}<button className="ghost dangerButton" onClick={() => setBookingOptions((current) => current.filter((item) => item.id !== option.id))}>{tc("delete")}</button></td></tr>)}</tbody>
         </table>
       </section>
     </>
