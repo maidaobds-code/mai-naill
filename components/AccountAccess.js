@@ -205,7 +205,24 @@ export function LoginPage() {
   const copy = loginCopy[language] || loginCopy.vi;
 
   useEffect(() => {
-    try { setLogoUrl(JSON.parse(window.localStorage.getItem("nail-japan-settings") || "{}").logoUrl || ""); } catch {}
+    let mounted = true;
+    const readLogo = () => { try { setLogoUrl(JSON.parse(window.localStorage.getItem("nail-japan-settings") || "{}").logoUrl || ""); } catch {} };
+    const readServerLogo = async () => {
+      try {
+        const response = await fetch("/api/settings?public=1", { cache: "no-store" });
+        const result = response.ok ? await response.json() : null;
+        if (!mounted || !result?.value) return;
+        const local = JSON.parse(window.localStorage.getItem("nail-japan-settings") || "{}");
+        const next = { ...local, ...result.value };
+        window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
+        setLogoUrl(next.logoUrl || "");
+      } catch {}
+    };
+    readLogo();
+    readServerLogo();
+    window.addEventListener("storage", readLogo);
+    window.addEventListener("nail-japan-settings-updated", readLogo);
+    return () => { mounted = false; window.removeEventListener("storage", readLogo); window.removeEventListener("nail-japan-settings-updated", readLogo); };
   }, []);
 
   return (

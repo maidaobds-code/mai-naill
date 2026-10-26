@@ -23,10 +23,24 @@ export default function SidebarEnhanced({ active, setActive, language, setLangua
   const { orders } = useStoreOrders();
   useEffect(() => {
     const readLogo = () => { try { setLogoUrl(JSON.parse(window.localStorage.getItem("nail-japan-settings") || "{}").logoUrl || ""); } catch { setLogoUrl(""); } };
+    let mounted = true;
+    const readServerLogo = async () => {
+      try {
+        const response = await fetch("/api/settings?public=1", { cache: "no-store" });
+        const result = response.ok ? await response.json() : null;
+        if (!mounted || !result?.value) return;
+        const local = JSON.parse(window.localStorage.getItem("nail-japan-settings") || "{}");
+        const next = { ...local, ...result.value };
+        window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
+        setLogoUrl(next.logoUrl || "");
+      } catch {}
+    };
     readLogo();
+    readServerLogo();
+    const refreshTimer = window.setInterval(readServerLogo, 10000);
     window.addEventListener("storage", readLogo);
     window.addEventListener("nail-japan-settings-updated", readLogo);
-    return () => { window.removeEventListener("storage", readLogo); window.removeEventListener("nail-japan-settings-updated", readLogo); };
+    return () => { mounted = false; window.clearInterval(refreshTimer); window.removeEventListener("storage", readLogo); window.removeEventListener("nail-japan-settings-updated", readLogo); };
   }, []);
   const unread = orders.filter((order) => order.unread && !["FULFILLED", "Completed", "Delivered"].includes(order.status)).length;
   const visibleItems = items.filter((item) => allowedItems.includes(item[2]));

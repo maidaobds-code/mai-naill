@@ -167,8 +167,11 @@ export default function Settings({ language = "vi" }) {
       body: JSON.stringify(value),
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.ok)
+    if (!response.ok || !result.ok) {
+      if (response.status === 401 || response.status === 403)
+        throw new Error("Phiên đăng nhập server không hợp lệ. Hãy đăng xuất rồi đăng nhập lại bằng tài khoản admin/chủ quán đã cấu hình trên Vercel.");
       throw new Error(result.message || "Không thể lưu cài đặt lên Supabase.");
+    }
     return result.value || value;
   }
 
