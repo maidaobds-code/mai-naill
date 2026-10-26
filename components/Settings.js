@@ -19,6 +19,7 @@ export const defaultSettings = {
   openTime: "09:00",
   closeTime: "23:00",
   closedPeriods: [],
+  staffClosedPeriods: [],
   autoConfirm: true,
   emailReminder: true,
   lineReminder: false,
@@ -437,6 +438,10 @@ export default function Settings({ language = "vi" }) {
             <label>
               Khung giờ đóng lịch (mỗi dòng: YYYY-MM-DD HH:MM-HH:MM)
               <textarea rows="4" value={(settings.closedPeriods || []).join("\n")} onChange={(event) => update("closedPeriods", event.target.value.split("\n").map((v) => v.trim()).filter(Boolean))} placeholder="2026-10-31 13:00-15:00" />
+            </label>
+            <label>
+              Đóng lịch riêng nhân viên (mỗi dòng: staffId YYYY-MM-DD HH:MM-HH:MM)
+              <textarea rows="4" value={(settings.staffClosedPeriods || []).join("\n")} onChange={(event) => update("staffClosedPeriods", event.target.value.split("\n").map((v) => v.trim()).filter(Boolean))} placeholder="staff-1 2026-10-31 13:00-15:00" />
             </label>
             <label>
               {tr("tax")}

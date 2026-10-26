@@ -6,6 +6,7 @@ import { useStaffStore } from "../lib/staffStore";
 import { useAccountStore } from "../lib/accountStore";
 import { useBookingStore } from "../lib/bookingStore";
 import { japanToday } from "../lib/bookingMenu";
+import { getAppSettings } from "./Settings";
 
 const slots = [
   "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
@@ -69,12 +70,12 @@ function toMinutes(time) {
   return hour * 60 + minute;
 }
 
-function bookingStyle(booking) {
-  const start = Math.max(timelineStart, toMinutes(booking.start));
-  const end = Math.min(timelineEnd, toMinutes(booking.end));
-  const total = timelineEnd - timelineStart;
+function bookingStyle(booking, rangeStart = timelineStart, rangeEnd = timelineEnd) {
+  const start = Math.max(rangeStart, toMinutes(booking.start));
+  const end = Math.min(rangeEnd, toMinutes(booking.end));
+  const total = rangeEnd - rangeStart;
   return {
-    left: `${((start - timelineStart) / total) * 100}%`,
+    left: `${((start - rangeStart) / total) * 100}%`,
     width: `${Math.max(5, ((end - start) / total) * 100)}%`,
   };
 }
@@ -115,10 +116,15 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
   const [bookingError, setBookingError] = useState("");
+  const [settings, setSettings] = useState(getAppSettings);
   const { bookings, setBookings, removeBooking } = useBookingStore();
   const { staff: staffMembers } = useStaffStore();
   const { accounts, currentAccount } = useAccountStore();
   const staff = staffMembers.length ? staffMembers : seedStaff;
+  const startMinutes = toMinutes(settings.openTime || "09:00");
+  const endMinutes = toMinutes(settings.closeTime || "23:00");
+  const visibleSlots = slots.filter((slot) => toMinutes(slot) >= startMinutes && toMinutes(slot) <= endMinutes);
+  const visibleIntervalSlots = visibleSlots.slice(0, -1);
   const pressRef = useRef(null);
   const paintRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
@@ -127,6 +133,10 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const visibleMonthDates = monthDates(selectedDate);
   const weekTotal = bookings.filter((booking) => weekDates.some((date) => sameBookingDate(booking, date))).length;
   const monthTotal = bookings.filter((booking) => visibleMonthDates.some((date) => sameBookingDate(booking, date))).length;
+
+  useEffect(() => {
+    fetch("/api/settings", { cache: "no-store" }).then((response) => response.json()).then((result) => result.value && setSettings((current) => ({ ...current, ...result.value }))).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!staff.length || !selected?.draft) return;
@@ -151,11 +161,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       setDragStart(null);
       return;
     }
-    const startIndex = slots.indexOf(dragStart.hour);
-    const endIndex = slots.indexOf(hour);
+    const startIndex = visibleSlots.indexOf(dragStart.hour);
+    const endIndex = visibleSlots.indexOf(hour);
     const firstIndex = Math.min(startIndex, endIndex);
     const lastIndex = Math.max(startIndex, endIndex);
-    setSelected({ ...blankBooking(selectedDate, slots[firstIndex], member), end: slots[Math.min(lastIndex + 1, slots.length - 1)] });
+    setSelected({ ...blankBooking(selectedDate, visibleSlots[firstIndex], member), end: visibleSlots[Math.min(lastIndex + 1, visibleSlots.length - 1)] });
     setModalOpen(true);
     setDragStart(null);
   }
@@ -193,11 +203,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const painting = paintRef.current;
     if (!painting || painting.pointerId !== event.pointerId) return;
     event.preventDefault();
-    const startIndex = intervalSlots.indexOf(painting.startHour);
-    const endIndex = intervalSlots.indexOf(painting.endHour);
+    const startIndex = visibleIntervalSlots.indexOf(painting.startHour);
+    const endIndex = visibleIntervalSlots.indexOf(painting.endHour);
     const firstIndex = Math.min(startIndex, endIndex);
     const lastIndex = Math.max(startIndex, endIndex);
-    setSelected({ ...blankBooking(selectedDate, slots[firstIndex], painting.member), end: slots[Math.min(lastIndex + 1, slots.length - 1)] });
+    setSelected({ ...blankBooking(selectedDate, visibleSlots[firstIndex], painting.member), end: visibleSlots[Math.min(lastIndex + 1, visibleSlots.length - 1)] });
     paintRef.current = null;
     setPaintRange(null);
     setModalOpen(true);
@@ -205,9 +215,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
   function isPainted(hour, memberId) {
     if (!paintRange || paintRange.memberId !== memberId) return false;
-    const slotIndex = intervalSlots.indexOf(hour);
-    const startIndex = intervalSlots.indexOf(paintRange.startHour);
-    const endIndex = intervalSlots.indexOf(paintRange.endHour);
+    const slotIndex = visibleIntervalSlots.indexOf(hour);
+    const startIndex = visibleIntervalSlots.indexOf(paintRange.startHour);
+    const endIndex = visibleIntervalSlots.indexOf(paintRange.endHour);
     return slotIndex >= Math.min(startIndex, endIndex) && slotIndex <= Math.max(startIndex, endIndex);
   }
 
@@ -297,6 +307,17 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     try { await notifyAssignedStaff(bookingToSave, previousBooking); } catch (error) { console.warn(error); }
   }
 
+  async function closeSchedule(scope) {
+    const period = `${selectedDate} ${selected.start}-${selected.end}`;
+    const next = { ...settings };
+    if (scope === "salon") next.closedPeriods = Array.from(new Set([...(settings.closedPeriods || []), period]));
+    else next.staffClosedPeriods = Array.from(new Set([...(settings.staffClosedPeriods || []), `${selected.staffId || staff.find((member) => member.name === selected.staff)?.id || selected.staff} ${period}`]));
+    setSettings(next);
+    window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
+    try { await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(next) }); } catch {}
+    setModalOpen(false);
+  }
+
   function deleteBooking() {
     removeBooking(selected.id);
     setSelected(blankBooking(selectedDate, "10:00", staff[0] || seedStaff[0]));
@@ -345,7 +366,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           </div>
           <div className="resourceTimeline">
             <div className="resourceHeader">{c.staff}</div>
-            <div className="timeAxis">{slots.map((hour) => <span key={hour}>{hour}</span>)}</div>
+            <div className="timeAxis">{visibleSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {staff.map((member) => {
               const memberBookings = selectedDayBookings.filter((booking) => booking.staff === member.name || String(booking.staffId || "") === String(member.id));
               return (
@@ -356,7 +377,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                   </div>
                   <div className="resourceLane">
                     <div className="slotHitGrid">
-                      {intervalSlots.map((hour) => (
+                      {visibleIntervalSlots.map((hour) => (
                         <button
                           className={isPainted(hour, member.id) ? "slotHit painting" : "slotHit"}
                           key={`${member.id}-${hour}`}
@@ -377,7 +398,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                         <button
                           className={selected.id === booking.id ? "timelineBooking selectedBar" : "timelineBooking"}
                           key={booking.id}
-                          style={{ ...bookingStyle(booking), borderColor: member.color, background: `${member.color}2b` }}
+                          style={{ ...bookingStyle(booking, startMinutes, endMinutes), borderColor: member.color, background: `${member.color}2b` }}
                           onMouseDown={() => openBookingAfterHold(booking)}
                           onMouseUp={cancelHold}
                           onMouseLeave={cancelHold}
@@ -454,11 +475,13 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
               <label>{c.phone}<input value={selected.phone} onChange={(event) => setSelected({ ...selected, phone: event.target.value })} placeholder="090-0000-0000" /></label>
               <label>{c.staff}<select value={selected.staff} onChange={(event) => { const assigned = staff.find((member) => member.name === event.target.value); setSelected({ ...selected, staff: event.target.value, staffId: assigned?.id || "", staffEmail: assigned?.email || "", staffRole: assigned?.role || "", staffPhone: assigned?.phone || "" }); }}>{staff.map((member) => <option key={member.id} value={member.name}>{member.name}{member.role ? ` · ${member.role}` : ""}</option>)}</select></label>
               <label>{c.platform}<select value={selected.source} onChange={(event) => setSelected({ ...selected, source: event.target.value })}>{platforms.map((platform) => <option key={platform.id} value={platform.id}>{platform.name}</option>)}</select></label>
-              <label>{c.start}<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
-              <label>{c.end}<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{slots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
+              <label>{c.start}<select value={selected.start} onChange={(event) => setSelected({ ...selected, start: event.target.value })}>{visibleSlots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
+              <label>{c.end}<select value={selected.end} onChange={(event) => setSelected({ ...selected, end: event.target.value })}>{visibleSlots.map((hour) => <option key={hour}>{hour}</option>)}</select></label>
             </div>
             {bookingError && <p className="bookingConflictNotice" role="alert">{bookingError}</p>}
             <div className="modalActions">
+              <button className="ghost" type="button" onClick={() => closeSchedule("staff")}>Đóng lịch nhân viên</button>
+              <button className="ghost" type="button" onClick={() => closeSchedule("salon")}>Đóng lịch cả quán</button>
               <button className="ghost dangerButton" onClick={deleteBooking}>{c.deleteBooking}</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>{tc("cancel")}</button>
               <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
