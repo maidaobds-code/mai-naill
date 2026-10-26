@@ -1,5 +1,6 @@
 import { createBookingCancellationToken, verifyBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
-import { sendEmail, staffCatalog } from "../../../lib/serverEmail.js";
+import { sendEmail, staffCatalog, salonSettings } from "../../../lib/serverEmail.js";
+import { appointmentConfirmationEmail } from "../../../lib/appointmentEmail.js";
 import { staff as seedStaff } from "../../../lib/salonData.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,11 +35,12 @@ function overlaps(left, right) {
   return left.date === right.date && toMinutes(left.start) < toMinutes(right.end) && toMinutes(left.end) > toMinutes(right.start);
 }
 
-function availability(member, booking, allBookings) {
+function availability(member, booking, allBookings, settings = {}) {
   const own = allBookings.filter((item) => item.id !== booking.id && !item.deletedAt && (String(item.staffId || "") === String(member.id) || item.staff === member.name));
   const busy = own.filter((item) => !["cancelled", "completed"].includes(String(item.status).toLowerCase()) && overlaps(item, booking));
   const before = own.filter((item) => item.date === booking.date && String(item.end || "") <= String(booking.start || "")).sort((a, b) => String(b.end).localeCompare(String(a.end)))[0];
-  return { available: !busy.length, previousBooking: before ? { start: before.start, end: before.end, customer: before.customer } : null };
+  const closedPeriods = (settings.staffClosedPeriods || []).filter((raw) => { const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/); return match && String(match[1]) === String(member.id) && match[2] === booking.date && toMinutes(booking.start) < toMinutes(match[4]) && toMinutes(booking.end) > toMinutes(match[3]); });
+  return { available: !busy.length && !closedPeriods.length, busy: Boolean(busy.length), closed: Boolean(closedPeriods.length), closedPeriods, previousBooking: before ? { start: before.start, end: before.end, customer: before.customer } : null };
 }
 
 function escapeHtml(value) {
@@ -50,10 +52,10 @@ export async function GET(request) {
   const claim = verifyBookingAssignmentToken(token);
   if (!claim) return Response.json({ ok: false, message: "Liên kết không hợp lệ hoặc đã hết hạn." }, { status: 401 });
   try {
-    const [allBookings, staff] = await Promise.all([bookings(), availableStaff()]);
+    const [allBookings, staff, settings] = await Promise.all([bookings(), availableStaff(), salonSettings()]);
     const booking = allBookings.find((item) => item.id === claim.bookingId && !item.deletedAt);
     if (!booking) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn." }, { status: 404 });
-    const rankedStaff = staff.map((member, index) => ({ id: member.id, name: member.name, role: member.role, color: member.color, hasEmail: Boolean(member.email), ...availability(member, booking, allBookings), originalOrder: index })).sort((a, b) => Number(b.available) - Number(a.available) || a.originalOrder - b.originalOrder);
+    const rankedStaff = staff.map((member, index) => ({ id: member.id, name: member.name, role: member.role, color: member.color, hasEmail: Boolean(member.email), ...availability(member, booking, allBookings, settings), originalOrder: index })).sort((a, b) => Number(b.available) - Number(a.available) || a.originalOrder - b.originalOrder);
     return Response.json({ ok: true, booking: { id: booking.id, customer: booking.customer, date: booking.date, start: booking.start, end: booking.end, service: booking.service, staff: booking.staff, staffId: booking.staffId, assignmentStatus: booking.assignmentStatus }, staff: rankedStaff }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return Response.json({ ok: false, message: error.message || "Không thể đọc lịch hẹn." }, { status: 500 }); }
 }
@@ -63,15 +65,22 @@ export async function POST(request) {
   const claim = verifyBookingAssignmentToken(body.token);
   if (!claim || !body.staffId) return Response.json({ ok: false, message: "Yêu cầu phân công không hợp lệ." }, { status: 401 });
   try {
-    const [allBookings, staff] = await Promise.all([bookings(), availableStaff()]);
+    const [allBookings, staff, settings] = await Promise.all([bookings(), availableStaff(), salonSettings()]);
     const booking = allBookings.find((item) => item.id === claim.bookingId && !item.deletedAt);
     const requestedNoPreference = body.staffId === "__NO_PREFERENCE__";
-    const member = requestedNoPreference ? staff.find((item) => availability(item, booking, allBookings).available) : staff.find((item) => String(item.id) === String(body.staffId));
+    const member = requestedNoPreference ? staff.find((item) => availability(item, booking, allBookings, settings).available) : staff.find((item) => String(item.id) === String(body.staffId));
     if (!booking || !member) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn hoặc nhân viên." }, { status: 404 });
+    const memberAvailability = availability(member, booking, allBookings, settings);
+    if (memberAvailability.closed && !body.overrideClosed) return Response.json({ ok: false, code: "STAFF_CLOSED", message: `${member.name} đang đóng lịch trong khung giờ này.` }, { status: 409 });
     const conflict = allBookings.find((item) => item.id !== booking.id && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()) && (String(item.staffId || "") === String(member.id) || item.staff === member.name) && overlaps(item, booking));
     if (conflict) return Response.json({ ok: false, message: `${member.name} đã có lịch trong khung giờ này.` }, { status: 409 });
     const originallyRequested = booking.requestedStaff || booking.staff || "";
     const staffChanged = Boolean(originallyRequested && !["Chưa phân công", "指名なし", "No preference"].includes(originallyRequested) && originallyRequested !== member.name);
+    if (memberAvailability.closed && body.overrideClosed) {
+      const nextSettings = { ...settings, staffClosedPeriods: (settings.staffClosedPeriods || []).filter((value) => !memberAvailability.closedPeriods.includes(value)) };
+      await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: "nail-japan-settings", value: nextSettings, updated_at: new Date().toISOString() }]) });
+      if (body.reopenOnly) return Response.json({ ok: true, reopenedOnly: true, booking });
+    }
     const assigned = { ...booking, staff: member.name, staffId: member.id, staffEmail: member.email || "", staffRole: member.role || "", assignmentStatus: "ASSIGNED", approvalStatus: "OWNER_CONFIRMED", noPreference: requestedNoPreference, assignedAt: new Date().toISOString() };
     const next = allBookings.map((item) => item.id === assigned.id ? assigned : item);
     await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: next, updated_at: new Date().toISOString() }]) });
@@ -87,12 +96,8 @@ export async function POST(request) {
     const changeUrl = `${origin}/assign-booking?token=${encodeURIComponent(assignmentToken)}`;
     const cancelUrl = `${origin}/cancel-booking?token=${encodeURIComponent(cancelToken)}`;
     const customerReason = staffChanged ? `Nhân viên ${originallyRequested} hiện không tiện phục vụ trong khung giờ này, salon đã sắp xếp ${member.name}.` : requestedNoPreference ? `Bạn không yêu cầu chỉ định, salon đã sắp xếp ${member.name}.` : `Salon đã xác nhận ${member.name} phục vụ bạn.`;
-    const customerNotification = await sendEmail({
-      to: assigned.email,
-      subject: `Mai Beauty Salon · Lịch hẹn đã được chấp nhận · ${assigned.date}`,
-      text: `Lịch hẹn của bạn đã được chấp nhận.\n${customerReason}\nNgày: ${assigned.date}\nGiờ: ${assigned.start} - ${assigned.end}\nChọn nhân viên khác hoặc không chỉ định: ${changeUrl}\nHủy hẹn: ${cancelUrl}`,
-      html: `<div style="font-family:Arial,sans-serif;color:#332936;max-width:600px;margin:auto"><h2>Lịch hẹn đã được chấp nhận</h2><p>${escapeHtml(customerReason)}</p><p><strong>Ngày:</strong> ${escapeHtml(assigned.date)}<br><strong>Giờ:</strong> ${escapeHtml(assigned.start)} - ${escapeHtml(assigned.end)}<br><strong>Dịch vụ:</strong> ${escapeHtml(assigned.service)}</p><p><a href="${escapeHtml(changeUrl)}" style="display:inline-block;padding:12px 18px;border-radius:999px;background:#a93670;color:#fff;text-decoration:none;font-weight:700">Chọn nhân viên khác / Không chỉ định</a></p><p><a href="${escapeHtml(cancelUrl)}" style="display:inline-block;padding:11px 18px;border-radius:999px;border:1px solid #c4455d;color:#a62f46;text-decoration:none;font-weight:700">Hủy hẹn</a></p></div>`,
-    });
+    const confirmation = appointmentConfirmationEmail({ booking: assigned, settings, language: assigned.language || "vi", bookingUrl: `${origin}/booking?appointment=${encodeURIComponent(assigned.id)}`, changeUrl, cancelUrl, staffChangeReason: staffChanged ? customerReason : "" });
+    const customerNotification = await sendEmail({ to: assigned.email, ...confirmation });
     return Response.json({ ok: true, booking: assigned, notification, customerNotification });
   } catch (error) { return Response.json({ ok: false, message: error.message || "Không thể phân công nhân viên." }, { status: 500 }); }
 }

@@ -21,28 +21,29 @@ export default function BookingAssignment({ token }) {
       .finally(() => setLoading(false));
   }, [token]);
 
-  async function assign(event) {
-    event.preventDefault();
+  async function assign(event, overrideClosed = false, reopenOnly = false) {
+    event?.preventDefault();
     if (!selected) return;
     setSaving(true);
     setMessage("");
     try {
-      const response = await fetch("/api/booking-assignment", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, staffId: selected }) });
+      const response = await fetch("/api/booking-assignment", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, staffId: selected, overrideClosed, reopenOnly }) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.ok) throw new Error(result.message || "Không thể phân công nhân viên.");
-      setData((current) => ({ ...current, booking: result.booking }));
-      setMessage(result.notification?.ok ? `Đã phân công cho ${result.booking.staff} và gửi email thông báo.` : `Đã phân công cho ${result.booking.staff}. Nhân viên chưa có email hoặc Resend chưa được cấu hình.`);
+      setData((current) => ({ ...current, booking: result.booking, staff: reopenOnly ? current.staff.map((member) => String(member.id) === selected ? { ...member, closed: false, available: true } : member) : current.staff }));
+      setMessage(reopenOnly ? "Đã bỏ đóng lịch cho nhân viên trong khung giờ này." : result.notification?.ok ? `Đã phân công cho ${result.booking.staff} và gửi email thông báo.` : `Đã phân công cho ${result.booking.staff}. Nhân viên chưa có email hoặc Resend chưa được cấu hình.`);
     } catch (error) { setMessage(error.message); }
     finally { setSaving(false); }
   }
 
+  const selectedMember = data?.staff?.find((member) => String(member.id) === selected);
   return <main className="assignmentPage"><section className="assignmentCard">
     <div className="assignmentBrand"><span>M</span><div><strong>Mai Beauty Salon</strong><small>BOOKING ASSIGNMENT</small></div></div>
     {loading && <p className="assignmentStatus">Đang tải lịch hẹn…</p>}
     {!loading && !data && <p className="assignmentStatus error" role="alert">{message}</p>}
     {data && <><header><p className="eyebrow">LịCH HẸN CHỜ PHÂN CÔNG</p><h1>Chọn nhân viên</h1><p>Nhân viên được chọn sẽ nhận email và lịch sẽ cập nhật vào lịch chung.</p></header>
       <div className="assignmentSummary"><p><span>Khách hàng</span><strong>{data.booking.customer}</strong></p><p><span>Ngày giờ</span><strong>{data.booking.date} · {data.booking.start}–{data.booking.end}</strong></p><p><span>Dịch vụ</span><strong>{data.booking.service}</strong></p></div>
-      <form onSubmit={assign}><div className="assignmentStaffGrid"><label className={selected === "__NO_PREFERENCE__" ? "selected" : ""}><input type="radio" name="staff" value="__NO_PREFERENCE__" checked={selected === "__NO_PREFERENCE__"} onChange={(event) => setSelected(event.target.value)} /><span className="assignmentAvatar">○</span><span><strong>Không yêu cầu chỉ định</strong><small>Salon tự động chọn nhân viên đang trống phù hợp</small></span></label>{data.staff.map((member) => <label className={selected === String(member.id) ? "selected" : ""} key={member.id}><input type="radio" name="staff" value={member.id} checked={selected === String(member.id)} onChange={(event) => setSelected(event.target.value)} disabled={!member.available} /><span className="assignmentAvatar" style={{ background: member.color || "#a93670" }}>{member.name?.[0]}</span><span><strong>{member.name} · {member.available ? "Trống" : "Đang bận"}</strong><small>{member.role || "Nailist"}{member.previousBooking ? ` · Lịch trước ${member.previousBooking.start}-${member.previousBooking.end}` : " · Trống từ đầu ngày"}{member.hasEmail ? " · Email OK" : " · Chưa có email"}</small></span></label>)}</div><button className="primary" type="submit" disabled={!selected || saving}>{saving ? "Đang phân công…" : "Xác nhận nhân viên"}</button></form>
+      <form onSubmit={assign}><div className="assignmentStaffGrid"><label className={selected === "__NO_PREFERENCE__" ? "selected" : ""}><input type="radio" name="staff" value="__NO_PREFERENCE__" checked={selected === "__NO_PREFERENCE__"} onChange={(event) => setSelected(event.target.value)} /><span className="assignmentAvatar">○</span><span><strong>Không yêu cầu chỉ định</strong><small>Salon tự động chọn nhân viên đang trống phù hợp</small></span></label>{data.staff.map((member) => <label className={`${selected === String(member.id) ? "selected" : ""}${member.closed ? " assignmentStaffClosed" : ""}`.trim()} key={member.id}><input type="radio" name="staff" value={member.id} checked={selected === String(member.id)} onChange={(event) => setSelected(event.target.value)} disabled={member.busy} /><span className="assignmentAvatar" style={{ background: member.color || "#a93670" }}>{member.name?.[0]}</span><span><strong>{member.name} · {member.closed ? "Đang đóng lịch" : member.available ? "Trống" : "Đang bận"}</strong><small>{member.role || "Nailist"}{member.previousBooking ? ` · Lịch trước ${member.previousBooking.start}-${member.previousBooking.end}` : " · Trống từ đầu ngày"}{member.hasEmail ? " · Email OK" : " · Chưa có email"}</small></span></label>)}</div>{selectedMember?.closed && <div className="closedStaffActionMenu"><div><strong>Nhân viên đang đóng lịch</strong><span>{data.booking.start} - {data.booking.end}. Chủ quán có thể mở lịch sau khi đã thỏa thuận với nhân viên.</span></div><button className="ghost" type="button" disabled={saving} onClick={() => assign(null, true, true)}>Bỏ đóng lịch</button><button className="primary" type="button" disabled={saving} onClick={() => assign(null, true)}>Bỏ đóng lịch và thêm lịch hẹn</button></div>}<button className="primary" type="submit" disabled={!selected || saving || selectedMember?.closed}>{saving ? "Đang phân công…" : "Xác nhận nhân viên"}</button></form>
       {message && <p className="assignmentStatus" role="status">{message}</p>}
     </>}
   </section></main>;

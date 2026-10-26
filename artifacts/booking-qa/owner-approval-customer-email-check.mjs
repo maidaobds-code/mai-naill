@@ -5,14 +5,19 @@ const store = fs.readFileSync("components/OnlineStore.js", "utf8");
 const assignment = fs.readFileSync("app/api/booking-assignment/route.js", "utf8");
 const cancel = fs.readFileSync("app/api/booking-cancellation/route.js", "utf8");
 const picker = fs.readFileSync("components/BookingAssignment.js", "utf8");
+const emailTemplate = fs.readFileSync("lib/appointmentEmail.js", "utf8");
 
 assert.match(store, /approvalStatus: "PENDING_OWNER_CONFIRMATION"/);
 assert.doesNotMatch(store, /notifyByEmail\(\{ to: \[draft\.email\]/);
 assert.match(assignment, /approvalStatus: "OWNER_CONFIRMED"/);
 assert.match(assignment, /Nhân viên .* hiện không tiện phục vụ/);
-assert.match(assignment, /Chọn nhân viên khác \/ Không chỉ định/);
-assert.match(assignment, /Hủy hẹn/);
+assert.match(assignment, /appointmentConfirmationEmail/);
+assert.match(assignment, /staffChangeReason: staffChanged \? customerReason : ""/);
+assert.match(emailTemplate, /Chọn nhân viên khác \/ Không chỉ định/);
+assert.match(emailTemplate, /Hủy hẹn/);
 assert.match(picker, /__NO_PREFERENCE__/);
+assert.match(picker, /selectedMember\?\.closed/);
+assert.match(picker, /Bỏ đóng lịch và thêm lịch hẹn/);
 assert.match(cancel, /cancelledBy: "customer"/);
 
 console.log("PASS customer acceptance waits for owner confirmation");
