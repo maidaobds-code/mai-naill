@@ -39,7 +39,7 @@ globalThis.fetch = async (url, options = {}) => {
 
 const bookingRoute = await import('../../app/api/bookings/route.js');
 const assignmentRoute = await import('../../app/api/booking-assignment/route.js');
-const pending = { id: 'web-test-1', date: '2026-11-02', day: 2, start: '10:00', end: '11:00', customer: 'Test Customer', service: 'Gel Nail', staff: 'Chưa phân công', staffId: '', assignmentStatus: 'PENDING_ASSIGNMENT', status: 'CONFIRMED' };
+const pending = { id: 'web-test-1', date: '2026-11-02', day: 2, start: '10:00', end: '11:00', customer: 'Test Customer', service: 'Gel Nail', staff: 'Chưa phân công', staffId: '', assignmentStatus: 'PENDING_ASSIGNMENT', status: 'CONFIRMED', source: 'direct' };
 const createResponse = await bookingRoute.POST(new Request('https://salon.example.com/api/bookings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bookings: [pending] }) }));
 const createResult = await createResponse.json();
 assert.equal(createResult.ok, true);
@@ -59,6 +59,14 @@ assert.equal(bookings[0].staff, 'Mai');
 assert.equal(bookings[0].assignmentStatus, 'ASSIGNED');
 assert.equal(emails.length, 2);
 assert.deepEqual(emails[1].to, ['mai@example.com']);
+const alreadyAssigned = { id: 'web-test-2', date: '2026-11-02', day: 2, start: '12:00', end: '13:00', customer: 'Assigned Customer', service: 'Gel Nail', staff: 'Mai', staffId: 'staff-1', assignmentStatus: 'ASSIGNED', status: 'CONFIRMED', source: 'direct' };
+const assignedCreateResponse = await bookingRoute.POST(new Request('https://salon.example.com/api/bookings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ bookings: [...bookings, alreadyAssigned] }) }));
+const assignedCreateResult = await assignedCreateResponse.json();
+assert.equal(assignedCreateResult.ok, true);
+assert.equal(emails.length, 3);
+assert.match(emails[2].html, /Chọn \/ đổi nhân viên/);
+assert.match(emails[2].html, /Nhân viên hiện tại:<\/strong> Mai/);
 console.log('pending booking -> owner and manager email PASS');
 console.log('signed assignment link -> staff selection PASS');
 console.log('Supabase booking update -> employee email PASS');
+console.log('preassigned booking -> Gmail choose/change staff button PASS');

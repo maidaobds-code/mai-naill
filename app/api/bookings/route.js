@@ -59,9 +59,12 @@ async function notifyManagementForAssignment(request, booking) {
   if (!recipients.length) return { ok: false, skipped: true, reason: "No owner or manager email is configured" };
   const token = createBookingAssignmentToken(booking.id);
   const assignUrl = `${publicOrigin(request)}/assign-booking?token=${encodeURIComponent(token)}`;
-  const subject = `Mai Beauty Salon · Cần chọn nhân viên · ${booking.customer || "Khách hàng"}`;
-  const text = `Có lịch hẹn mới chưa chọn nhân viên.\nKhách: ${booking.customer}\nNgày: ${booking.date}\nGiờ: ${booking.start} - ${booking.end}\nDịch vụ: ${booking.service}\nChọn nhân viên: ${assignUrl}`;
-  const html = `<div style="margin:0;background:#fff7fb;padding:28px 14px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:20px 26px;background:#f6d8ec;font-weight:700">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="font-size:22px">Lịch hẹn mới chưa chọn nhân viên</h1><p><strong>Khách:</strong> ${escapeHtml(booking.customer)}</p><p><strong>Ngày:</strong> ${escapeHtml(booking.date)}</p><p><strong>Giờ:</strong> ${escapeHtml(booking.start)} - ${escapeHtml(booking.end)}</p><p><strong>Dịch vụ:</strong> ${escapeHtml(booking.service)}</p><p style="margin:26px 0"><a href="${escapeHtml(assignUrl)}" style="display:inline-block;padding:13px 22px;border-radius:999px;background:#a93670;color:#fff;text-decoration:none;font-weight:700">Chọn nhân viên</a></p><small>Liên kết có hiệu lực trong 48 giờ.</small></div></div></div>`;
+  const pending = isPendingAssignment(booking);
+  const heading = pending ? "Lịch hẹn mới chưa chọn nhân viên" : "Lịch hẹn mới cần kiểm tra nhân viên";
+  const action = pending ? "Chọn nhân viên" : "Chọn / đổi nhân viên";
+  const subject = `Mai Beauty Salon · ${pending ? "Cần chọn nhân viên" : "Kiểm tra nhân viên"} · ${booking.customer || "Khách hàng"}`;
+  const text = `${heading}.\nKhách: ${booking.customer}\nNgày: ${booking.date}\nGiờ: ${booking.start} - ${booking.end}\nDịch vụ: ${booking.service}\nNhân viên hiện tại: ${booking.staff || "Chưa phân công"}\n${action}: ${assignUrl}`;
+  const html = `<div style="margin:0;background:#fff7fb;padding:28px 14px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden"><div style="padding:20px 26px;background:#f6d8ec;font-weight:700">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="font-size:22px">${heading}</h1><p><strong>Khách:</strong> ${escapeHtml(booking.customer)}</p><p><strong>Ngày:</strong> ${escapeHtml(booking.date)}</p><p><strong>Giờ:</strong> ${escapeHtml(booking.start)} - ${escapeHtml(booking.end)}</p><p><strong>Dịch vụ:</strong> ${escapeHtml(booking.service)}</p><p><strong>Nhân viên hiện tại:</strong> ${escapeHtml(booking.staff || "Chưa phân công")}</p><p style="margin:26px 0"><a href="${escapeHtml(assignUrl)}" style="display:inline-block;padding:13px 22px;border-radius:999px;background:#a93670;color:#fff;text-decoration:none;font-weight:700">${action}</a></p><small>Liên kết có hiệu lực trong 48 giờ.</small></div></div></div>`;
   return sendEmail({ to: recipients, subject, text, html });
 }
 
@@ -99,8 +102,8 @@ export async function POST(request) {
     }
     const merged = compactBookings([...protectedBookings, ...currentAfterRelatedDeletes.filter((item) => item.id && !incomingIds.has(item.id))]);
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
-    const pending = submitted.filter((booking) => booking.id && !currentIds.has(booking.id) && isPendingAssignment(booking));
-    const notifications = await Promise.all(pending.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
+    const newOnlineBookings = submitted.filter((booking) => booking.id && !booking.deletedAt && !currentIds.has(booking.id) && String(booking.source || "").toLowerCase() === "direct");
+    const notifications = await Promise.all(newOnlineBookings.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
     return Response.json({ ok: true, value: rows?.[0]?.value || merged, assignmentNotifications: notifications });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
 }
