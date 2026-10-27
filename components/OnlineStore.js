@@ -705,16 +705,18 @@ export default function OnlineStore({
           <strong>Mai Beauty Salon</strong>
         </a>
         <nav className="storeToolbarLinks">
-          <a className={mode === "shop" ? "active" : ""} href="/shop">
+          <a className={mode === "shop" ? "active" : ""} href="/shop" title={t(language, "onlineStore")} aria-label={t(language, "onlineStore")}>
             {t(language, "onlineStore")}
           </a>
-          <a className={mode === "booking" ? "active" : ""} href="/booking">
+          <a className={mode === "booking" ? "active" : ""} href="/booking" title={tr("bookNail")} aria-label={tr("bookNail")}>
             {tr("bookNail")}
           </a>
         </nav>
         <div className="storeToolbarTools">
           <button
             className="storeProfileButton"
+            aria-label={currentAccount?.name || tc("customer")}
+            title={currentAccount?.name || tc("customer")}
             type="button"
             onClick={() =>
               currentAccount
@@ -727,6 +729,7 @@ export default function OnlineStore({
           <select
             data-language={language}
             className="storeLanguageSelect"
+            title={t(language, "language")}
             value={language}
             onChange={(event) => changeLanguage(event.target.value)}
             aria-label={t(language, "language")}
