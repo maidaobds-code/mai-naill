@@ -22,6 +22,7 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [draft, setDraft] = useState(emptyProduct);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [translating, setTranslating] = useState(false);
   const inventoryRows = getInventoryRows();
   const visible = products.filter((product) => {
@@ -67,6 +68,7 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
     };
     setProducts((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
     setDraft(emptyProduct);
+    setEditorOpen(false);
   }
 
   async function translateExistingProducts() {
@@ -82,9 +84,10 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
     <>
       <div className="pageHead">
         <div><p className="eyebrow">CATALOG SYNC</p><h1>{label}</h1><p>{copy.desc}</p></div>
-        <div className="buttonRow"><button className="ghost" onClick={translateExistingProducts} disabled={translating}>{translating ? "Đang dịch sản phẩm…" : "Dịch sản phẩm cũ"}</button><button className="primary" onClick={saveProduct}>{copy.save}</button></div>
+        <div className="buttonRow"><button className="ghost" onClick={translateExistingProducts} disabled={translating}>{translating ? "Đang dịch sản phẩm…" : "Dịch sản phẩm cũ"}</button><button className="primary" onClick={() => { setDraft(emptyProduct); setEditorOpen(true); }}>{copy.save}</button></div>
       </div>
-      <section className="card staffEditor productEditorPanel">
+      {editorOpen && <section className="card staffEditor productEditorPanel">
+        <div className="modalHead"><div><p className="eyebrow">PRODUCT EDITOR</p><h2>{draft.id ? "Sửa sản phẩm" : copy.editor}</h2></div><button className="ghost" type="button" onClick={() => setEditorOpen(false)}>Đóng</button></div>
         <div className="sectionTitle"><div><h2>{copy.editor}</h2><p>{copy.editorDesc}</p></div></div>
         <div className="staffForm">
           <label>{copy.name}<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
@@ -97,7 +100,7 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
           <label>{copy.image}<input type="file" accept="image/*" onChange={uploadProductImage} /></label>
         </div>
         {draft.mediaUrl && <div className="imagePreview"><img src={draft.mediaUrl} alt={draft.name || "Product preview"} /><span>{draft.mediaFileName || copy.selectedImage}</span></div>}
-      </section>
+      </section>}
       <div className="toolbar productTools">
         <input className="searchInput" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.search} />
         <select className="searchInput" value={filter} onChange={(event) => setFilter(event.target.value)}>
@@ -111,13 +114,13 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
         <table>
           <thead><tr>{copy.headers.map((header) => <th key={header}>{header}</th>)}</tr></thead>
           <tbody>{visible.map((product) => (
-            <tr key={product.id}>
+            <tr key={product.id} onClick={() => { setDraft({ ...emptyProduct, ...product }); setEditorOpen(true); }}>
               <td><div className="productCell">{product.mediaUrl ? <img className="catalogThumb" src={product.mediaUrl} alt={product.name} /> : <div className="productThumb">{product.name.slice(0, 1)}</div>}<div><strong>{product.name}</strong><span>{product.description || product.shortDescription}</span></div></div></td>
               <td>{yen(product.salePrice || product.basePrice)}</td>
               <td><span className={product.stock <= product.lowStockThreshold ? "pill danger" : "pill"}>{product.stock}</span></td>
               <td>{product.onlineStoreEnabled !== false ? "Web" : "-"} / {product.posEnabled ? "POS" : "-"} {product.featuredOnline !== false ? ` / ${copy.featuredLabel}` : ""}</td>
               <td>{product.stock <= product.lowStockThreshold ? copy.lowStock : "OK"}</td>
-              <td><button className="ghost" onClick={() => setProducts((current) => current.map((item) => item.id === product.id ? { ...item, featuredOnline: item.featuredOnline === false } : item))}>{product.featuredOnline === false ? copy.addFeatured : copy.removeFeatured}</button> <button className="ghost" onClick={() => setDraft({ ...emptyProduct, ...product })}>{tc("edit")}</button> <button className="ghost dangerButton" onClick={() => deleteProduct(product.id)}>{tc("delete")}</button></td>
+              <td><button className="ghost" onClick={(event) => { event.stopPropagation(); setProducts((current) => current.map((item) => item.id === product.id ? { ...item, featuredOnline: item.featuredOnline === false } : item)); }}>{product.featuredOnline === false ? copy.addFeatured : copy.removeFeatured}</button> <button className="ghost" onClick={(event) => { event.stopPropagation(); setDraft({ ...emptyProduct, ...product }); setEditorOpen(true); }}>{tc("edit")}</button> <button className="ghost dangerButton" onClick={(event) => { event.stopPropagation(); deleteProduct(product.id); }}>{tc("delete")}</button></td>
             </tr>
           ))}</tbody>
         </table>
