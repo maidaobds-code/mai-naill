@@ -1,4 +1,5 @@
 import "./globals.css";
+import DynamicFavicon from "../components/DynamicFavicon";
 
 export const metadata = {
   title: "Mai Beauty Salon",
@@ -8,7 +9,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="vi">
-      <body>{children}</body>
+      <body>{children}<DynamicFavicon /></body>
     </html>
   );
 }

@@ -199,12 +199,26 @@ export default function Settings({ language = "vi" }) {
     finally { setNoticeTranslating(false); }
   }
 
-  function uploadLogo(event) {
+  async function uploadLogo(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => update("logoUrl", reader.result);
-    reader.readAsDataURL(file);
+    setQrUploadError("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("kind", "logo");
+      const response = await fetch("/api/image-upload", { method: "POST", body });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.url) throw new Error(result.message || "Không thể tải logo lên Supabase.");
+      const next = { ...settings, logoUrl: result.url };
+      setSettings(next);
+      await saveServerSettings(next);
+      window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
+      window.dispatchEvent(new CustomEvent("nail-japan-settings-updated"));
+      setSaved(true);
+    } catch (error) {
+      setQrUploadError(error.message || "Không thể tải logo lên Supabase.");
+    }
   }
 
   async function uploadQr(event) {

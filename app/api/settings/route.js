@@ -29,7 +29,7 @@ export async function GET(request) {
   try {
     const rows = await supabaseRest(`app_kv?owner_id=eq.${SETTINGS_OWNER_ID}&key=eq.${SETTINGS_KEY}&select=value,updated_at&limit=1`);
     const value = rows?.[0]?.value || null;
-    const safeValue = publicBooking && value ? Object.fromEntries(["salonName","branch","address","logoUrl","phone","openTime","closeTime","bookingNotice","bookingNoticeVi","bookingNoticeJa","bookingNoticeEn","bookingNoticeZh","bookingNoticeKo","closedPeriods","staffClosedPeriods","cancellationHours"].filter((key) => key in value).map((key) => [key, value[key]])) : value;
+    const safeValue = publicBooking && value ? Object.fromEntries(["salonName","branch","address","logoUrl","phone","openTime","closeTime","bookingNotice","bookingNoticeVi","bookingNoticeJa","bookingNoticeEn","bookingNoticeZh","bookingNoticeKo","closedPeriods","staffClosedPeriods","cancellationHours","qrEnabled","qrImageUrl"].filter((key) => key in value).map((key) => [key, value[key]])) : value;
     return Response.json({ ok: true, value: safeValue }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     return Response.json({ ok: false, message: error.message, value: null }, { status: 500 });
