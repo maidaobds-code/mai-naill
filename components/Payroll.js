@@ -33,6 +33,8 @@ function sumItems(items) {
   return items.reduce((total, item) => total + Number(item.amount || 0), 0);
 }
 
+const emptyStaff = { id: "no-staff", name: "Chưa có nhân viên", role: "", status: "", color: "#cbd5e1" };
+
 export default function Payroll({ label = "Payroll", language = "vi", currentAccount = null }) {
   const tr = (key, vars) => tx(language, "payrollPage", key, vars);
   const tc = (key) => tx(language, "common", key);
@@ -43,7 +45,9 @@ export default function Payroll({ label = "Payroll", language = "vi", currentAcc
 
   useEffect(() => {
     const raw = window.localStorage.getItem(PAYROLL_KEY);
-    if (raw) setSettings({ ...defaultStaffSettings(staff), ...JSON.parse(raw) });
+    if (raw) {
+      try { setSettings({ ...defaultStaffSettings(staff), ...JSON.parse(raw) }); } catch { setSettings(defaultStaffSettings(staff)); }
+    }
     if (supabaseReady()) {
       getKv(PAYROLL_KEY).then((remote) => {
         if (remote) {
@@ -72,7 +76,7 @@ export default function Payroll({ label = "Payroll", language = "vi", currentAcc
 
   const isStaffAccount = currentAccount?.role === "staff";
   const effectiveStaff = isStaffAccount ? currentAccount.staffName || currentAccount.name : selectedStaff;
-  const selectedMember = staff.find((member) => member.name === effectiveStaff) || staff[0];
+  const selectedMember = staff.find((member) => member.name === effectiveStaff) || staff[0] || emptyStaff;
   const selectedSettings = settings[effectiveStaff] || createStaffPayrollSettings();
   const staffBookings = useMemo(() => bookings.filter((booking) => booking.staff === effectiveStaff), [bookings, effectiveStaff]);
   const posServiceRows = getStoredPosSales().filter((sale) => sale.paymentStatus === "Paid").flatMap((sale) => (sale.lines || []).filter((line) => line.type === "service" && line.staff === effectiveStaff).map((line) => ({ id: `${sale.id}-${line.id}`, day: new Date(sale.issuedAt || sale.createdAt || Date.now()).getDate(), customer: sale.customer, source: sale.bookingSource || "pos", origin: "POS", price: Number(line.unitPrice || 0) * Number(line.quantity || 1), app: "POS", rateSource: sale.bookingSource || "direct" })));
