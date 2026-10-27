@@ -78,6 +78,8 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
 
   function deleteProduct(id) {
     setProducts((current) => current.filter((product) => product.id !== id));
+    setDraft(emptyProduct);
+    setEditorOpen(false);
   }
 
   return (
@@ -86,7 +88,7 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
         <div><p className="eyebrow">CATALOG SYNC</p><h1>{label}</h1><p>{copy.desc}</p></div>
         <div className="buttonRow"><button className="ghost" onClick={translateExistingProducts} disabled={translating}>{translating ? "Đang dịch sản phẩm…" : "Dịch sản phẩm cũ"}</button><button className="primary" onClick={() => { setDraft(emptyProduct); setEditorOpen(true); }}>{copy.save}</button></div>
       </div>
-      {editorOpen && <section className="card staffEditor productEditorPanel">
+      {editorOpen && <section className="card staffEditor productEditorPanel productEditorModal">
         <div className="modalHead"><div><p className="eyebrow">PRODUCT EDITOR</p><h2>{draft.id ? "Sửa sản phẩm" : copy.editor}</h2></div><button className="ghost" type="button" onClick={() => setEditorOpen(false)}>Đóng</button></div>
         <div className="sectionTitle"><div><h2>{copy.editor}</h2><p>{copy.editorDesc}</p></div></div>
         <div className="staffForm">
@@ -100,6 +102,11 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
           <label>{copy.image}<input type="file" accept="image/*" onChange={uploadProductImage} /></label>
         </div>
         {draft.mediaUrl && <div className="imagePreview"><img src={draft.mediaUrl} alt={draft.name || "Product preview"} /><span>{draft.mediaFileName || copy.selectedImage}</span></div>}
+        <div className="productEditorModalActions">
+          <button className="ghost" type="button" disabled={!draft.id} onClick={() => setDraft((current) => ({ ...current, featuredOnline: current.featuredOnline === false }))}>{draft.featuredOnline === false ? copy.addFeatured : copy.removeFeatured}</button>
+          <button className="ghost dangerButton" type="button" disabled={!draft.id} onClick={() => deleteProduct(draft.id)}>{tc("delete")}</button>
+          <button className="primary" type="button" onClick={saveProduct}>{copy.save}</button>
+        </div>
       </section>}
       <div className="toolbar productTools">
         <input className="searchInput" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.search} />
@@ -120,7 +127,7 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
               <td><span className={product.stock <= product.lowStockThreshold ? "pill danger" : "pill"}>{product.stock}</span></td>
               <td>{product.onlineStoreEnabled !== false ? "Web" : "-"} / {product.posEnabled ? "POS" : "-"} {product.featuredOnline !== false ? ` / ${copy.featuredLabel}` : ""}</td>
               <td>{product.stock <= product.lowStockThreshold ? copy.lowStock : "OK"}</td>
-              <td><button className="ghost" onClick={(event) => { event.stopPropagation(); setProducts((current) => current.map((item) => item.id === product.id ? { ...item, featuredOnline: item.featuredOnline === false } : item)); }}>{product.featuredOnline === false ? copy.addFeatured : copy.removeFeatured}</button> <button className="ghost" onClick={(event) => { event.stopPropagation(); setDraft({ ...emptyProduct, ...product }); setEditorOpen(true); }}>{tc("edit")}</button> <button className="ghost dangerButton" onClick={(event) => { event.stopPropagation(); deleteProduct(product.id); }}>{tc("delete")}</button></td>
+              <td><button className="ghost" onClick={(event) => { event.stopPropagation(); setDraft({ ...emptyProduct, ...product }); setEditorOpen(true); }}>{tc("edit")}</button></td>
             </tr>
           ))}</tbody>
         </table>
