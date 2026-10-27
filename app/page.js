@@ -64,7 +64,6 @@ export default function Home() {
       {!isCustomer && <Sidebar active={activePage} setActive={setActive} language={language} setLanguage={setLanguage} allowedItems={allowed} />}
       <main>
         {!isCustomer && <AccountGate language={language} setLanguage={setLanguage} />}
-        {isCustomer && <button className="customerProfileButton" onClick={() => setProfileOpen(true)} title={tx(language, "customerProfile", "title")}>👤</button>}
         {content}
         {profileOpen && <CustomerProfile language={language} onClose={() => setProfileOpen(false)} />}
       </main>
