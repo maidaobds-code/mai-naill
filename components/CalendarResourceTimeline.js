@@ -497,12 +497,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <div className="weekList weekCalendar">
           {weekDates.map((date) => {
             const dayName = new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : language === "vi" ? "vi-VN" : "en-US", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
-            const dayNumber = Number(date.slice(-2));
             const dayBookings = bookings.filter((booking) => sameBookingDate(booking, date)).sort((a, b) => a.start.localeCompare(b.start));
             const isSelected = date === selectedDate;
             return (
               <div className={isSelected ? "weekListDay selectedWeekDay" : "weekListDay"} key={date}>
-                <div className="weekListDayHeader"><button type="button" className="calendarDateButton" onClick={() => openDay(date)}><span className="weekDayTop"><small>{dayName}</small><em>{date.slice(5).replace("-", "/")}</em></span><strong className="weekDayNumber">{dayNumber}</strong></button><span className="weekListCount">{dayBookings.length} {c.appointment}</span><button type="button" className="calendarAddButton" disabled={!staff.length} onClick={() => openNewBookingForDate(date)} aria-label={`Thêm lịch ${date}`}>+</button></div>
+                <div className="weekListDayHeader"><button type="button" className="calendarDateButton" onClick={() => openDay(date)}><span className="weekDayTop"><small>{dayName}</small><em>{date.slice(5).replace("-", "/")}</em></span></button><span className="weekListCount">{dayBookings.length} {c.appointment}</span><button type="button" className="calendarAddButton" disabled={!staff.length} onClick={() => openNewBookingForDate(date)} aria-label={`Thêm lịch ${date}`}>+</button></div>
                 <div className="weekBookingList">
                   {dayBookings.map((booking) => {
                     const member = staffFor(booking.staff);
