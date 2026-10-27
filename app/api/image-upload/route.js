@@ -1,10 +1,10 @@
-import { isAdminRequest } from "../../../lib/serverAuth";
+import { isAdminRequest, isOwnerRequest } from "../../../lib/serverAuth";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 
 export async function POST(request) {
-  if (!isAdminRequest(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+  if (!isAdminRequest(request) && !isOwnerRequest(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return Response.json({ ok: false, message: "Supabase server configuration is missing" }, { status: 503 });
 
   const form = await request.formData().catch(() => null);

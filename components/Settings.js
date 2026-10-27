@@ -428,6 +428,7 @@ export default function Settings({ language = "vi" }) {
                 alt="Salon logo"
               />
             )}
+            {qrUploadError && <p className="errorNote">{qrUploadError}</p>}
           </section>
         )}
         {activePanel === "business" && (
