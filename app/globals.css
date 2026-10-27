@@ -922,7 +922,7 @@ section.nailPosPanel .nailPaymentRow {
 }
 
 .printReceipt h3 { font-size: 0; }
-.printReceipt h3::after { content: "お買い上げ明細"; font-size: 15px; }
+.printReceipt h3::after { content: "明細書"; font-size: 15px; }
 
 .printReceipt .printStore {
   text-align: center;

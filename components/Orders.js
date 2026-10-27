@@ -154,6 +154,7 @@ export default function Orders({ language = "vi" }) {
   const [orderDraft, setOrderDraft] = useState(null);
   const [toast, setToast] = useState("");
   const [printMode, setPrintMode] = useState("");
+  const [currentStoreSettings, setCurrentStoreSettings] = useState({});
   const previousCount = useRef(0);
   const posHistory = useMemo(() => posSales.map(normalizePosSale), [posSales]);
   // Customer orders stay separate from POS payment history to avoid operational mistakes.
@@ -165,6 +166,15 @@ export default function Orders({ language = "vi" }) {
     0,
   );
   const unreadCount = orders.filter((order) => order.unread && !["FULFILLED", "Completed", "Delivered"].includes(order.status)).length;
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/settings?public=1", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((result) => { if (mounted && result?.value) setCurrentStoreSettings(result.value); })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   useEffect(() => {
     function syncPosSales(event) {
@@ -468,7 +478,7 @@ export default function Orders({ language = "vi" }) {
                 >
                   <div className="printPaper">
                     <div className="printStore">
-                      {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
+                      {(currentStoreSettings.logoUrl || selected.storeSnapshot?.logoUrl) && <img className="printLogo" src={currentStoreSettings.logoUrl || selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
                       <strong>
                         {selected.storeSnapshot?.salonName ||
                           "Mai Beauty Salon"}
@@ -542,7 +552,7 @@ export default function Orders({ language = "vi" }) {
                 >
                   <div className="printPaper">
                     <div className="printStore">
-                      {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
+                      {(currentStoreSettings.logoUrl || selected.storeSnapshot?.logoUrl) && <img className="printLogo" src={currentStoreSettings.logoUrl || selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
                       <strong>
                         {selected.storeSnapshot?.salonName ||
                           "Mai Beauty Salon"}

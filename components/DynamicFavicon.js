@@ -10,7 +10,7 @@ function setFavicon(url) {
     link.rel = "icon";
     document.head.appendChild(link);
   }
-  link.href = url;
+  link.href = `${url}${url.includes("?") ? "&" : "?"}favicon=${Date.now()}`;
 }
 
 export default function DynamicFavicon() {
