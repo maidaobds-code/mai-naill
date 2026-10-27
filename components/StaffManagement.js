@@ -166,7 +166,8 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
             <tr key={member.id}>
 	              {(() => {
                 const emailMatches = accounts.filter((item) => item.email && member.email && item.email.trim().toLowerCase() === member.email.trim().toLowerCase());
-                const account = emailMatches.length === 1 ? emailMatches[0] : accounts.find((item) => item.id === `staff-${member.id}`) || accounts.find((item) => item.name === member.name || item.staffName === member.name) || null;
+                const nameMatches = accounts.filter((item) => item.name === member.name || item.staffName === member.name);
+                const account = emailMatches.length === 1 ? emailMatches[0] : accounts.find((item) => item.id === `staff-${member.id}`) || (nameMatches.length === 1 ? nameMatches[0] : null);
                 const effectiveRole = account?.role || member.role || "staff";
 	                return <>
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{effectiveRole}</span></div></div></td>
