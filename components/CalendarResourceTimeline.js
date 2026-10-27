@@ -494,30 +494,27 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       {view === "week" && (
         <section className="card calendarPeriodCard">
           <div className="calendarPeriodNav"><button type="button" className="calendarArrow" onClick={() => navigatePeriod(-1)} aria-label="Tuần trước">←</button><strong>{dateLabel(weekDates[0])} – {dateLabel(weekDates[6])}</strong><button type="button" className="calendarArrow" onClick={() => navigatePeriod(1)} aria-label="Tuần sau">→</button></div>
-          <div className="weekGrid weekCalendar">
+          <div className="weekList weekCalendar">
           {weekDates.map((date) => {
             const dayName = new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : language === "vi" ? "vi-VN" : "en-US", { weekday: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
             const dayNumber = Number(date.slice(-2));
             const dayBookings = bookings.filter((booking) => sameBookingDate(booking, date)).sort((a, b) => a.start.localeCompare(b.start));
             const isSelected = date === selectedDate;
             return (
-              <div className={isSelected ? "weekCol weekDayButton selectedWeekDay" : "weekCol weekDayButton"} key={date}>
-                <div className="calendarCellTop"><button type="button" className="calendarDateButton" onClick={() => openDay(date)}><span className="weekDayTop"><small>{dayName}</small><em>{date.slice(5).replace("-", "/")}</em></span><strong className="weekDayNumber">{dayNumber}</strong></button><button type="button" className="calendarAddButton" disabled={!staff.length} onClick={() => openNewBookingForDate(date)} aria-label={`Thêm lịch ${date}`}>+</button></div>
-                <button type="button" className="weekCountBadge" onClick={() => openDay(date)}>{dayBookings.length} {c.appointment}</button>
+              <div className={isSelected ? "weekListDay selectedWeekDay" : "weekListDay"} key={date}>
+                <div className="weekListDayHeader"><button type="button" className="calendarDateButton" onClick={() => openDay(date)}><span className="weekDayTop"><small>{dayName}</small><em>{date.slice(5).replace("-", "/")}</em></span><strong className="weekDayNumber">{dayNumber}</strong></button><span className="weekListCount">{dayBookings.length} {c.appointment}</span><button type="button" className="calendarAddButton" disabled={!staff.length} onClick={() => openNewBookingForDate(date)} aria-label={`Thêm lịch ${date}`}>+</button></div>
                 <div className="weekBookingList">
-                  {dayBookings.slice(0, 3).map((booking) => {
+                  {dayBookings.map((booking) => {
                     const member = staffFor(booking.staff);
                     const platform = platformFor(booking.source);
                     return (
-                      <span className="weekBookingCard" key={booking.id} style={{ borderColor: member.color, background: `${member.color}16` }}>
+                      <button type="button" className="weekBookingCard" key={booking.id} onClick={() => { setSelectedDate(date); setSelected(booking); setModalOpen(true); }} style={{ borderColor: member.color, background: `${member.color}16` }}>
                         <i style={{ background: member.color }} />
-                        <span><b>{booking.start}</b> {booking.customer}</span>
-                        <small>{booking.service} · {platform.name}</small>
-                      </span>
+                        <span className="weekBookingTime"><b>{booking.start}–{booking.end}</b></span><strong>{booking.customer}</strong><span>{booking.service}</span><small>{booking.staff || "-"} · {platform.name}</small>
+                      </button>
                     );
                   })}
                   {!dayBookings.length && <span className="weekEmptyState">{c.noBooking}</span>}
-                  {dayBookings.length > 3 && <span className="weekMore">{String(c.more || "+{count} more").replace("{count}", dayBookings.length - 3)}</span>}
                 </div>
               </div>
             );
