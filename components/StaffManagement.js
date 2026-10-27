@@ -110,7 +110,10 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     if (!account) return;
     const role = roleDraft[account.id] || account.role;
     const result = await updateAccountRole(account.id, role);
-    if (result.ok) setStaff((current) => current.map((item) => item.email?.trim().toLowerCase() === account.email?.trim().toLowerCase() ? { ...item, role } : item));
+    if (result.ok) {
+      setStaff((current) => current.map((item) => item.email?.trim().toLowerCase() === account.email?.trim().toLowerCase() ? { ...item, role } : item));
+      setRoleDraft((current) => { const next = { ...current }; delete next[account.id]; return next; });
+    }
     setAccountMessage(result.ok ? "Đã lưu vai trò cho nhân viên." : result.message);
   }
 
