@@ -192,7 +192,7 @@ export default function Settings({ language = "vi" }) {
       if (!result.ok) throw new Error(result.message || "Không thể dịch nội dung lưu ý.");
       const next = { ...settings, bookingNoticeVi: result.translations.VI || text, bookingNoticeJa: result.translations.JA || text, bookingNoticeEn: result.translations.EN || text, bookingNoticeZh: result.translations.ZH || text, bookingNoticeKo: result.translations.KO || text, bookingNoticeTranslationSource: text };
       setSettings(next);
-      window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
+      window.localStorage.setItem("nail-japan-settings", JSON.stringify({ ...next, logoUrl: persisted.logoUrl }));
       await saveServerSettings(next);
       setSaved(true);
     } catch (error) { setQrUploadError(error.message || "Không thể dịch nội dung lưu ý."); }
@@ -211,8 +211,9 @@ export default function Settings({ language = "vi" }) {
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.url) throw new Error(result.message || "Không thể tải logo lên Supabase.");
       const next = { ...settings, logoUrl: result.url };
-      setSettings(next);
-      await saveServerSettings(next);
+      const persisted = await saveServerSettings(next);
+      if (persisted.logoUrl !== result.url) throw new Error("Server chưa xác nhận logo mới đã được lưu.");
+      setSettings({ ...next, logoUrl: persisted.logoUrl });
       window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
       window.dispatchEvent(new CustomEvent("nail-japan-settings-updated"));
       setSaved(true);
