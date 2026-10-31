@@ -46,6 +46,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const [roleDraft, setRoleDraft] = useState({});
   const [accountMessage, setAccountMessage] = useState("");
   const [bookingDraft, setBookingDraft] = useState(null);
+  const [externalDraft, setExternalDraft] = useState(null);
   const bookingCopy = language === "ja" ? { title: "指名設定", edit: "表示設定", displayName: "表示名", fee: "指名料（円）", description: "お客様向け説明", image: "スタッフ画像", visible: "Web予約で表示", save: "指名設定を保存", cancel: "キャンセル" } : language === "en" ? { title: "Booking designation settings", edit: "Display settings", displayName: "Display name", fee: "Designation fee (JPY)", description: "Customer-facing description", image: "Staff image", visible: "Show in online booking", save: "Save designation settings", cancel: "Cancel" } : { title: "Cài đặt chỉ định nhân viên", edit: "Cài đặt hiển thị", displayName: "Tên hiển thị", fee: "Phí chỉ định (JPY)", description: "Mô tả hiển thị cho khách", image: "Ảnh nhân viên", visible: "Hiển thị trên Booking", save: "Lưu cài đặt chỉ định", cancel: "Hủy" };
   const draftChanged = Boolean(draft.name || draft.email || draft.accountPassword || draft.role !== "staff");
 
@@ -98,6 +99,31 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
   function editBookingDisplay(member) {
     setBookingDraft({ ...member, displayName: member.displayName || member.name, designationFee: Number(member.designationFee ?? 1100), bookingDescription: member.bookingDescription || "", bookingVisible: member.bookingVisible !== false, avatarUrl: member.avatarUrl || "", avatarFileName: member.avatarFileName || "" });
+  }
+
+  function editExternalAccounts(member) {
+    const external = normalizeExternalAccounts(member.external);
+    setExternalDraft({ id: member.id, name: member.name, external: Object.fromEntries(Object.entries(external).map(([platform, accounts]) => [platform, accounts.length ? accounts : [""]])) });
+  }
+
+  function updateExternalDraft(platform, index, value) {
+    setExternalDraft((current) => ({ ...current, external: { ...current.external, [platform]: current.external[platform].map((item, itemIndex) => itemIndex === index ? value : item) } }));
+  }
+
+  function addExternalDraft(platform) {
+    setExternalDraft((current) => ({ ...current, external: { ...current.external, [platform]: [...current.external[platform], ""] } }));
+  }
+
+  function removeExternalDraft(platform, index) {
+    setExternalDraft((current) => ({ ...current, external: { ...current.external, [platform]: current.external[platform].filter((_, itemIndex) => itemIndex !== index) } }));
+  }
+
+  function saveExternalAccounts() {
+    if (!externalDraft) return;
+    const external = normalizeExternalAccounts(externalDraft.external);
+    setStaff((current) => current.map((member) => member.id === externalDraft.id ? { ...member, external } : member));
+    setAccountMessage(`Đã lưu liên kết tài khoản cho ${externalDraft.name}.`);
+    setExternalDraft(null);
   }
 
   function uploadBookingAvatar(event) {
@@ -166,6 +192,14 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
         <div className="staffBookingActions"><button className="ghost" type="button" onClick={() => setBookingDraft(null)}>{bookingCopy.cancel}</button><button className="primary" type="button" onClick={saveBookingDisplay}>{bookingCopy.save}</button></div>
       </section>}
 
+      {externalDraft && <section className="card staffBookingEditor">
+        <div className="sectionTitle"><div><p className="eyebrow">EXTERNAL ACCOUNTS</p><h2>Liên kết ứng dụng · {externalDraft.name}</h2><p>Một nhân viên có thể gán một hoặc nhiều tài khoản trên mỗi ứng dụng.</p></div></div>
+        <div className="staffBookingForm">
+          {[['hotpepper', 'Hot Pepper / SALON BOARD'], ['nailie', 'Nailie'], ['minimo', 'minimo']].map(([platform, title]) => <div className="externalAccountsField" key={platform}><strong>{title}</strong>{externalDraft.external[platform].map((accountId, index) => <div className="externalAccountRow" key={`${platform}-${index}`}><input value={accountId} onChange={(event) => updateExternalDraft(platform, index, event.target.value)} placeholder={`${title} account ID ${index + 1}`} />{externalDraft.external[platform].length > 1 && <button type="button" className="ghost" onClick={() => removeExternalDraft(platform, index)}>Xóa</button>}</div>)}<button type="button" className="ghost" onClick={() => addExternalDraft(platform)}>+ Thêm tài khoản</button></div>)}
+        </div>
+        <div className="staffBookingActions"><button className="ghost" type="button" onClick={() => setExternalDraft(null)}>Hủy</button><button className="primary" type="button" onClick={saveExternalAccounts}>Lưu liên kết</button></div>
+      </section>}
+
       <section className="card tableWrap">
         <table>
           <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>{tc("action")}</th></tr></thead>
@@ -180,7 +214,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{effectiveRole}</span></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
               <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={roleDraft[account.id] || effectiveRole} onChange={(event) => setRoleDraft((current) => ({ ...current, [account.id]: event.target.value }))}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
-              <td><div className="staffAccountActions"><button className="ghost bookingDisplayButton" onClick={() => editBookingDisplay(member)}>{bookingCopy.edit} · ¥{Number(member.designationFee || 0).toLocaleString("ja-JP")}</button><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
+              <td><div className="staffAccountActions"><button className="ghost" onClick={() => editExternalAccounts(member)}>Hot Pepper / SALON BOARD accounts</button><button className="ghost bookingDisplayButton" onClick={() => editBookingDisplay(member)}>{bookingCopy.edit} · ¥{Number(member.designationFee || 0).toLocaleString("ja-JP")}</button><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
 	                </>;
 	              })()}
             </tr>
