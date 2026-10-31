@@ -8,6 +8,7 @@ import { supabaseReady } from "../lib/supabaseBrowser";
 import StaffManagement from "./StaffManagement";
 import PrinterManager from "./PrinterManager";
 import { getCurrentAccount } from "../lib/accountStore";
+import { normalizeExternalAccounts, useStaffStore } from "../lib/staffStore";
 
 export const defaultSettings = {
   salonName: "Mai Beauty Salon",
@@ -66,6 +67,9 @@ export default function Settings({ language = "vi" }) {
   const [qrUploadError, setQrUploadError] = useState("");
   const [noticeTranslating, setNoticeTranslating] = useState(false);
   const [currentAccount] = useState(getCurrentAccount);
+  const { staff, setStaff } = useStaffStore();
+  const [linkedStaffId, setLinkedStaffId] = useState("");
+  const [linkedAccounts, setLinkedAccounts] = useState({ hotpepper: [""], nailie: [""], minimo: [""] });
   const isStaff = ["staff", "manager"].includes(currentAccount?.role);
   const [activePanel, setActivePanel] = useState(
     isStaff ? "password" : "salon",
@@ -78,6 +82,29 @@ export default function Settings({ language = "vi" }) {
   const [passwordMessage, setPasswordMessage] = useState("");
   const tr = (key) => tx(language, "settingsPage", key);
   const tc = (key) => tx(language, "common", key);
+
+  useEffect(() => {
+    if (!linkedStaffId && staff[0]) setLinkedStaffId(String(staff[0].id));
+  }, [staff, linkedStaffId]);
+
+  useEffect(() => {
+    const member = staff.find((item) => String(item.id) === String(linkedStaffId));
+    if (!member) return;
+    const external = normalizeExternalAccounts(member.external);
+    setLinkedAccounts(Object.fromEntries(Object.entries(external).map(([platform, values]) => [platform, values.length ? values : [""]])));
+  }, [staff, linkedStaffId]);
+
+  function updateLinkedAccount(platform, index, value) {
+    setLinkedAccounts((current) => ({ ...current, [platform]: current[platform].map((item, itemIndex) => itemIndex === index ? value : item) }));
+  }
+
+  function saveLinkedAccounts() {
+    const member = staff.find((item) => String(item.id) === String(linkedStaffId));
+    if (!member) return;
+    const external = normalizeExternalAccounts(linkedAccounts);
+    setStaff((current) => current.map((item) => String(item.id) === String(member.id) ? { ...item, external } : item));
+    setSaved(true);
+  }
   const printerCopy =
     {
       zh: {
@@ -744,6 +771,20 @@ export default function Settings({ language = "vi" }) {
                   </div>
                 );
               })}
+            <div className="card settingsPanel" style={{ marginTop: 16 }}>
+              <h3>Liên kết tài khoản theo nhân viên</h3>
+              <p className="mutedText">Chọn nhân viên rồi gán một hoặc nhiều tài khoản cho từng ứng dụng.</p>
+              <label>Nhân viên
+                <select value={linkedStaffId} onChange={(event) => setLinkedStaffId(event.target.value)}>
+                  {staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
+                </select>
+              </label>
+              <div className="staffBookingForm">
+                {[['hotpepper', 'Hot Pepper / SALON BOARD'], ['nailie', 'Nailie'], ['minimo', 'minimo']].map(([platform, title]) => <div className="externalAccountsField" key={platform}><strong>{title}</strong>{(linkedAccounts[platform] || ['']).map((accountId, index) => <div className="externalAccountRow" key={`${platform}-${index}`}><input value={accountId} onChange={(event) => updateLinkedAccount(platform, index, event.target.value)} placeholder={`${title} account ID ${index + 1}`} /><button type="button" className="ghost" onClick={() => setLinkedAccounts((current) => ({ ...current, [platform]: current[platform].filter((_, itemIndex) => itemIndex !== index) }))} disabled={linkedAccounts[platform].length <= 1}>Xóa</button></div>)}<button type="button" className="ghost" onClick={() => setLinkedAccounts((current) => ({ ...current, [platform]: [...current[platform], ""] }))}>+ Thêm tài khoản</button></div>)}
+              </div>
+              <button className="primary" type="button" onClick={saveLinkedAccounts}>Lưu liên kết tài khoản</button>
+              {saved && <p className="successNote">Đã lưu liên kết tài khoản.</p>}
+            </div>
             <h3>{tr("syncLog")}</h3>
             {syncEvents.map((event) => (
               <div className="lineItem" key={event.id}>

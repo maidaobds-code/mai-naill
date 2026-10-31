@@ -101,6 +101,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     setBookingDraft({ ...member, displayName: member.displayName || member.name, designationFee: Number(member.designationFee ?? 1100), bookingDescription: member.bookingDescription || "", bookingVisible: member.bookingVisible !== false, avatarUrl: member.avatarUrl || "", avatarFileName: member.avatarFileName || "" });
   }
 
+  /* legacy external account editor moved to Settings > Applications */
   function editExternalAccounts(member) {
     const external = normalizeExternalAccounts(member.external);
     setExternalDraft({ id: member.id, name: member.name, external: Object.fromEntries(Object.entries(external).map(([platform, accounts]) => [platform, accounts.length ? accounts : [""]])) });
