@@ -14,13 +14,15 @@
     "test:gmail-staff-button": "node artifacts/booking-qa/gmail-staff-button-check.mjs",
     "test:owner-approval-email": "node artifacts/booking-qa/owner-approval-customer-email-check.mjs",
     "test:customer-email-language": "node artifacts/booking-qa/customer-email-language-check.mjs",
+    "automation:salonboard": "node automation/salonboard-worker.mjs",
     "start": "next start"
   },
   "dependencies": {
     "next": "^16.3.8",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "star-io10-web": "^1.0.0"
+    "star-io10-web": "^1.0.0",
+    "playwright": "^1.55.0"
   },
   "devDependencies": {
     "@babel/core": "^8.0.7",

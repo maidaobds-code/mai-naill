@@ -3,6 +3,7 @@ import { useState } from "react";
 import { staff as seedStaff } from "../lib/salonData";
 import { useAccountStore } from "../lib/accountStore";
 import { useStaffStore } from "../lib/staffStore";
+import { normalizeExternalAccounts } from "../lib/staffStore";
 import { tx } from "../lib/i18nClean";
 
 const staffColors = [["Lavender", "#a78bfa"], ["Lilac", "#c084fc"], ["Bubblegum", "#f9a8d4"], ["Hồng neon", "#f472b6"], ["Peach", "#fdba74"], ["Coral", "#fb7185"], ["Lemon", "#fde047"], ["Butter", "#fef08a"], ["Mint", "#86efac"], ["Emerald", "#34d399"], ["Aqua", "#5eead4"], ["Sky", "#7dd3fc"], ["Blue", "#60a5fa"], ["Periwinkle", "#818cf8"], ["Cobalt", "#4f46e5"], ["Teal", "#0d9488"], ["Lime", "#a3e635"], ["Tangerine", "#fb923c"], ["Magenta", "#e879f9"], ["Plum", "#a855f7"]];
@@ -14,7 +15,7 @@ function newStaff(nextId) {
     role: "staff",
     status: "Working",
     color: staffColors[(nextId - 1) % staffColors.length][1],
-    external: { hotpepper: "", nailie: "", minimo: "" },
+    external: { hotpepper: [], nailie: [], minimo: [] },
     email: "",
     accountPassword: "",
     credentialStatus: "Not saved",
@@ -53,14 +54,22 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   }
 
   function updateExternal(platform, value) {
-    setDraft((current) => ({ ...current, external: { ...current.external, [platform]: value } }));
+    setDraft((current) => ({ ...current, external: { ...current.external, [platform]: typeof value === "function" ? value(current.external?.[platform] || []) : value } }));
+  }
+
+  function addExternalAccount(platform) {
+    updateExternal(platform, [...(draft.external?.[platform] || []), ""]);
+  }
+
+  function removeExternalAccount(platform, index) {
+    updateExternal(platform, (draft.external?.[platform] || []).filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function addStaff() {
     if (!draft.name.trim() || !draft.email.trim()) return setAccountMessage("Vui lòng nhập tên và email đăng nhập.");
     if (!draft.accountPassword || draft.accountPassword.length < 6) return setAccountMessage("Mật khẩu phải có ít nhất 6 ký tự.");
     const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const record = { ...draft, id: uniqueId, credentialStatus: draft.accountPassword ? c.accountReady : c.needsPassword };
+    const record = { ...draft, id: uniqueId, external: normalizeExternalAccounts(draft.external), credentialStatus: draft.accountPassword ? c.accountReady : c.needsPassword };
     try {
       await upsertStaffAccount(record, draft.accountPassword);
       setStaff((current) => [...current, record]);
@@ -134,9 +143,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <label>{c.name}<input value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} placeholder={c.namePlaceholder} /></label>
           <label>{c.role}<select value={draft.role} onChange={(event) => updateDraft("role", event.target.value)}><option value="staff">{c.staffRole}</option><option value="manager">Quản lý</option><option value="owner">{c.owner}</option></select></label>
           <label>{c.calendarColor}<div className="staffColorPicker">{staffColors.map(([name, color]) => <button type="button" key={color} title={name} aria-label={name} className={draft.color === color ? "staffColorChoice active" : "staffColorChoice"} style={{ background: color }} onClick={() => updateDraft("color", color)}><span>{name}</span></button>)}</div></label>
-          <label>Hot Pepper account<input value={draft.external.hotpepper} onChange={(event) => updateExternal("hotpepper", event.target.value)} placeholder="HP staff/account id" /></label>
-          <label>Nailie account<input value={draft.external.nailie} onChange={(event) => updateExternal("nailie", event.target.value)} placeholder="Nailie staff/account id" /></label>
-          <label>minimo account<input value={draft.external.minimo} onChange={(event) => updateExternal("minimo", event.target.value)} placeholder="minimo staff/account id" /></label>
+          {[['hotpepper', 'Hot Pepper / SALON BOARD'], ['nailie', 'Nailie'], ['minimo', 'minimo']].map(([platform, title]) => <div className="externalAccountsField" key={platform}><span>{title} accounts</span>{(draft.external?.[platform] || ['']).map((accountId, index) => <div className="externalAccountRow" key={`${platform}-${index}`}><input value={accountId} onChange={(event) => updateExternal(platform, (draft.external?.[platform] || []).map((value, itemIndex) => itemIndex === index ? event.target.value : value))} placeholder={`${title} account ID ${index + 1}`} />{(draft.external?.[platform] || []).length > 1 && <button type="button" className="ghost" onClick={() => removeExternalAccount(platform, index)}>Xóa</button>}</div>)}<button type="button" className="ghost" onClick={() => addExternalAccount(platform)}>+ Thêm tài khoản</button></div>)}
           <label>{c.loginEmail}<input type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="staff@example.com" /></label>
           <label>{c.password}<input type="password" value={draft.accountPassword} onChange={(event) => updateDraft("accountPassword", event.target.value)} placeholder={c.passwordPlaceholder} /></label>
         </div>

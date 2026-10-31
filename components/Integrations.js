@@ -36,9 +36,9 @@ export default function Integrations({ label = "Integrations" }) {
           <tbody>{staff.map((member) => (
             <tr key={member.id}>
               <td><strong>{member.name}</strong></td>
-              <td>{member.external.hotpepper}</td>
-              <td>{member.external.nailie}</td>
-              <td>{member.external.minimo}</td>
+              <td>{(Array.isArray(member.external?.hotpepper) ? member.external.hotpepper : [member.external?.hotpepper]).filter(Boolean).join(", ") || "-"}</td>
+              <td>{(Array.isArray(member.external?.nailie) ? member.external.nailie : [member.external?.nailie]).filter(Boolean).join(", ") || "-"}</td>
+              <td>{(Array.isArray(member.external?.minimo) ? member.external.minimo : [member.external?.minimo]).filter(Boolean).join(", ") || "-"}</td>
               <td><span className="pill active">Enabled</span></td>
             </tr>
           ))}</tbody>
