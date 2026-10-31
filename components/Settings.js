@@ -37,6 +37,7 @@ export const defaultSettings = {
   codEnabled: true,
   qrEnabled: false,
   qrImageUrl: "",
+  salonboardLoginId: "",
   bankName: "MUFG Bank",
   bankAccount: "1234567",
   bankHolder: "MAI BEAUTY SALON",
@@ -773,14 +774,17 @@ export default function Settings({ language = "vi" }) {
               })}
             <div className="card settingsPanel" style={{ marginTop: 16 }}>
               <h3>Liên kết tài khoản theo nhân viên</h3>
-              <p className="mutedText">Chọn nhân viên rồi gán một hoặc nhiều tài khoản cho từng ứng dụng.</p>
+              <p className="mutedText">SALON BOARD dùng một tài khoản chung của salon. Chọn nhân viên rồi nhập mã hoặc tên nhân viên tương ứng trên SALON BOARD.</p>
+              <label>Tài khoản SALON BOARD của salon
+                <input value={settings.salonboardLoginId || ""} onChange={(event) => update("salonboardLoginId", event.target.value)} placeholder="Tên đăng nhập hoặc account ID của salon" />
+              </label>
               <label>Nhân viên
                 <select value={linkedStaffId} onChange={(event) => setLinkedStaffId(event.target.value)}>
                   {staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
                 </select>
               </label>
               <div className="staffBookingForm">
-                {[['hotpepper', 'Hot Pepper / SALON BOARD'], ['nailie', 'Nailie'], ['minimo', 'minimo']].map(([platform, title]) => <div className="externalAccountsField" key={platform}><strong>{title}</strong>{(linkedAccounts[platform] || ['']).map((accountId, index) => <div className="externalAccountRow" key={`${platform}-${index}`}><input value={accountId} onChange={(event) => updateLinkedAccount(platform, index, event.target.value)} placeholder={`${title} account ID ${index + 1}`} /><button type="button" className="ghost" onClick={() => setLinkedAccounts((current) => ({ ...current, [platform]: current[platform].filter((_, itemIndex) => itemIndex !== index) }))} disabled={linkedAccounts[platform].length <= 1}>Xóa</button></div>)}<button type="button" className="ghost" onClick={() => setLinkedAccounts((current) => ({ ...current, [platform]: [...current[platform], ""] }))}>+ Thêm tài khoản</button></div>)}
+                {[['hotpepper', 'SALON BOARD – mã/tên nhân viên'], ['nailie', 'Nailie account ID'], ['minimo', 'minimo account ID']].map(([platform, title]) => <div className="externalAccountsField" key={platform}><strong>{title}</strong>{(linkedAccounts[platform] || ['']).map((accountId, index) => <div className="externalAccountRow" key={`${platform}-${index}`}><input value={accountId} onChange={(event) => updateLinkedAccount(platform, index, event.target.value)} placeholder={platform === 'hotpepper' ? 'Ví dụ: Mai Mai hoặc mã nhân viên' : `${title} ${index + 1}`} /><button type="button" className="ghost" onClick={() => setLinkedAccounts((current) => ({ ...current, [platform]: current[platform].filter((_, itemIndex) => itemIndex !== index) }))} disabled={linkedAccounts[platform].length <= 1}>Xóa</button></div>)}{platform !== 'hotpepper' && <button type="button" className="ghost" onClick={() => setLinkedAccounts((current) => ({ ...current, [platform]: [...current[platform], ""] }))}>+ Thêm tài khoản</button>}</div>)}
               </div>
               <button className="primary" type="button" onClick={saveLinkedAccounts}>Lưu liên kết tài khoản</button>
               {saved && <p className="successNote">Đã lưu liên kết tài khoản.</p>}
