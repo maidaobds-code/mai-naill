@@ -28,7 +28,7 @@ function renderMapping(snapshot) {
   document.getElementById("salonboardSalonAccount").textContent = snapshot?.salonAccounts?.salonboard || "Chưa cấu hình";
   document.getElementById("nailieSalonAccount").textContent = snapshot?.salonAccounts?.nailie || "Chưa cấu hình";
   document.getElementById("mappingStatus").textContent = rows.length ? `Đã tải ${rows.length} nhân viên · ${new Date(snapshot.fetchedAt).toLocaleString("vi-VN")}` : "Chưa có dữ liệu mapping từ Mainaill.";
-  document.getElementById("mappingRows").innerHTML = rows.length ? rows.map((item) => `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.hotpepper || "Chưa gán")}</td><td>${escapeHtml(item.nailie || "Chưa gán")}</td><td><span class="mappingBadge ${item.complete ? "complete" : "missing"}">${item.complete ? "Đúng" : "Thiếu mapping"}</span></td></tr>`).join("") : '<tr><td colspan="4">Chưa có nhân viên hoặc chưa tải được mapping.</td></tr>';
+  document.getElementById("mappingRows").innerHTML = rows.length ? rows.map((item) => `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.hotpepper || "Chưa gán")}</td><td>${escapeHtml(item.nailie || "Chưa gán")}</td><td><span class="mappingBadge ${item.complete ? "complete" : "missing"}">${item.complete ? "Có mapping" : "Chưa gán app nào"}</span></td></tr>`).join("") : '<tr><td colspan="4">Chưa có nhân viên hoặc chưa tải được mapping.</td></tr>';
 }
 
 function escapeHtml(value) {

@@ -31,6 +31,16 @@ function log(message, details = "") {
     .catch(() => {});
 }
 
+function operationDelay() {
+  return 1000 + Math.floor(Math.random() * 2001);
+}
+
+async function waitBeforeOperation() {
+  const delay = operationDelay();
+  log("waiting before operation", `${delay}ms`);
+  await new Promise((resolve) => setTimeout(resolve, delay));
+}
+
 function parseJsonEnv(name, fallback) {
   try {
     const value = JSON.parse(process.env[name] || JSON.stringify(fallback));
@@ -89,6 +99,7 @@ function desiredActions(schedule, mapping) {
 
 async function applyActions(page, actions) {
   for (const action of actions) {
+    await waitBeforeOperation();
     if (action.type === "manual_required") {
       log("MANUAL_REQUIRED", `${action.staffName} ${action.reason}`);
       continue;

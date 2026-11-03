@@ -22,6 +22,16 @@ function log(message, details = "") {
   fs.mkdir(path.dirname(logFile), { recursive: true }).then(() => fs.appendFile(logFile, `${line}\n`)).catch(() => {});
 }
 
+function operationDelay() {
+  return 1000 + Math.floor(Math.random() * 2001);
+}
+
+async function waitBeforeOperation() {
+  const delay = operationDelay();
+  log("waiting before operation", `${delay}ms`);
+  await new Promise((resolve) => setTimeout(resolve, delay));
+}
+
 function staffRules() {
   try {
     const value = JSON.parse(process.env.SALONBOARD_STAFF_RULES || "{}");
@@ -58,6 +68,7 @@ async function inspect(page) {
 
 async function blockStaffSchedule(page, item) {
   const rule = item.rule || {};
+  await waitBeforeOperation();
   if (dryRun) {
     log("DRY_RUN would block staff schedule", `${item.staffName} ${JSON.stringify(rule)}`);
     return;
@@ -75,13 +86,17 @@ async function run() {
     args: ["--disable-dev-shm-usage"],
   });
   const page = browser.pages()[0] || await browser.newPage();
-  await page.goto(url, { waitUntil: "domcontentloaded" });
+  // Keep the persistent profile visible so the user can complete SALON BOARD
+  // login manually. A blank/new tab must never be treated as the logged-in
+  // page, and navigation errors should be retried instead of leaving Chrome
+  // on about:blank.
+  await navigate(page);
   log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs}`);
 
   let lastSignature = "";
   for (;;) {
     try {
-      if (page.url().includes("login") || page.url().includes("Login")) {
+      if (isLoginPage(page)) {
         log("LOGIN_REQUIRED: sign in to SALON BOARD in the visible browser");
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
@@ -97,8 +112,26 @@ async function run() {
       log("worker error", error?.stack || error?.message || String(error));
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
-    await page.reload({ waitUntil: "domcontentloaded" }).catch((error) => log("reload failed", error.message));
+    await page.reload({ waitUntil: "domcontentloaded" }).catch(async (error) => { log("reload failed", error.message); await navigate(page); });
   }
+}
+
+function isLoginPage(page) {
+  const current = page.url();
+  return !current || current === "about:blank" || /login|ログイン/i.test(current);
+}
+
+async function navigate(page) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+      if (page.url() !== "about:blank") return;
+    } catch (error) {
+      log("navigation failed", `${attempt}/3 ${error.message}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+  }
+  throw new Error(`SALON BOARD không mở được: ${url}`);
 }
 
 run().catch((error) => {

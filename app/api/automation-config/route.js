@@ -18,7 +18,7 @@ export async function GET(request) {
     const mappings = staff.map((member) => {
       const hotpepper = firstMapping(member, "hotpepper");
       const nailie = firstMapping(member, "nailie");
-      return { id: String(member.id), name: member.name, hotpepper, nailie, complete: Boolean(hotpepper && nailie) };
+      return { id: String(member.id), name: member.name, hotpepper, nailie, complete: Boolean(hotpepper || nailie), platforms: { hotpepper: Boolean(hotpepper), nailie: Boolean(nailie) } };
     });
     return Response.json({
       ok: true,
