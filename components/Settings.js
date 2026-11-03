@@ -67,7 +67,7 @@ export default function Settings({ language = "vi" }) {
   const [qrUploadError, setQrUploadError] = useState("");
   const [noticeTranslating, setNoticeTranslating] = useState(false);
   const [currentAccount] = useState(getCurrentAccount);
-  const { staff, setStaff } = useStaffStore();
+  const { staff, saveStaff } = useStaffStore();
   const [linkedStaffId, setLinkedStaffId] = useState("");
   const [linkedAccounts, setLinkedAccounts] = useState({ hotpepper: [""], nailie: [""], minimo: [""] });
   const isStaff = ["staff", "manager"].includes(currentAccount?.role);
@@ -104,7 +104,8 @@ export default function Settings({ language = "vi" }) {
     setQrUploadError("");
     try {
       const external = normalizeExternalAccounts(linkedAccounts);
-      setStaff((current) => current.map((item) => String(item.id) === String(member.id) ? { ...item, external } : item));
+      const nextStaff = staff.map((item) => String(item.id) === String(member.id) ? { ...item, external } : item);
+      await saveStaff(nextStaff);
       window.localStorage.setItem("nail-japan-settings", JSON.stringify(settings));
       await saveServerSettings(settings);
       setSaved(true);
@@ -127,15 +128,22 @@ export default function Settings({ language = "vi" }) {
     setSaved(false);
   }
 
-  function removeLinkedMapping(staffId, platform, staffName) {
+  async function removeLinkedMapping(staffId, platform, staffName) {
     if (!window.confirm(`Xóa liên kết ${platform === "hotpepper" ? "SALON BOARD" : "Nailie"} của ${staffName}?`)) return;
-    setStaff((current) => current.map((member) => {
-      if (String(member.id) !== String(staffId)) return member;
-      const external = normalizeExternalAccounts(member.external);
-      return { ...member, external: { ...external, [platform]: [] } };
-    }));
-    if (String(linkedStaffId) === String(staffId)) setLinkedAccounts((current) => ({ ...current, [platform]: [""] }));
-    setSaved(true);
+    setQrUploadError("");
+    try {
+      const nextStaff = staff.map((member) => {
+        if (String(member.id) !== String(staffId)) return member;
+        const external = normalizeExternalAccounts(member.external);
+        return { ...member, external: { ...external, [platform]: [] } };
+      });
+      await saveStaff(nextStaff);
+      if (String(linkedStaffId) === String(staffId)) setLinkedAccounts((current) => ({ ...current, [platform]: [""] }));
+      setSaved(true);
+    } catch (error) {
+      setSaved(false);
+      setQrUploadError(error.message || "Không thể xóa mapping nhân viên.");
+    }
   }
   const printerCopy =
     {
