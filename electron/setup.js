@@ -1,11 +1,5 @@
 const fields = ["mainaillUrl", "bookingSyncSecret", "pollMinSeconds", "pollMaxSeconds", "nailieDryRun", "salonboardDryRun", "startWorkersOnLaunch", "startWithWindows"];
 
-function parseJsonField(id) {
-  const text = document.getElementById(id).value.trim();
-  if (!text) return {};
-  return JSON.parse(text);
-}
-
 function renderWorkers(state) {
   for (const name of ["salonboard", "nailie"]) {
     const running = Boolean(state?.[name]?.running);
@@ -23,9 +17,30 @@ async function load() {
     if (element.type === "checkbox") element.checked = Boolean(config[id]);
     else element.value = config[id] ?? "";
   }
-  document.getElementById("nailieStaffMapping").value = JSON.stringify(config.nailieStaffMapping || {}, null, 2);
-  document.getElementById("salonboardStaffRules").value = JSON.stringify(config.salonboardStaffRules || {}, null, 2);
+  renderMapping(config.mappingSnapshot);
   renderWorkers(await window.mainaillBot.getWorkers());
+  if (config.bookingSyncSecret) refreshMapping();
+}
+
+function renderMapping(snapshot) {
+  const rows = Array.isArray(snapshot?.mappings) ? snapshot.mappings : [];
+  document.getElementById("salonboardSalonAccount").textContent = snapshot?.salonAccounts?.salonboard || "Chưa cấu hình";
+  document.getElementById("nailieSalonAccount").textContent = snapshot?.salonAccounts?.nailie || "Chưa cấu hình";
+  document.getElementById("mappingStatus").textContent = rows.length ? `Đã tải ${rows.length} nhân viên · ${new Date(snapshot.fetchedAt).toLocaleString("vi-VN")}` : "Chưa có dữ liệu mapping từ Mainaill.";
+  document.getElementById("mappingRows").innerHTML = rows.length ? rows.map((item) => `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.hotpepper || "Chưa gán")}</td><td>${escapeHtml(item.nailie || "Chưa gán")}</td><td><span class="mappingBadge ${item.complete ? "complete" : "missing"}">${item.complete ? "Đúng" : "Thiếu mapping"}</span></td></tr>`).join("") : '<tr><td colspan="4">Chưa có nhân viên hoặc chưa tải được mapping.</td></tr>';
+}
+
+function escapeHtml(value) {
+  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
+}
+
+async function refreshMapping() {
+  const status = document.getElementById("mappingStatus");
+  status.textContent = "Đang tải mapping từ Mainaill…";
+  try {
+    const result = await window.mainaillBot.refreshMapping();
+    renderMapping(result.snapshot);
+  } catch (error) { status.textContent = `Không thể tải mapping: ${error.message}`; }
 }
 
 document.getElementById("configForm").addEventListener("submit", async (event) => {
@@ -37,10 +52,9 @@ document.getElementById("configForm").addEventListener("submit", async (event) =
       const element = document.getElementById(id);
       value[id] = element.type === "checkbox" ? element.checked : element.type === "number" ? Number(element.value) : element.value.trim();
     }
-    value.nailieStaffMapping = parseJsonField("nailieStaffMapping");
-    value.salonboardStaffRules = parseJsonField("salonboardStaffRules");
     await window.mainaillBot.saveConfig(value);
     message.textContent = "Đã lưu cấu hình.";
+    await refreshMapping();
   } catch (error) { message.textContent = `Lỗi: ${error.message}`; }
 });
 
@@ -52,6 +66,8 @@ document.querySelectorAll("[data-worker]").forEach((button) => button.addEventLi
 }));
 document.getElementById("openMainaill").addEventListener("click", () => window.mainaillBot.openMainaill());
 document.getElementById("openLogs").addEventListener("click", () => window.mainaillBot.openLogs());
+document.getElementById("refreshMapping").addEventListener("click", refreshMapping);
 window.mainaillBot.onWorkerState(renderWorkers);
+window.mainaillBot.onMappingError((value) => { document.getElementById("mappingStatus").textContent = `Không thể khởi động worker: ${value}`; });
 load();
 

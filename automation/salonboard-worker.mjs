@@ -48,9 +48,10 @@ async function inspect(page) {
   const rules = staffRules();
   const matches = [];
   for (const [staffName, rule] of Object.entries(rules)) {
-    const row = current.staffRows.find((value) => value.includes(staffName));
+    const externalStaffName = String(rule?.externalStaffName || rule?.externalStaffId || staffName);
+    const row = current.staffRows.find((value) => value.includes(externalStaffName));
     if (!row || !hasAppointmentText(row)) continue;
-    matches.push({ staffName, rule, evidence: row.slice(0, 500) });
+    matches.push({ staffName, externalStaffName, rule, evidence: row.slice(0, 500) });
   }
   return matches;
 }

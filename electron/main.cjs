@@ -38,11 +38,24 @@ function readConfig() {
 }
 
 function saveConfig(value) {
-  const config = { ...DEFAULT_CONFIG, ...(value || {}) };
   ensureDataFolders();
+  let existing = {};
+  try { existing = JSON.parse(fs.readFileSync(configPath(), "utf8")); } catch {}
+  const config = { ...DEFAULT_CONFIG, ...existing, ...(value || {}) };
   fs.writeFileSync(configPath(), JSON.stringify(config, null, 2), "utf8");
   app.setLoginItemSettings({ openAtLogin: Boolean(config.startWithWindows), path: process.execPath });
   return config;
+}
+
+async function fetchAutomationConfig() {
+  const config = readConfig();
+  const base = String(config.mainaillUrl || "").replace(/\/$/, "");
+  if (!base || !config.bookingSyncSecret) throw new Error("Thiếu địa chỉ Mainaill hoặc Booking sync secret");
+  const response = await fetch(`${base}/api/automation-config`, { headers: { authorization: `Bearer ${config.bookingSyncSecret}` }, cache: "no-store" });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill trả về HTTP ${response.status}`);
+  const next = saveConfig({ ...config, nailieStaffMapping: result.workerMapping?.nailie || {}, salonboardStaffRules: result.workerMapping?.salonboard || {}, mappingSnapshot: { fetchedAt: result.fetchedAt, salonAccounts: result.salonAccounts || {}, mappings: result.mappings || [] } });
+  return { config: next, snapshot: next.mappingSnapshot };
 }
 
 function scriptPath(name) {
@@ -80,8 +93,9 @@ function sendWorkerState() {
   mainWindow?.webContents.send("workers:state", Object.fromEntries(["nailie", "salonboard"].map((name) => [name, { running: Boolean(workers.get(name)), pid: workers.get(name)?.pid || null }])));
 }
 
-function startWorker(name) {
+async function startWorker(name) {
   if (workers.has(name)) return;
+  await fetchAutomationConfig();
   const config = readConfig();
   const child = spawn(process.execPath, [scriptPath(name)], { env: workerEnvironment(name, config), stdio: "ignore", windowsHide: true });
   workers.set(name, child);
@@ -113,8 +127,9 @@ function createWindow() {
 
 ipcMain.handle("config:get", () => readConfig());
 ipcMain.handle("config:save", (_event, value) => saveConfig(value));
+ipcMain.handle("mapping:refresh", () => fetchAutomationConfig());
 ipcMain.handle("workers:get", () => Object.fromEntries(["nailie", "salonboard"].map((name) => [name, { running: Boolean(workers.get(name)), pid: workers.get(name)?.pid || null }])));
-ipcMain.handle("workers:start", (_event, name) => { startWorker(name); return true; });
+ipcMain.handle("workers:start", async (_event, name) => { await startWorker(name); return true; });
 ipcMain.handle("workers:stop", (_event, name) => { stopWorker(name); return true; });
 ipcMain.handle("mainaill:open", () => shell.openExternal(readConfig().mainaillUrl));
 ipcMain.handle("logs:open", () => shell.openPath(path.join(dataRoot(), "logs")));
@@ -124,8 +139,8 @@ app.whenReady().then(() => {
   createWindow();
   const config = readConfig();
   if (config.startWorkersOnLaunch) {
-    startWorker("salonboard");
-    startWorker("nailie");
+    startWorker("salonboard").catch((error) => mainWindow?.webContents.send("mapping:error", error.message));
+    startWorker("nailie").catch((error) => mainWindow?.webContents.send("mapping:error", error.message));
   }
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
