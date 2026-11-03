@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("mainaillBot", {
   getConfig: () => ipcRenderer.invoke("config:get"),
+  getVersion: () => ipcRenderer.invoke("app:version"),
   saveConfig: (value) => ipcRenderer.invoke("config:save", value),
   refreshMapping: () => ipcRenderer.invoke("mapping:refresh"),
   getWorkers: () => ipcRenderer.invoke("workers:get"),

@@ -11,6 +11,7 @@ function renderWorkers(state) {
 }
 
 async function load() {
+  document.getElementById("appVersion").textContent = `v${await window.mainaillBot.getVersion()}`;
   const config = await window.mainaillBot.getConfig();
   for (const id of fields) {
     const element = document.getElementById(id);

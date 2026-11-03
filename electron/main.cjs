@@ -126,6 +126,7 @@ function createWindow() {
 }
 
 ipcMain.handle("config:get", () => readConfig());
+ipcMain.handle("app:version", () => app.getVersion());
 ipcMain.handle("config:save", (_event, value) => saveConfig(value));
 ipcMain.handle("mapping:refresh", () => fetchAutomationConfig());
 ipcMain.handle("workers:get", () => Object.fromEntries(["nailie", "salonboard"].map((name) => [name, { running: Boolean(workers.get(name)), pid: workers.get(name)?.pid || null }])));
