@@ -31,6 +31,19 @@ async function saveBookings(value) {
   return rows?.[0]?.value || value;
 }
 
+export async function GET(request) {
+  if (!authorized(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
+  const provider = new URL(request.url).searchParams.get("provider");
+  if (!["hotpepper", "nailie"].includes(provider)) return Response.json({ ok: false, message: "Invalid provider" }, { status: 400 });
+  try {
+    const bookings = await readBookings();
+    const tasks = bookings.flatMap((booking) => (Array.isArray(booking.pendingSyncActions) ? booking.pendingSyncActions : []).filter((action) => action.target === provider).map((action) => ({ ...action, booking: { id: booking.id, date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff, status: booking.status } })));
+    return Response.json({ ok: true, provider, tasks }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+  } catch (error) {
+    return Response.json({ ok: false, message: error.message || "Cannot read sync tasks" }, { status: 500 });
+  }
+}
+
 function publicOrigin(request) {
   const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
   return configured.replace(/\/$/, "") || new URL(request.url).origin;

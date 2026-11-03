@@ -38,6 +38,10 @@ const acknowledged = acknowledgeProviderSync(nailie.bookings, { provider: "hotpe
 assert.equal(acknowledged.result.syncStatus, "synced");
 assert.equal(acknowledged.result.providerSync.hotpepper.externalBookingId, "HP-BLOCK-100");
 
+const queued = [{ ...acknowledged.result, pendingSyncActions: [{ target: "hotpepper", action: "cancel" }, { target: "nailie", action: "cancel" }] }];
+const cleared = acknowledgeProviderSync(queued, { provider: "hotpepper", bookingId: acknowledged.result.id, status: "synced" });
+assert.deepEqual(cleared.result.pendingSyncActions, [{ target: "nailie", action: "cancel" }]);
+
 const cancelled = ingestExternalBooking(acknowledged.bookings, { provider: "nailie", externalBookingId: "NL-100", action: "cancel" });
 assert.equal(cancelled.result.status, "CANCELLED");
 assert.equal(cancelled.result.providerSync.hotpepper.status, "pending");
@@ -52,6 +56,7 @@ console.log("PASS Nailie booking becomes the Mainaill canonical record");
 console.log("PASS duplicate external events update instead of creating a loop");
 console.log("PASS overlapping external bookings require manual resolution");
 console.log("PASS provider acknowledgements produce per-platform synced status");
+console.log("PASS provider acknowledgement removes only its completed sync action");
 console.log("PASS cancellation is propagated to the other platform");
 console.log("PASS conflict Gmail contains separate reassignment links and does not close either platform");
 

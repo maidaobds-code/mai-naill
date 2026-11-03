@@ -52,6 +52,10 @@ const deleteResult = await (await route.DELETE(new Request("https://salon.exampl
 assert.equal(deleteResult.ok, true);
 assert.equal(deleteResult.value.length, 2);
 assert.equal(deleteResult.value.every((item) => Boolean(item.deletedAt)), true);
+assert.deepEqual(deleteResult.syncTasks.map((task) => task.target).sort(), ["hotpepper", "nailie"]);
+assert.equal(deleteResult.syncTasks.every((task) => task.action === "cancel"), true);
+assert.equal(deleteResult.syncTasks.every((task) => task.match.date === "2026-10-26" && task.match.start === "10:00" && task.match.end === "11:00" && task.match.staff === "Mai"), true);
+assert.equal(deleteResult.value.every((item) => item.pendingSyncActions?.length === 2), true);
 
 // Account B reloads and must receive only the tombstone (hidden by the UI).
 const secondRead = await (await route.GET()).json();
@@ -87,3 +91,4 @@ console.log("PASS legacy duplicate with another ID is deleted in the same slot")
 console.log("PASS owner and staff reads are identical");
 console.log("PASS new manual booking remains visible after server reload");
 console.log("PASS Mainaill bookings create pending sync tasks for Nailie and HOT PEPPER");
+console.log("PASS deleting a Mainaill booking queues exact-slot cancellation for both external apps");
