@@ -1,7 +1,10 @@
 .next/
+.next-verify/
 node_modules/
 out/
 dist/
+release/
+vendor/playwright-browsers/
 coverage/
 .codegraph/
 

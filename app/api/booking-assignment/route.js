@@ -1,6 +1,7 @@
 import { createBookingCancellationToken, verifyBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
 import { sendEmail, staffCatalog, salonSettings } from "../../../lib/serverEmail.js";
 import { appointmentConfirmationEmail } from "../../../lib/appointmentEmail.js";
+import { overallSyncStatus, providerSyncState } from "../../../lib/bookingSync.js";
 import { staff as seedStaff } from "../../../lib/salonData.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -81,7 +82,11 @@ export async function POST(request) {
       await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: "nail-japan-settings", value: nextSettings, updated_at: new Date().toISOString() }]) });
       if (body.reopenOnly) return Response.json({ ok: true, reopenedOnly: true, booking });
     }
-    const assigned = { ...booking, staff: member.name, staffId: member.id, staffEmail: member.email || "", staffRole: member.role || "", assignmentStatus: "ASSIGNED", approvalStatus: "OWNER_CONFIRMED", noPreference: requestedNoPreference, assignedAt: new Date().toISOString() };
+    const providerSync = providerSyncState(booking);
+    if (booking.assignmentStatus === "PENDING_CONFLICT") {
+      for (const provider of ["hotpepper", "nailie"]) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
+    }
+    const assigned = { ...booking, staff: member.name, staffId: member.id, staffEmail: member.email || "", staffRole: member.role || "", assignmentStatus: "ASSIGNED", approvalStatus: "OWNER_CONFIRMED", noPreference: requestedNoPreference, assignedAt: new Date().toISOString(), conflictResolvedAt: booking.assignmentStatus === "PENDING_CONFLICT" ? new Date().toISOString() : booking.conflictResolvedAt, conflictWith: booking.assignmentStatus === "PENDING_CONFLICT" ? "" : booking.conflictWith, providerSync, syncStatus: booking.assignmentStatus === "PENDING_CONFLICT" ? overallSyncStatus(providerSync) : booking.syncStatus };
     const next = allBookings.map((item) => item.id === assigned.id ? assigned : item);
     await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: next, updated_at: new Date().toISOString() }]) });
     const notification = await sendEmail({
@@ -106,6 +111,7 @@ export async function POST(request) {
     const customerReason = staffChanged ? changedReasons[customerLanguage] : "";
     const confirmation = appointmentConfirmationEmail({ booking: assigned, settings, language: customerLanguage, bookingUrl: `${origin}/booking?appointment=${encodeURIComponent(assigned.id)}`, changeUrl, cancelUrl, staffChangeReason: customerReason });
     const customerNotification = await sendEmail({ to: assigned.email, ...confirmation });
-    return Response.json({ ok: true, booking: assigned, notification, customerNotification });
+    const syncTasks = booking.assignmentStatus === "PENDING_CONFLICT" ? ["hotpepper", "nailie"].map((target) => ({ target, action: "update", bookingId: assigned.id })) : [];
+    return Response.json({ ok: true, booking: assigned, notification, customerNotification, syncTasks });
   } catch (error) { return Response.json({ ok: false, message: error.message || "Không thể phân công nhân viên." }, { status: 500 }); }
 }

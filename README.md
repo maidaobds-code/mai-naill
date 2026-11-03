@@ -50,3 +50,16 @@ public_staff_profiles, booking_pages, audit_logs.
 - 現金 / クレカ / QR
 - Cancellation / no-show
 - Commission theo nguồn khách, thợ, service và new/repeat
+# Mainaill Bot desktop installer
+
+Ứng dụng desktop quản lý hai worker Nailie và SALON BOARD/HOT PEPPER có thể
+được đóng gói thành một bộ cài Windows:
+
+```powershell
+npm install
+npm run package:windows
+```
+
+File đầu ra nằm tại `dist/Mainaill-Bot-Setup-<version>.exe`. Sau khi cài, cấu
+hình, log và profile trình duyệt được lưu trong thư mục dữ liệu ứng dụng của
+Windows, tách khỏi thư mục cài đặt. DRY RUN được bật mặc định cho cả hai worker.

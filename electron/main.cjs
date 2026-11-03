@@ -1,0 +1,135 @@
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const fs = require("node:fs");
+const path = require("node:path");
+const { spawn } = require("node:child_process");
+
+const DEFAULT_CONFIG = {
+  mainaillUrl: "https://mainaill.com",
+  bookingSyncSecret: "",
+  pollMinSeconds: 45,
+  pollMaxSeconds: 90,
+  nailieDryRun: true,
+  salonboardDryRun: true,
+  nailieStaffMapping: {},
+  salonboardStaffRules: {},
+  startWorkersOnLaunch: false,
+  startWithWindows: false,
+};
+
+let mainWindow;
+const workers = new Map();
+
+function dataRoot() {
+  return path.join(app.getPath("userData"), "runtime");
+}
+
+function configPath() {
+  return path.join(dataRoot(), "config.json");
+}
+
+function ensureDataFolders() {
+  for (const folder of [dataRoot(), path.join(dataRoot(), "logs"), path.join(dataRoot(), "profiles", "nailie"), path.join(dataRoot(), "profiles", "salonboard")]) fs.mkdirSync(folder, { recursive: true });
+}
+
+function readConfig() {
+  ensureDataFolders();
+  try { return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(configPath(), "utf8")) }; }
+  catch { return { ...DEFAULT_CONFIG }; }
+}
+
+function saveConfig(value) {
+  const config = { ...DEFAULT_CONFIG, ...(value || {}) };
+  ensureDataFolders();
+  fs.writeFileSync(configPath(), JSON.stringify(config, null, 2), "utf8");
+  app.setLoginItemSettings({ openAtLogin: Boolean(config.startWithWindows), path: process.execPath });
+  return config;
+}
+
+function scriptPath(name) {
+  return path.join(app.getAppPath(), "automation", `${name}-worker.mjs`);
+}
+
+function randomPollMs(config) {
+  const min = Math.max(30, Number(config.pollMinSeconds) || 45);
+  const max = Math.max(min, Number(config.pollMaxSeconds) || 90);
+  return Math.round((min + Math.random() * (max - min)) * 1000);
+}
+
+function workerEnvironment(name, config) {
+  const bundledBrowsers = app.isPackaged ? path.join(process.resourcesPath, "playwright-browsers") : path.join(app.getAppPath(), "vendor", "playwright-browsers");
+  const common = { ...process.env, ELECTRON_RUN_AS_NODE: "1", PLAYWRIGHT_BROWSERS_PATH: bundledBrowsers, MAINAILL_URL: config.mainaillUrl, BOOKING_SYNC_SECRET: config.bookingSyncSecret };
+  if (name === "nailie") return {
+    ...common,
+    NAILIE_PROFILE_DIR: path.join(dataRoot(), "profiles", "nailie"),
+    NAILIE_LOG: path.join(dataRoot(), "logs", "nailie-worker.log"),
+    NAILIE_DRY_RUN: String(config.nailieDryRun !== false),
+    NAILIE_POLL_MS: String(randomPollMs(config)),
+    NAILIE_STAFF_MAPPING: JSON.stringify(config.nailieStaffMapping || {}),
+  };
+  return {
+    ...common,
+    SALONBOARD_PROFILE_DIR: path.join(dataRoot(), "profiles", "salonboard"),
+    SALONBOARD_LOG: path.join(dataRoot(), "logs", "salonboard-worker.log"),
+    SALONBOARD_DRY_RUN: String(config.salonboardDryRun !== false),
+    SALONBOARD_POLL_MS: String(randomPollMs(config)),
+    SALONBOARD_STAFF_RULES: JSON.stringify(config.salonboardStaffRules || {}),
+  };
+}
+
+function sendWorkerState() {
+  mainWindow?.webContents.send("workers:state", Object.fromEntries(["nailie", "salonboard"].map((name) => [name, { running: Boolean(workers.get(name)), pid: workers.get(name)?.pid || null }])));
+}
+
+function startWorker(name) {
+  if (workers.has(name)) return;
+  const config = readConfig();
+  const child = spawn(process.execPath, [scriptPath(name)], { env: workerEnvironment(name, config), stdio: "ignore", windowsHide: true });
+  workers.set(name, child);
+  child.once("exit", () => { workers.delete(name); sendWorkerState(); });
+  child.once("error", () => { workers.delete(name); sendWorkerState(); });
+  sendWorkerState();
+}
+
+function stopWorker(name) {
+  const child = workers.get(name);
+  if (!child) return;
+  child.kill();
+  workers.delete(name);
+  sendWorkerState();
+}
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1120,
+    height: 820,
+    minWidth: 860,
+    minHeight: 640,
+    title: "Mainaill Bot Manager",
+    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
+  });
+  mainWindow.loadFile(path.join(__dirname, "setup.html"));
+  mainWindow.on("closed", () => { mainWindow = null; });
+}
+
+ipcMain.handle("config:get", () => readConfig());
+ipcMain.handle("config:save", (_event, value) => saveConfig(value));
+ipcMain.handle("workers:get", () => Object.fromEntries(["nailie", "salonboard"].map((name) => [name, { running: Boolean(workers.get(name)), pid: workers.get(name)?.pid || null }])));
+ipcMain.handle("workers:start", (_event, name) => { startWorker(name); return true; });
+ipcMain.handle("workers:stop", (_event, name) => { stopWorker(name); return true; });
+ipcMain.handle("mainaill:open", () => shell.openExternal(readConfig().mainaillUrl));
+ipcMain.handle("logs:open", () => shell.openPath(path.join(dataRoot(), "logs")));
+
+app.whenReady().then(() => {
+  ensureDataFolders();
+  createWindow();
+  const config = readConfig();
+  if (config.startWorkersOnLaunch) {
+    startWorker("salonboard");
+    startWorker("nailie");
+  }
+  app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+});
+
+app.on("before-quit", () => { for (const name of [...workers.keys()]) stopWorker(name); });
+app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
+

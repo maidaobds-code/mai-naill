@@ -1,5 +1,5 @@
 "use client";
-import { platforms, staff, syncEvents } from "../lib/salonData";
+import { platforms, staff } from "../lib/salonData";
 import { bookingProviders } from "../lib/booking-providers/registry";
 
 export default function Integrations({ label = "Integrations" }) {
@@ -11,10 +11,10 @@ export default function Integrations({ label = "Integrations" }) {
       </div>
       <div className="syncBanner card">
         <strong>Lịch trung tâm Supabase</strong>
-        <span>Mọi booking từ Nailie, minimo, HOT PEPPER và website riêng đều ghi về appointments. Website riêng luôn dùng dữ liệu trung tâm khi tính giờ trống.</span>
+        <span>Mainaill là lịch chuẩn. Booking từ Nailie, HOT PEPPER và website riêng đều được đối chiếu trước khi đồng bộ.</span>
       </div>
       <div className="integrationGrid">
-        {platforms.filter((platform) => platform.id !== "direct").map((platform) => {
+        {platforms.filter((platform) => ["hotpepper", "nailie"].includes(platform.id)).map((platform) => {
           const provider = bookingProviders[platform.id === "hotpepper" ? "hotpepper" : platform.id];
           return (
           <section className="card integrationCard" key={platform.id}>
@@ -32,21 +32,16 @@ export default function Integrations({ label = "Integrations" }) {
       </div>
       <section className="card tableWrap">
         <table>
-          <thead><tr><th>Internal staff</th><th>Hot Pepper</th><th>Nailie</th><th>minimo</th><th>Sync</th></tr></thead>
+          <thead><tr><th>Internal staff</th><th>Hot Pepper</th><th>Nailie</th><th>Sync</th></tr></thead>
           <tbody>{staff.map((member) => (
             <tr key={member.id}>
               <td><strong>{member.name}</strong></td>
               <td>{(Array.isArray(member.external?.hotpepper) ? member.external.hotpepper : [member.external?.hotpepper]).filter(Boolean).join(", ") || "-"}</td>
               <td>{(Array.isArray(member.external?.nailie) ? member.external.nailie : [member.external?.nailie]).filter(Boolean).join(", ") || "-"}</td>
-              <td>{(Array.isArray(member.external?.minimo) ? member.external.minimo : [member.external?.minimo]).filter(Boolean).join(", ") || "-"}</td>
               <td><span className="pill active">Enabled</span></td>
             </tr>
           ))}</tbody>
         </table>
-      </section>
-      <section className="card syncLog">
-        <h2>Latest sync events</h2>
-        {syncEvents.map((event) => <div className="syncRow" key={event.id}><span className={`pill ${event.severity.toLowerCase()}`}>{event.severity}</span><strong>{event.title}</strong><p>{event.detail}</p></div>)}
       </section>
     </>
   );

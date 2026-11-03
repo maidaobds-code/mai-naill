@@ -31,9 +31,9 @@ function newStaff(nextId) {
 const copy = {
   zh: { eyebrow: "员工账户", desc: "添加或删除员工、设置日历颜色并管理外部应用账号。", addStaff: "+ 添加员工", newStaff: "新员工", secureNote: "登录信息在服务器端加密保存，不会以明文保存在浏览器。", name: "姓名", namePlaceholder: "员工姓名", role: "角色", calendarColor: "日历颜色", loginEmail: "登录邮箱", password: "账户密码", passwordPlaceholder: "创建密码", staff: "员工", color: "颜色", login: "登录", newPassword: "新密码", owner: "店主", staffRole: "员工", customer: "客户", reset: "修改密码", accountReady: "账户已准备", needsPassword: "需要密码", passwordReset: "密码已修改" },
   ko: { eyebrow: "직원 계정", desc: "직원을 추가·삭제하고 캘린더 색상과 외부 앱 계정을 관리합니다.", addStaff: "+ 직원 추가", newStaff: "새 직원", secureNote: "로그인 정보는 서버에서 암호화되어 브라우저에 평문으로 저장되지 않습니다.", name: "이름", namePlaceholder: "직원 이름", role: "역할", calendarColor: "캘린더 색상", loginEmail: "로그인 이메일", password: "계정 비밀번호", passwordPlaceholder: "비밀번호 생성", staff: "직원", color: "색상", login: "로그인", newPassword: "새 비밀번호", owner: "점주", staffRole: "직원", customer: "고객", reset: "비밀번호 변경", accountReady: "계정 준비 완료", needsPassword: "비밀번호 필요", passwordReset: "비밀번호 변경 완료" },
-  vi: { eyebrow: "TÀI KHOẢN NHÂN VIÊN", desc: "Thêm, xóa nhân viên, đặt màu lịch và liên kết tài khoản Nailie / Hot Pepper / minimo.", addStaff: "+ Thêm nhân viên", newStaff: "Nhân viên mới", secureNote: "Thông tin đăng nhập được lưu mã hóa phía máy chủ, không lưu dạng chữ thường trên trình duyệt.", name: "Tên", namePlaceholder: "Tên nhân viên", role: "Vai trò", calendarColor: "Màu lịch", loginEmail: "Email đăng nhập", password: "Mật khẩu tài khoản", passwordPlaceholder: "Tạo mật khẩu", staff: "Nhân viên", color: "Màu", login: "Đăng nhập", newPassword: "Mật khẩu mới", owner: "Chủ quán", staffRole: "Nhân viên", customer: "Khách hàng", reset: "Đổi mật khẩu", accountReady: "Tài khoản sẵn sàng", needsPassword: "Cần mật khẩu", passwordReset: "Đã đổi mật khẩu" },
-  ja: { eyebrow: "スタッフアカウント", desc: "スタッフの追加・削除、カレンダー色、Nailie / Hot Pepper / minimo の連携を管理します。", addStaff: "+ スタッフ追加", newStaff: "新規スタッフ", secureNote: "ログイン情報はサーバー側で暗号化して保存し、ブラウザに平文では保存しません。", name: "名前", namePlaceholder: "スタッフ名", role: "役割", calendarColor: "カレンダー色", loginEmail: "ログインメール", password: "アカウントパスワード", passwordPlaceholder: "パスワード作成", staff: "スタッフ", color: "色", login: "ログイン", newPassword: "新しいパスワード", owner: "オーナー", staffRole: "スタッフ", customer: "顧客", reset: "パスワード変更", accountReady: "アカウント準備済み", needsPassword: "パスワード未設定", passwordReset: "パスワード変更済み" },
-  en: { eyebrow: "STAFF ACCOUNTS", desc: "Add or remove staff, set calendar colors, and link Nailie / Hot Pepper / minimo accounts.", addStaff: "+ Add staff", newStaff: "New staff", secureNote: "Login details are encrypted on the server and are not stored as plain text in the browser.", name: "Name", namePlaceholder: "Staff name", role: "Role", calendarColor: "Calendar color", loginEmail: "Login email", password: "Account password", passwordPlaceholder: "Create password", staff: "Staff", color: "Color", login: "Login", newPassword: "New password", owner: "Owner", staffRole: "Staff", customer: "Customer", reset: "Change password", accountReady: "Account ready", needsPassword: "Needs password", passwordReset: "Password changed" },
+  vi: { eyebrow: "TÀI KHOẢN NHÂN VIÊN", desc: "Thêm, xóa nhân viên và đặt màu lịch. Mapping Nailie / SALON BOARD được quản lý tập trung trong Cài đặt → Ứng dụng.", addStaff: "+ Thêm nhân viên", newStaff: "Nhân viên mới", secureNote: "Thông tin đăng nhập được lưu mã hóa phía máy chủ, không lưu dạng chữ thường trên trình duyệt.", name: "Tên", namePlaceholder: "Tên nhân viên", role: "Vai trò", calendarColor: "Màu lịch", loginEmail: "Email đăng nhập", password: "Mật khẩu tài khoản", passwordPlaceholder: "Tạo mật khẩu", staff: "Nhân viên", color: "Màu", login: "Đăng nhập", newPassword: "Mật khẩu mới", owner: "Chủ quán", staffRole: "Nhân viên", customer: "Khách hàng", reset: "Đổi mật khẩu", accountReady: "Tài khoản sẵn sàng", needsPassword: "Cần mật khẩu", passwordReset: "Đã đổi mật khẩu" },
+  ja: { eyebrow: "スタッフアカウント", desc: "スタッフの追加・削除とカレンダー色を管理します。Nailie / SALON BOARD の紐付けは設定 → アプリで管理します。", addStaff: "+ スタッフ追加", newStaff: "新規スタッフ", secureNote: "ログイン情報はサーバー側で暗号化して保存し、ブラウザに平文では保存しません。", name: "名前", namePlaceholder: "スタッフ名", role: "役割", calendarColor: "カレンダー色", loginEmail: "ログインメール", password: "アカウントパスワード", passwordPlaceholder: "パスワード作成", staff: "スタッフ", color: "色", login: "ログイン", newPassword: "新しいパスワード", owner: "オーナー", staffRole: "スタッフ", customer: "顧客", reset: "パスワード変更", accountReady: "アカウント準備済み", needsPassword: "パスワード未設定", passwordReset: "パスワード変更済み" },
+  en: { eyebrow: "STAFF ACCOUNTS", desc: "Add or remove staff and set calendar colors. Nailie / SALON BOARD mappings are managed in Settings → Applications.", addStaff: "+ Add staff", newStaff: "New staff", secureNote: "Login details are encrypted on the server and are not stored as plain text in the browser.", name: "Name", namePlaceholder: "Staff name", role: "Role", calendarColor: "Calendar color", loginEmail: "Login email", password: "Account password", passwordPlaceholder: "Create password", staff: "Staff", color: "Color", login: "Login", newPassword: "New password", owner: "Owner", staffRole: "Staff", customer: "Customer", reset: "Change password", accountReady: "Account ready", needsPassword: "Needs password", passwordReset: "Password changed" },
 };
 
 export default function StaffManagement({ label = "Staff", embedded = false, language = "vi" }) {
@@ -46,24 +46,11 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const [roleDraft, setRoleDraft] = useState({});
   const [accountMessage, setAccountMessage] = useState("");
   const [bookingDraft, setBookingDraft] = useState(null);
-  const [externalDraft, setExternalDraft] = useState(null);
   const bookingCopy = language === "ja" ? { title: "指名設定", edit: "表示設定", displayName: "表示名", fee: "指名料（円）", description: "お客様向け説明", image: "スタッフ画像", visible: "Web予約で表示", save: "指名設定を保存", cancel: "キャンセル" } : language === "en" ? { title: "Booking designation settings", edit: "Display settings", displayName: "Display name", fee: "Designation fee (JPY)", description: "Customer-facing description", image: "Staff image", visible: "Show in online booking", save: "Save designation settings", cancel: "Cancel" } : { title: "Cài đặt chỉ định nhân viên", edit: "Cài đặt hiển thị", displayName: "Tên hiển thị", fee: "Phí chỉ định (JPY)", description: "Mô tả hiển thị cho khách", image: "Ảnh nhân viên", visible: "Hiển thị trên Booking", save: "Lưu cài đặt chỉ định", cancel: "Hủy" };
   const draftChanged = Boolean(draft.name || draft.email || draft.accountPassword || draft.role !== "staff");
 
   function updateDraft(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
-  }
-
-  function updateExternal(platform, value) {
-    setDraft((current) => ({ ...current, external: { ...current.external, [platform]: typeof value === "function" ? value(current.external?.[platform] || []) : value } }));
-  }
-
-  function addExternalAccount(platform) {
-    updateExternal(platform, [...(draft.external?.[platform] || []), ""]);
-  }
-
-  function removeExternalAccount(platform, index) {
-    updateExternal(platform, (draft.external?.[platform] || []).filter((_, itemIndex) => itemIndex !== index));
   }
 
   async function addStaff() {
@@ -99,32 +86,6 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
   function editBookingDisplay(member) {
     setBookingDraft({ ...member, displayName: member.displayName || member.name, designationFee: Number(member.designationFee ?? 1100), bookingDescription: member.bookingDescription || "", bookingVisible: member.bookingVisible !== false, avatarUrl: member.avatarUrl || "", avatarFileName: member.avatarFileName || "" });
-  }
-
-  /* legacy external account editor moved to Settings > Applications */
-  function editExternalAccounts(member) {
-    const external = normalizeExternalAccounts(member.external);
-    setExternalDraft({ id: member.id, name: member.name, external: Object.fromEntries(Object.entries(external).map(([platform, accounts]) => [platform, accounts.length ? accounts : [""]])) });
-  }
-
-  function updateExternalDraft(platform, index, value) {
-    setExternalDraft((current) => ({ ...current, external: { ...current.external, [platform]: current.external[platform].map((item, itemIndex) => itemIndex === index ? value : item) } }));
-  }
-
-  function addExternalDraft(platform) {
-    setExternalDraft((current) => ({ ...current, external: { ...current.external, [platform]: [...current.external[platform], ""] } }));
-  }
-
-  function removeExternalDraft(platform, index) {
-    setExternalDraft((current) => ({ ...current, external: { ...current.external, [platform]: current.external[platform].filter((_, itemIndex) => itemIndex !== index) } }));
-  }
-
-  function saveExternalAccounts() {
-    if (!externalDraft) return;
-    const external = normalizeExternalAccounts(externalDraft.external);
-    setStaff((current) => current.map((member) => member.id === externalDraft.id ? { ...member, external } : member));
-    setAccountMessage(`Đã lưu liên kết tài khoản cho ${externalDraft.name}.`);
-    setExternalDraft(null);
   }
 
   function uploadBookingAvatar(event) {
@@ -192,14 +153,6 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
         <div className="staffBookingActions"><button className="ghost" type="button" onClick={() => setBookingDraft(null)}>{bookingCopy.cancel}</button><button className="primary" type="button" onClick={saveBookingDisplay}>{bookingCopy.save}</button></div>
       </section>}
 
-      {externalDraft && <section className="card staffBookingEditor">
-        <div className="sectionTitle"><div><p className="eyebrow">EXTERNAL ACCOUNTS</p><h2>Liên kết ứng dụng · {externalDraft.name}</h2><p>Một nhân viên có thể gán một hoặc nhiều tài khoản trên mỗi ứng dụng.</p></div></div>
-        <div className="staffBookingForm">
-          {[['hotpepper', 'Hot Pepper / SALON BOARD'], ['nailie', 'Nailie'], ['minimo', 'minimo']].map(([platform, title]) => <div className="externalAccountsField" key={platform}><strong>{title}</strong>{externalDraft.external[platform].map((accountId, index) => <div className="externalAccountRow" key={`${platform}-${index}`}><input value={accountId} onChange={(event) => updateExternalDraft(platform, index, event.target.value)} placeholder={`${title} account ID ${index + 1}`} />{externalDraft.external[platform].length > 1 && <button type="button" className="ghost" onClick={() => removeExternalDraft(platform, index)}>Xóa</button>}</div>)}<button type="button" className="ghost" onClick={() => addExternalDraft(platform)}>+ Thêm tài khoản</button></div>)}
-        </div>
-        <div className="staffBookingActions"><button className="ghost" type="button" onClick={() => setExternalDraft(null)}>Hủy</button><button className="primary" type="button" onClick={saveExternalAccounts}>Lưu liên kết</button></div>
-      </section>}
-
       <section className="card tableWrap">
         <table>
           <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>{tc("action")}</th></tr></thead>
@@ -214,7 +167,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{effectiveRole}</span></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
               <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={roleDraft[account.id] || effectiveRole} onChange={(event) => setRoleDraft((current) => ({ ...current, [account.id]: event.target.value }))}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
-              <td><div className="staffAccountActions"><button className="ghost" onClick={() => editExternalAccounts(member)}>Hot Pepper / SALON BOARD accounts</button><button className="ghost bookingDisplayButton" onClick={() => editBookingDisplay(member)}>{bookingCopy.edit} · ¥{Number(member.designationFee || 0).toLocaleString("ja-JP")}</button><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
+              <td><div className="staffAccountActions"><button className="ghost bookingDisplayButton" onClick={() => editBookingDisplay(member)}>{bookingCopy.edit} · ¥{Number(member.designationFee || 0).toLocaleString("ja-JP")}</button><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
 	                </>;
 	              })()}
             </tr>

@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { tx } from "../lib/i18nClean";
-import { bookingProviders } from "../lib/booking-providers/registry";
-import { platforms, syncEvents } from "../lib/salonData";
 import { supabaseReady } from "../lib/supabaseBrowser";
 import StaffManagement from "./StaffManagement";
 import PrinterManager from "./PrinterManager";
@@ -38,6 +36,7 @@ export const defaultSettings = {
   qrEnabled: false,
   qrImageUrl: "",
   salonboardLoginId: "",
+  nailieLoginId: "",
   bankName: "MUFG Bank",
   bankAccount: "1234567",
   bankHolder: "MAI BEAUTY SALON",
@@ -99,12 +98,20 @@ export default function Settings({ language = "vi" }) {
     setLinkedAccounts((current) => ({ ...current, [platform]: current[platform].map((item, itemIndex) => itemIndex === index ? value : item) }));
   }
 
-  function saveLinkedAccounts() {
+  async function saveLinkedAccounts() {
     const member = staff.find((item) => String(item.id) === String(linkedStaffId));
     if (!member) return;
-    const external = normalizeExternalAccounts(linkedAccounts);
-    setStaff((current) => current.map((item) => String(item.id) === String(member.id) ? { ...item, external } : item));
-    setSaved(true);
+    setQrUploadError("");
+    try {
+      const external = normalizeExternalAccounts(linkedAccounts);
+      setStaff((current) => current.map((item) => String(item.id) === String(member.id) ? { ...item, external } : item));
+      window.localStorage.setItem("nail-japan-settings", JSON.stringify(settings));
+      await saveServerSettings(settings);
+      setSaved(true);
+    } catch (error) {
+      setSaved(false);
+      setQrUploadError(error.message || "Không thể lưu cấu hình đồng bộ.");
+    }
   }
   const printerCopy =
     {
@@ -744,58 +751,38 @@ export default function Settings({ language = "vi" }) {
           </section>
         )}
         {activePanel === "apps" && (
-          <section className="card settingsPanel paymentSettingsPanel">
-            <h2>{tr("appsPanel")}</h2>
-            <p className="mutedText">{tr("appsDesc")}</p>
-            {platforms
-              .filter((platform) => platform.id !== "direct")
-              .map((platform) => {
-                const provider =
-                  bookingProviders[
-                    platform.id === "hotpepper" ? "hotpepper" : platform.id
-                  ];
-                return (
-                  <div className="lineItem" key={platform.id}>
-                    <span>
-                      <strong>{platform.name}</strong>
-                      <small>
-                        {provider?.status === "manual"
-                          ? tr("manualStatus")
-                          : platform.status}
-                      </small>
-                    </span>
-                    <strong>
-                      {provider?.capabilities?.includes("block")
-                        ? tr("synced")
-                        : tr("manual")}
-                    </strong>
-                  </div>
-                );
-              })}
-            <div className="card settingsPanel" style={{ marginTop: 16 }}>
-              <h3>Liên kết tài khoản theo nhân viên</h3>
-              <p className="mutedText">SALON BOARD dùng một tài khoản chung của salon. Chọn nhân viên rồi nhập mã hoặc tên nhân viên tương ứng trên SALON BOARD.</p>
-              <label>Tài khoản SALON BOARD của salon
-                <input value={settings.salonboardLoginId || ""} onChange={(event) => update("salonboardLoginId", event.target.value)} placeholder="Tên đăng nhập hoặc account ID của salon" />
-              </label>
-              <label>Nhân viên
-                <select value={linkedStaffId} onChange={(event) => setLinkedStaffId(event.target.value)}>
-                  {staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}
-                </select>
-              </label>
-              <div className="staffBookingForm">
-                {[['hotpepper', 'SALON BOARD – mã/tên nhân viên'], ['nailie', 'Nailie account ID'], ['minimo', 'minimo account ID']].map(([platform, title]) => <div className="externalAccountsField" key={platform}><strong>{title}</strong>{(linkedAccounts[platform] || ['']).map((accountId, index) => <div className="externalAccountRow" key={`${platform}-${index}`}><input value={accountId} onChange={(event) => updateLinkedAccount(platform, index, event.target.value)} placeholder={platform === 'hotpepper' ? 'Ví dụ: Mai Mai hoặc mã nhân viên' : `${title} ${index + 1}`} /><button type="button" className="ghost" onClick={() => setLinkedAccounts((current) => ({ ...current, [platform]: current[platform].filter((_, itemIndex) => itemIndex !== index) }))} disabled={linkedAccounts[platform].length <= 1}>Xóa</button></div>)}{platform !== 'hotpepper' && <button type="button" className="ghost" onClick={() => setLinkedAccounts((current) => ({ ...current, [platform]: [...current[platform], ""] }))}>+ Thêm tài khoản</button>}</div>)}
-              </div>
-              <button className="primary" type="button" onClick={saveLinkedAccounts}>Lưu liên kết tài khoản</button>
-              {saved && <p className="successNote">Đã lưu liên kết tài khoản.</p>}
+          <section className="card settingsPanel paymentSettingsPanel appSyncPanel">
+            <div className="appSyncHero">
+              <div><p className="eyebrow">BOOKING SYNC</p><h2>Đồng bộ lịch đặt</h2><p>Mainaill là lịch chuẩn. Booking từ bất kỳ nền tảng nào được đối chiếu theo ngày, giờ và nhân viên trước khi đồng bộ.</p></div>
+              <span className="appSyncLive"><i /> Mainaill đang hoạt động</span>
             </div>
-            <h3>{tr("syncLog")}</h3>
-            {syncEvents.map((event) => (
-              <div className="lineItem" key={event.id}>
-                <span>{event.title}</span>
-                <small>{event.severity}</small>
-              </div>
-            ))}
+
+            <div className="appSyncFlow" aria-label="Luồng đồng bộ lịch">
+              <article className="appSyncSource"><span className="appLogo mainaillLogo">M</span><div><strong>Mainaill</strong><small>Lịch chuẩn trung tâm</small></div><b>Nguồn chính</b></article>
+              <div className="syncConnector" aria-hidden="true"><span>↔</span></div>
+              <article><span className="appLogo hotpepperLogo">SB</span><div><strong>SALON BOARD</strong><small>HOT PEPPER Beauty</small></div><b className={(settings.salonboardLoginId || linkedAccounts.hotpepper?.some(Boolean)) ? "ready" : "setup"}>{(settings.salonboardLoginId || linkedAccounts.hotpepper?.some(Boolean)) ? "Đã cấu hình" : "Cần thiết lập"}</b></article>
+              <div className="syncConnector" aria-hidden="true"><span>↔</span></div>
+              <article><span className="appLogo nailieLogo">N</span><div><strong>Nailie</strong><small>Salon Manager</small></div><b className={(settings.nailieLoginId || linkedAccounts.nailie?.some(Boolean)) ? "ready" : "setup"}>{(settings.nailieLoginId || linkedAccounts.nailie?.some(Boolean)) ? "Đã cấu hình" : "Cần thiết lập"}</b></article>
+            </div>
+
+            <div className="appMappingHeader"><div><h3>Mapping nhân viên</h3><p>Chọn nhân viên Mainaill rồi gán đúng tên hoặc ID hiển thị trên từng nền tảng.</p></div><label>Nhân viên<select value={linkedStaffId} onChange={(event) => setLinkedStaffId(event.target.value)}>{staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label></div>
+
+            <div className="appConnectorGrid">
+              <article className="connectorSetupCard hotpepperCard">
+                <header><span className="appLogo hotpepperLogo">SB</span><div><h3>SALON BOARD</h3><p>Một tài khoản salon, mapping riêng từng nhân viên.</p></div></header>
+                <label>Tài khoản salon<input value={settings.salonboardLoginId || ""} onChange={(event) => update("salonboardLoginId", event.target.value)} placeholder="Tên đăng nhập hoặc account ID" /></label>
+                <label>Tên hoặc mã của nhân viên trên SALON BOARD<div className="externalAccountRow"><input value={linkedAccounts.hotpepper?.[0] || ""} onChange={(event) => updateLinkedAccount("hotpepper", 0, event.target.value)} placeholder="Ví dụ: Mai Mai" /><button type="button" className="iconClearButton" aria-label="Xóa mapping SALON BOARD" onClick={() => updateLinkedAccount("hotpepper", 0, "")} disabled={!linkedAccounts.hotpepper?.[0]}>×</button></div></label>
+              </article>
+
+              <article className="connectorSetupCard nailieCard">
+                <header><span className="appLogo nailieLogo">N</span><div><h3>Nailie</h3><p>Một tài khoản salon, mapping riêng từng nhân viên.</p></div></header>
+                <label>Tài khoản salon<input value={settings.nailieLoginId || ""} onChange={(event) => update("nailieLoginId", event.target.value)} placeholder="Tên đăng nhập hoặc account ID" /></label>
+                <label>Tên hoặc mã của nhân viên trên Nailie<div className="externalAccountRow"><input value={linkedAccounts.nailie?.[0] || ""} onChange={(event) => updateLinkedAccount("nailie", 0, event.target.value)} placeholder="Ví dụ: マイマイ hoặc mã nhân viên" /><button type="button" className="iconClearButton" aria-label="Xóa mapping Nailie" onClick={() => updateLinkedAccount("nailie", 0, "")} disabled={!linkedAccounts.nailie?.[0]}>×</button></div></label>
+              </article>
+            </div>
+
+            <div className="appSyncNotice"><span>✓</span><p><strong>Đối chiếu an toàn</strong> Nếu hai nền tảng nhận lịch trùng nhân viên, Mainaill giữ nguyên cả hai và gửi Gmail để chủ quán phân công lại.</p></div>
+            <div className="appSyncActions"><div>{saved && <p className="successNote">Đã lưu cấu hình đồng bộ.</p>}{qrUploadError && <p className="errorNote">{qrUploadError}</p>}</div><button className="primary" type="button" onClick={saveLinkedAccounts}>Lưu cấu hình đồng bộ</button></div>
           </section>
         )}
       </form>

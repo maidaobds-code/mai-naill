@@ -1,4 +1,5 @@
 import { createBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
+import { overallSyncStatus, providerSyncState } from "../../../lib/bookingSync.js";
 import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
 import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth.js";
 
@@ -39,6 +40,15 @@ function sameSlot(left, right) {
 
 function normalizeId(booking) {
   return booking?.id === undefined || booking?.id === null ? booking : { ...booking, id: String(booking.id) };
+}
+
+function mainaillSyncMetadata(booking, previous) {
+  if (String(booking?.source || "direct").toLowerCase() !== "direct") return booking;
+  const changed = !previous || ["date", "start", "end", "staffId", "staff", "status"].some((field) => String(previous?.[field] || "") !== String(booking?.[field] || ""));
+  if (!changed) return booking;
+  const providerSync = providerSyncState(previous || booking);
+  for (const provider of ["hotpepper", "nailie"]) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
+  return { ...booking, source: "direct", providerSync, syncStatus: overallSyncStatus(providerSync), updatedAt: new Date().toISOString() };
 }
 
 function compactBookings(list) {
@@ -82,7 +92,8 @@ export async function POST(request) {
   try {
     const currentRows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
     const current = compactBookings(currentRows?.[0]?.value);
-    const submitted = compactBookings(body.bookings);
+    const rawSubmitted = compactBookings(body.bookings);
+    const submitted = rawSubmitted.map((booking) => mainaillSyncMetadata(booking, current.find((item) => item.id === booking.id)));
     const currentIds = new Set(current.map((item) => item.id));
     const incomingIds = new Set(submitted.map((item) => item.id));
     const protectedBookings = submitted.map((item) => {
@@ -104,7 +115,8 @@ export async function POST(request) {
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
     const newOnlineBookings = submitted.filter((booking) => booking.id && !booking.deletedAt && !currentIds.has(booking.id) && String(booking.source || "").toLowerCase() === "direct");
     const notifications = await Promise.all(newOnlineBookings.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
-    return Response.json({ ok: true, value: rows?.[0]?.value || merged, assignmentNotifications: notifications });
+    const syncTasks = submitted.filter((booking) => String(booking.source || "").toLowerCase() === "direct" && !booking.deletedAt).flatMap((booking) => ["hotpepper", "nailie"].filter((provider) => booking.providerSync?.[provider]?.status === "pending").map((target) => ({ target, action: currentIds.has(booking.id) ? "update" : "block", bookingId: booking.id })));
+    return Response.json({ ok: true, value: rows?.[0]?.value || merged, assignmentNotifications: notifications, syncTasks });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
 }
 

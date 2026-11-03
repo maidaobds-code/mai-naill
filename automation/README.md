@@ -26,3 +26,28 @@ firewall/VPN và đặt cảnh báo khi process dừng.
 Nhánh ghi lịch thật hiện bị khóa có chủ ý. Cần xác nhận các selector của trang
 `シフト設定` trên tài khoản thật, kiểm thử từng nhân viên, rồi mới bật logic
 block/unblock.
+
+## Nailie worker
+
+Nailie chạy bằng worker riêng để có thể chạy song song với SALON BOARD:
+
+```powershell
+$env:NAILIE_STAFF_MAPPING='{"Mai":["nailie-staff-id"],"Yuki":["another-id"]}'
+$env:NAILIE_DRY_RUN='true'
+npm run automation:nailie
+```
+
+Nailie dùng một tài khoản salon chung; mỗi nhân viên Mainaill được mapping với
+tên hoặc mã nhân viên tương ứng trên Nailie. Worker đọc trang lịch, đối chiếu
+mapping từng nhân viên và tạo kế hoạch đóng
+khung đã có booking/mở khung còn lại. `NAILIE_DRY_RUN` mặc định là `true`.
+Phần ghi thật chỉ được bật sau khi xác nhận selector ô lịch và nút lưu của
+tài khoản Nailie thực tế; worker không vượt CAPTCHA hoặc cơ chế bảo vệ của
+website.
+
+Trang mặc định là `mysalon/staff-schedule` với ngày hiện tại. Có thể kiểm thử
+một ngày cụ thể bằng `NAILIE_SCHEDULE_URL`, ví dụ:
+
+```powershell
+$env:NAILIE_SCHEDULE_URL='https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=2026-11-03&showBooking=true'
+```

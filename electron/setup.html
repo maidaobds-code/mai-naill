@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mainaill Bot Manager</title>
+  <link rel="stylesheet" href="setup.css" />
+</head>
+<body>
+  <main>
+    <header><div><span class="mark">M</span><div><p>MAINAILL</p><h1>Bot Manager</h1></div></div><button id="openMainaill">Mở Mainaill</button></header>
+    <section class="intro"><h2>Cấu hình một lần, chạy hai nền tảng</h2><p>Mainaill là lịch chuẩn. Hai worker theo dõi Nailie và SALON BOARD bằng profile trình duyệt riêng.</p></section>
+    <form id="configForm">
+      <section class="card"><h3>Kết nối Mainaill</h3><label>Địa chỉ Mainaill<input id="mainaillUrl" type="url" required /></label><label>Booking sync secret<input id="bookingSyncSecret" type="password" autocomplete="off" required /></label></section>
+      <section class="card two"><h3>Khoảng kiểm tra</h3><label>Tối thiểu (giây)<input id="pollMinSeconds" type="number" min="30" required /></label><label>Tối đa (giây)<input id="pollMaxSeconds" type="number" min="30" required /></label><p class="wide">Khoảng chờ có jitter giới hạn để phân tán tải, không dùng để vượt cơ chế bảo vệ website.</p></section>
+      <section class="card two"><h3>Mapping nhân viên</h3><label>Nailie JSON<textarea id="nailieStaffMapping" rows="7" placeholder='{"Mai":["マイマイ"]}'></textarea></label><label>SALON BOARD JSON<textarea id="salonboardStaffRules" rows="7" placeholder='{"Mai":{"closeRemaining":true}}'></textarea></label></section>
+      <section class="card options"><h3>An toàn và khởi động</h3><label><input id="nailieDryRun" type="checkbox" /> Nailie DRY RUN</label><label><input id="salonboardDryRun" type="checkbox" /> SALON BOARD DRY RUN</label><label><input id="startWorkersOnLaunch" type="checkbox" /> Chạy worker khi mở ứng dụng</label><label><input id="startWithWindows" type="checkbox" /> Khởi động cùng Windows</label></section>
+      <div class="actions"><button class="primary" type="submit">Lưu cấu hình</button><button type="button" id="openLogs">Mở thư mục log</button><span id="message"></span></div>
+    </form>
+    <section class="workers"><article><div><h3>SALON BOARD / HOT PEPPER</h3><p id="salonboardState">Đang kiểm tra…</p></div><button data-worker="salonboard">Khởi động</button></article><article><div><h3>Nailie</h3><p id="nailieState">Đang kiểm tra…</p></div><button data-worker="nailie">Khởi động</button></article></section>
+  </main>
+  <script src="setup.js"></script>
+</body>
+</html>
+

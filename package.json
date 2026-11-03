@@ -1,11 +1,15 @@
 {
   "name": "nail-japan-mvp",
   "version": "0.1.0",
+  "description": "Mainaill desktop booking synchronization manager",
+  "author": "Mainaill",
   "private": true,
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
     "test:booking-sync": "node artifacts/booking-qa/shared-sync-check.mjs",
+    "test:external-sync": "node artifacts/booking-qa/external-sync-check.mjs",
     "test:staff-sync": "node artifacts/booking-qa/staff-sync-check.mjs",
     "test:timeline-alignment": "node artifacts/booking-qa/timeline-alignment-check.mjs",
     "test:mobile-calendar": "node artifacts/booking-qa/mobile-calendar-check.mjs",
@@ -15,6 +19,9 @@
     "test:owner-approval-email": "node artifacts/booking-qa/owner-approval-customer-email-check.mjs",
     "test:customer-email-language": "node artifacts/booking-qa/customer-email-language-check.mjs",
     "automation:salonboard": "node automation/salonboard-worker.mjs",
+    "automation:nailie": "node automation/nailie-worker.mjs",
+    "desktop": "electron .",
+    "package:windows": "electron-builder --win nsis",
     "start": "next start"
   },
   "dependencies": {
@@ -27,6 +34,24 @@
   "devDependencies": {
     "@babel/core": "^8.0.7",
     "@babel/preset-typescript": "^8.0.7",
-    "babel-loader": "^10.1.1"
+    "babel-loader": "^10.1.1",
+    "electron": "^39.2.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.mainaill.bot",
+    "productName": "Mainaill Bot",
+    "asar": true,
+    "files": ["electron/**/*", "automation/**/*", "package.json", "node_modules/**/*"],
+    "directories": { "output": "dist" },
+    "extraResources": [{ "from": "vendor/playwright-browsers", "to": "playwright-browsers" }],
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Mainaill Bot"
+    },
+    "win": { "target": ["nsis"], "artifactName": "Mainaill-Bot-Setup-${version}.${ext}" }
   }
 }

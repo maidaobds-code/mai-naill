@@ -26,6 +26,7 @@ lib/
   accountStore.js          Session, accounts, permissions
   staffStore.js            Nhân viên dùng chung
   bookingStore.js          Lịch dùng chung
+  bookingSync.js           Hợp nhất booking Nailie/HOT PEPPER vào lịch chuẩn và chống vòng lặp
   catalogStore.js          Service/product catalog
   orderStore.js            Đơn online client + sync
   supabaseBrowser.js       Browser Supabase KV/Storage
@@ -51,6 +52,7 @@ supabase/
 | Accounts/role | `nail-japan-accounts-v1` | `app_kv` key `nail-japan-accounts-v1` | `/api/accounts` |
 | Staff | `nail-japan-staff` | `app_kv` key `nail-japan-staff` | `/api/staff` |
 | Bookings | browser cache | `app_kv` key `nail-japan-bookings` | `/api/bookings` |
+| External booking sync | worker cache | `app_kv` key `nail-japan-bookings` + `providerSync` | `/api/booking-sync` |
 | Orders | `nail-japan-store-orders` | `app_kv` key `nail-japan-store-orders` | `/api/orders` |
 | Catalog | `nail-japan-products`, `nail-japan-services`, `nail-japan-booking-options` | `app_kv` qua `/api/catalog` | `/api/catalog` |
 | Payroll settings | `payroll-staff-settings-v2` | Supabase KV qua `getKv/saveKv` | browser Supabase KV |
