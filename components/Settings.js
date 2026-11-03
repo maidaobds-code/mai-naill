@@ -113,6 +113,30 @@ export default function Settings({ language = "vi" }) {
       setQrUploadError(error.message || "Không thể lưu cấu hình đồng bộ.");
     }
   }
+
+  const linkedMappings = staff.flatMap((member) => {
+    const external = normalizeExternalAccounts(member.external);
+    return [
+      external.hotpepper?.[0] ? { staffId: member.id, staffName: member.name, platform: "hotpepper", platformLabel: "SALON BOARD", externalStaff: external.hotpepper[0], salonAccount: settings.salonboardLoginId || "Chưa cấu hình" } : null,
+      external.nailie?.[0] ? { staffId: member.id, staffName: member.name, platform: "nailie", platformLabel: "Nailie", externalStaff: external.nailie[0], salonAccount: settings.nailieLoginId || "Chưa cấu hình" } : null,
+    ].filter(Boolean);
+  });
+
+  function editLinkedMapping(staffId) {
+    setLinkedStaffId(String(staffId));
+    setSaved(false);
+  }
+
+  function removeLinkedMapping(staffId, platform, staffName) {
+    if (!window.confirm(`Xóa liên kết ${platform === "hotpepper" ? "SALON BOARD" : "Nailie"} của ${staffName}?`)) return;
+    setStaff((current) => current.map((member) => {
+      if (String(member.id) !== String(staffId)) return member;
+      const external = normalizeExternalAccounts(member.external);
+      return { ...member, external: { ...external, [platform]: [] } };
+    }));
+    if (String(linkedStaffId) === String(staffId)) setLinkedAccounts((current) => ({ ...current, [platform]: [""] }));
+    setSaved(true);
+  }
   const printerCopy =
     {
       zh: {
@@ -767,7 +791,7 @@ export default function Settings({ language = "vi" }) {
 
             <div className="appMappingHeader"><div><h3>Mapping nhân viên</h3><p>Chọn nhân viên Mainaill rồi gán đúng tên hoặc ID hiển thị trên từng nền tảng.</p></div><label>Nhân viên<select value={linkedStaffId} onChange={(event) => setLinkedStaffId(event.target.value)}>{staff.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label></div>
 
-            <div className="appConnectorGrid">
+            <div className="appMappingWorkspace"><div className="appConnectorGrid">
               <article className="connectorSetupCard hotpepperCard">
                 <header><span className="appLogo hotpepperLogo">SB</span><div><h3>SALON BOARD</h3><p>Một tài khoản salon, mapping riêng từng nhân viên.</p></div></header>
                 <label>Tài khoản salon<input value={settings.salonboardLoginId || ""} onChange={(event) => update("salonboardLoginId", event.target.value)} placeholder="Tên đăng nhập hoặc account ID" /></label>
@@ -779,7 +803,7 @@ export default function Settings({ language = "vi" }) {
                 <label>Tài khoản salon<input value={settings.nailieLoginId || ""} onChange={(event) => update("nailieLoginId", event.target.value)} placeholder="Tên đăng nhập hoặc account ID" /></label>
                 <label>Tên hoặc mã của nhân viên trên Nailie<div className="externalAccountRow"><input value={linkedAccounts.nailie?.[0] || ""} onChange={(event) => updateLinkedAccount("nailie", 0, event.target.value)} placeholder="Ví dụ: マイマイ hoặc mã nhân viên" /><button type="button" className="iconClearButton" aria-label="Xóa mapping Nailie" onClick={() => updateLinkedAccount("nailie", 0, "")} disabled={!linkedAccounts.nailie?.[0]}>×</button></div></label>
               </article>
-            </div>
+            </div><aside className="linkedStaffDirectory"><header><div><h3>Nhân viên đã liên kết</h3><p>{linkedMappings.length} liên kết trên {staff.length} nhân viên</p></div><span>{linkedMappings.length}</span></header><div className="linkedStaffList">{linkedMappings.length ? linkedMappings.map((item) => <article key={`${item.staffId}-${item.platform}`}><div className={`linkedPlatformIcon ${item.platform}`}>{item.platform === "hotpepper" ? "SB" : "N"}</div><div className="linkedStaffInfo"><strong>{item.staffName}</strong><span>{item.platformLabel}</span><small>Tài khoản salon: {item.salonAccount}</small><small>Nhân viên ngoài: {item.externalStaff}</small></div><div className="linkedStaffActions"><button type="button" onClick={() => editLinkedMapping(item.staffId)}>Sửa</button><button type="button" className="danger" onClick={() => removeLinkedMapping(item.staffId, item.platform, item.staffName)}>Xóa</button></div></article>) : <div className="emptyLinkedStaff"><span>↗</span><strong>Chưa có nhân viên liên kết</strong><p>Chọn nhân viên và lưu mapping ở bên trái.</p></div>}</div></aside></div>
 
             <div className="appSyncNotice"><span>✓</span><p><strong>Đối chiếu an toàn</strong> Nếu hai nền tảng nhận lịch trùng nhân viên, Mainaill giữ nguyên cả hai và gửi Gmail để chủ quán phân công lại.</p></div>
             <div className="appSyncActions"><div>{saved && <p className="successNote">Đã lưu cấu hình đồng bộ.</p>}{qrUploadError && <p className="errorNote">{qrUploadError}</p>}</div><button className="primary" type="button" onClick={saveLinkedAccounts}>Lưu cấu hình đồng bộ</button></div>
