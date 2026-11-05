@@ -21,6 +21,7 @@ const debugPort = Number(process.env.SALONBOARD_DEBUG_PORT || 9229);
 const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000));
 const dryRun = String(process.env.SALONBOARD_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-worker.log");
+const observationFile = process.env.SALONBOARD_OBSERVATION_FILE || path.resolve("runtime", "salonboard-observed-bookings.json");
 const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 
@@ -127,6 +128,9 @@ async function scanExternalBookings(page, date) {
       return { externalStaff: (head.textContent || "").trim(), start: range[0] || "", end: range[1] || "", customer: (item.querySelector(".scheduleReserveName")?.textContent || "").replace(/\s*様\s*$/, "").trim() };
     }));
   });
+  let observations = {};
+  try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
+  const activeIds = [];
   let imported = 0;
   for (const record of records) {
     if (!record.externalStaff || !record.start || !record.end) continue;
@@ -138,8 +142,16 @@ async function scanExternalBookings(page, date) {
       action: "upsert",
       booking: { date, start: record.start, end: record.end, staff: internalStaffName(record.externalStaff), customer: "SALON BOARD", service: "SALON BOARD booking", status: "CONFIRMED" },
     });
+    activeIds.push(externalBookingId);
     imported += 1;
   }
+  const previousIds = Array.isArray(observations[date]) ? observations[date] : null;
+  if (previousIds) {
+    for (const externalBookingId of previousIds.filter((id) => !activeIds.includes(id))) await ingestExternalBooking({ provider: "hotpepper", externalBookingId, action: "cancel" });
+  }
+  observations[date] = activeIds;
+  await fs.mkdir(path.dirname(observationFile), { recursive: true });
+  await fs.writeFile(observationFile, JSON.stringify(observations, null, 2), "utf8");
   log("SALON BOARD external bookings scanned", JSON.stringify({ date, found: records.length, imported }));
 }
 
@@ -158,7 +170,7 @@ async function acknowledgeTask(task, status, error = "") {
   const response = await fetch(`${mainaillUrl}/api/booking-sync`, {
     method: "POST",
     headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" },
-    body: JSON.stringify({ kind: "ack", provider: "hotpepper", bookingId: task.booking.id, status, error }),
+    body: JSON.stringify({ kind: "ack", provider: "hotpepper", bookingId: task.booking.id, taskId: task.taskId || "", status, error }),
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ack HTTP ${response.status}`);

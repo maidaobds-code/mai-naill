@@ -10,9 +10,11 @@ const nailie = ingestExternalBooking([], {
 assert.equal(nailie.bookings.length, 1);
 assert.equal(nailie.result.source, "nailie");
 assert.equal(nailie.result.providerSync.nailie.status, "synced");
-assert.equal(nailie.result.providerSync.hotpepper.status, "pending");
-assert.equal(nailie.tasks[0].target, "hotpepper");
-assert.equal(bookingSlotKey(nailie.result), "2026-11-03|10:00|11:00|staff-mai");
+assert.equal(nailie.result.providerSync.hotpepper.status, "waiting_assignment");
+assert.equal(nailie.result.assignmentStatus, "PENDING_ASSIGNMENT");
+assert.equal(nailie.result.staff, "");
+assert.deepEqual(nailie.tasks, []);
+assert.equal(bookingSlotKey(nailie.result), "2026-11-03|10:00|11:00|");
 
 const unchanged = ingestExternalBooking(nailie.bookings, {
   provider: "nailie",
@@ -27,9 +29,14 @@ const duplicate = ingestExternalBooking(nailie.bookings, {
   booking: { date: "2026-11-03", start: "10:30", end: "11:30", staffId: "staff-mai", staff: "Mai" },
 });
 assert.equal(duplicate.bookings.length, 1);
-assert.equal(duplicate.tasks[0].action, "update");
+assert.deepEqual(duplicate.tasks, []);
 
-const conflict = ingestExternalBooking(nailie.bookings, {
+const hotExisting = ingestExternalBooking([], {
+  provider: "hotpepper",
+  externalBookingId: "HP-100",
+  booking: { date: "2026-11-03", start: "10:00", end: "11:00", staffId: "staff-mai", staff: "Mai" },
+});
+const conflict = ingestExternalBooking(hotExisting.bookings, {
   provider: "hotpepper",
   externalBookingId: "HP-200",
   booking: { date: "2026-11-03", start: "10:30", end: "11:30", staffId: "staff-mai", staff: "Mai" },
@@ -49,10 +56,25 @@ const queued = [{ ...acknowledged.result, pendingSyncActions: [{ target: "hotpep
 const cleared = acknowledgeProviderSync(queued, { provider: "hotpepper", bookingId: acknowledged.result.id, status: "synced" });
 assert.deepEqual(cleared.result.pendingSyncActions, [{ target: "nailie", action: "cancel" }]);
 
+const capacityQueue = [{ ...acknowledged.result, pendingSyncActions: [{ target: "nailie", action: "capacity_unblock", taskId: "old" }, { target: "nailie", action: "capacity_block", taskId: "new" }] }];
+const oneCapacityAck = acknowledgeProviderSync(capacityQueue, { provider: "nailie", bookingId: acknowledged.result.id, taskId: "old", status: "synced" });
+assert.deepEqual(oneCapacityAck.result.pendingSyncActions, [{ target: "nailie", action: "capacity_block", taskId: "new" }]);
+
 const cancelled = ingestExternalBooking(acknowledged.bookings, { provider: "nailie", externalBookingId: "NL-100", action: "cancel" });
 assert.equal(cancelled.result.status, "CANCELLED");
 assert.equal(cancelled.result.providerSync.hotpepper.status, "pending");
-assert.equal(cancelled.tasks[0].action, "cancel");
+assert.deepEqual(cancelled.tasks, []);
+const assignedNailie = acknowledged.bookings.map((booking) => ({ ...booking, assignmentStatus: "ASSIGNED", staff: "Mai", staffId: "staff-mai" }));
+const rescannedAssigned = ingestExternalBooking(assignedNailie, { provider: "nailie", externalBookingId: "NL-100", booking: { date: "2026-11-03", start: "10:00", end: "11:00", customer: "Nailie customer" } });
+assert.equal(rescannedAssigned.result.assignmentStatus, "ASSIGNED");
+assert.equal(rescannedAssigned.result.staffId, "staff-mai");
+const movedAssigned = ingestExternalBooking(assignedNailie, { provider: "nailie", externalBookingId: "NL-100", booking: { date: "2026-11-03", start: "11:00", end: "12:00", customer: "Nailie customer" } });
+assert.equal(movedAssigned.result.assignmentStatus, "PENDING_ASSIGNMENT");
+assert.equal(movedAssigned.tasks[0].target, "hotpepper");
+assert.equal(movedAssigned.tasks[0].match.start, "10:00");
+const cancelledAssigned = ingestExternalBooking(assignedNailie, { provider: "nailie", externalBookingId: "NL-100", action: "cancel" });
+assert.equal(cancelledAssigned.tasks[0].target, "hotpepper");
+assert.equal(cancelledAssigned.tasks[0].action, "cancel");
 
 const syncRouteSource = fs.readFileSync(new URL("../../app/api/booking-sync/route.js", import.meta.url), "utf8");
 assert.match(syncRouteSource, /managementEmails\(\)/);
@@ -70,14 +92,16 @@ assert.match(salonboardWorkerSource, /SALON BOARD external bookings scanned/);
 assert.match(cancellationRouteSource, /pendingSyncActions/);
 assert.match(cancellationRouteSource, /action: "cancel"/);
 
-console.log("PASS Nailie booking becomes the Mainaill canonical record");
+console.log("PASS Nailie booking becomes an unassigned Mainaill hold");
 console.log("PASS duplicate external events update instead of creating a loop");
 console.log("PASS unchanged external events do not create another sync loop");
 console.log("PASS overlapping external bookings require manual resolution");
 console.log("PASS provider acknowledgements produce per-platform synced status");
 console.log("PASS provider acknowledgement removes only its completed sync action");
+console.log("PASS multiple Nailie capacity tasks are acknowledged independently");
 console.log("PASS cancellation is propagated to the other platform");
 console.log("PASS conflict Gmail contains separate reassignment links and does not close either platform");
 console.log("PASS workers support external ingestion and exact-slot reopening");
 console.log("PASS customer cancellation also queues managed-slot reopening");
+console.log("PASS Nailie rescans preserve assignment and moved bookings release the old HOT slot");
 

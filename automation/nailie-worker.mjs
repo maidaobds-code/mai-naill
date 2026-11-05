@@ -24,6 +24,8 @@ const profileDir = process.env.NAILIE_PROFILE_DIR || path.resolve(".nailie-profi
 const pollMs = Math.max(30_000, Number(process.env.NAILIE_POLL_MS || 60_000));
 const dryRun = String(process.env.NAILIE_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.NAILIE_LOG || path.resolve("logs", "nailie-worker.log");
+const stateFile = process.env.NAILIE_STATE_FILE || path.resolve("runtime", "nailie-managed-slots.json");
+const observationFile = process.env.NAILIE_OBSERVATION_FILE || path.resolve("runtime", "nailie-observed-bookings.json");
 const debugPort = Number(process.env.NAILIE_DEBUG_PORT || 9230);
 const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
@@ -141,7 +143,7 @@ async function acknowledgeTask(task, status, error = "") {
   const response = await fetch(`${mainaillUrl}/api/booking-sync`, {
     method: "POST",
     headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" },
-    body: JSON.stringify({ kind: "ack", provider: "nailie", bookingId: task.booking.id, status, error }),
+    body: JSON.stringify({ kind: "ack", provider: "nailie", bookingId: task.booking.id, taskId: task.taskId || "", status, error }),
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ack HTTP ${response.status}`);
@@ -156,6 +158,65 @@ async function ingestExternalBooking(event) {
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ingest HTTP ${response.status}`);
   return result;
+}
+
+async function managedSlotState() {
+  try {
+    const value = JSON.parse(await fs.readFile(stateFile, "utf8"));
+    if (Array.isArray(value)) return Object.fromEntries(value.map((key) => [key, ["capacity"]]));
+    return value && typeof value === "object" ? value : {};
+  } catch { return {}; }
+}
+
+async function saveManagedSlotState(state) {
+  await fs.mkdir(path.dirname(stateFile), { recursive: true });
+  await fs.writeFile(stateFile, JSON.stringify(Object.fromEntries(Object.entries(state).sort(([left], [right]) => left.localeCompare(right))), null, 2), "utf8");
+}
+
+async function applyCapacityTask(page, task) {
+  const booking = task.booking || task.match || {};
+  const start = Math.floor(minutes(booking.start) / 30) * 30;
+  const end = Math.ceil(minutes(booking.end) / 30) * 30;
+  if (!booking.date || start < 0 || end <= start) throw new Error("Invalid Nailie capacity task");
+  await page.goto(`https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${booking.date}&showBooking=true`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForSelector("tr.ant-table-row[data-row-key]", { timeout: 20_000 });
+  const state = await managedSlotState();
+  const owner = String(task.lockOwner || "capacity");
+  const rows = page.locator("tr.ant-table-row[data-row-key]");
+  let changed = 0;
+  for (let rowIndex = 0; rowIndex < await rows.count(); rowIndex += 1) {
+    const row = rows.nth(rowIndex);
+    const rowKey = String(await row.getAttribute("data-row-key") || `row-${rowIndex}`);
+    const cells = row.locator("td");
+    for (let slot = start; slot < end; slot += 30) {
+      const cellIndex = 1 + slot / 30;
+      const icon = cells.nth(cellIndex).locator("img");
+      const before = String(await icon.getAttribute("alt").catch(() => "") || "").toLowerCase();
+      const key = `${booking.date}|${rowKey}|${slot}`;
+      if (task.action === "capacity_block") {
+        const owners = new Set(Array.isArray(state[key]) ? state[key] : []);
+        if (before === "x" && !owners.size) continue;
+        if (!dryRun && before === "o") {
+          await waitBeforeOperation();
+          await cells.nth(cellIndex).click();
+          await page.waitForFunction(({ rowKey, index }) => String(document.querySelector(`tr[data-row-key="${rowKey}"]`)?.querySelectorAll("td")?.[index]?.querySelector("img")?.getAttribute("alt") || "").toLowerCase() === "x", { rowKey, index: cellIndex }, { timeout: 15_000 });
+        }
+        if (!dryRun && ["o", "x"].includes(before)) { owners.add(owner); state[key] = [...owners]; }
+        changed += 1;
+      } else if (task.action === "capacity_unblock" && Array.isArray(state[key]) && state[key].includes(owner)) {
+        const remainingOwners = state[key].filter((value) => value !== owner);
+        if (!dryRun && before === "x" && remainingOwners.length === 0) {
+          await waitBeforeOperation();
+          await cells.nth(cellIndex).click();
+          await page.waitForFunction(({ rowKey, index }) => String(document.querySelector(`tr[data-row-key="${rowKey}"]`)?.querySelectorAll("td")?.[index]?.querySelector("img")?.getAttribute("alt") || "").toLowerCase() === "o", { rowKey, index: cellIndex }, { timeout: 15_000 });
+        }
+        if (!dryRun) { if (remainingOwners.length) state[key] = remainingOwners; else delete state[key]; }
+        changed += 1;
+      }
+    }
+  }
+  if (!dryRun) await saveManagedSlotState(state);
+  log(`Nailie salon capacity ${task.action === "capacity_block" ? "blocked" : "opened"}`, JSON.stringify({ date: booking.date, start: booking.start, end: booking.end, changed, dryRun }));
 }
 
 function internalStaffName(externalId, externalName) {
@@ -175,6 +236,9 @@ async function scanExternalBookings(page, date) {
   const response = await responsePromise;
   const payload = await response.json();
   const records = Array.isArray(payload?.data?.data) ? payload.data.data : [];
+  let observations = {};
+  try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
+  const activeIds = [];
   let imported = 0;
   for (const record of records) {
     if (Number(record.status) !== 4) continue;
@@ -184,18 +248,30 @@ async function scanExternalBookings(page, date) {
     if (!record.id || !record.startTime || !record.endTime || !externalName) continue;
     const start = tokyoParts(record.startTime);
     const end = tokyoParts(record.endTime);
+    const services = [...new Set((record.orders || []).map((item) => String(item.serviceName || item.service?.name || "").trim()).filter(Boolean))];
+    const customer = String(record.customer?.name || record.customer?.displayName || record.customer?.username || "Nailie customer").trim();
     await ingestExternalBooking({
       provider: "nailie",
       externalBookingId: String(record.id),
+      account: externalName,
       action: "upsert",
-      booking: { date: start.date, start: start.time, end: end.time, staff: internalStaffName(externalId, externalName), customer: "Nailie", service: "Nailie booking", status: "CONFIRMED" },
+      booking: { date: start.date, start: start.time, end: end.time, externalStaff: externalName, externalStaffId: externalId, customer, service: services.join(", ") || "Nailie booking", durationMinutes: Number(record.totalDuration) || Math.max(0, (new Date(record.endTime) - new Date(record.startTime)) / 60_000), status: "CONFIRMED" },
     });
+    activeIds.push(String(record.id));
     imported += 1;
   }
+  const previousIds = Array.isArray(observations[date]) ? observations[date] : null;
+  if (previousIds) {
+    for (const externalBookingId of previousIds.filter((id) => !activeIds.includes(id))) await ingestExternalBooking({ provider: "nailie", externalBookingId, action: "cancel" });
+  }
+  observations[date] = activeIds;
+  await fs.mkdir(path.dirname(observationFile), { recursive: true });
+  await fs.writeFile(observationFile, JSON.stringify(observations, null, 2), "utf8");
   log("Nailie external bookings scanned", JSON.stringify({ date, found: records.length, imported }));
 }
 
 async function applyExactSlotTask(page, task) {
+  if (["capacity_block", "capacity_unblock"].includes(task.action)) return applyCapacityTask(page, task);
   if (!["block", "update", "cancel", "unblock"].includes(task.action)) throw new Error(`Unsupported Nailie action: ${task.action}`);
   const booking = task.booking || {};
   if (task.action === "update" && task.previousMatch) {

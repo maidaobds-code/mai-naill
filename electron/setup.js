@@ -25,9 +25,10 @@ async function load() {
 
 function renderMapping(snapshot) {
   const rows = Array.isArray(snapshot?.mappings) ? snapshot.mappings : [];
+  const missingHot = rows.filter((item) => !item.hotpepper).length;
   document.getElementById("salonboardSalonAccount").textContent = snapshot?.salonAccounts?.salonboard || "Chưa cấu hình";
   document.getElementById("nailieSalonAccount").textContent = snapshot?.salonAccounts?.nailie || "Chưa cấu hình";
-  document.getElementById("mappingStatus").textContent = rows.length ? `Đã tải ${rows.length} nhân viên · ${new Date(snapshot.fetchedAt).toLocaleString("vi-VN")}` : "Chưa có dữ liệu mapping từ Mainaill.";
+  document.getElementById("mappingStatus").textContent = rows.length ? `${missingHot ? `Thiếu mapping HOT cho ${missingHot} nhân viên · ` : ""}Đã tải ${rows.length} nhân viên · ${new Date(snapshot.fetchedAt).toLocaleString("vi-VN")}` : "Chưa có dữ liệu mapping từ Mainaill.";
   document.getElementById("mappingRows").innerHTML = rows.length ? rows.map((item) => `<tr><td><strong>${escapeHtml(item.name)}</strong></td><td>${escapeHtml(item.hotpepper || "Chưa gán")}</td><td>${escapeHtml(item.nailie || "Chưa gán")}</td><td><span class="mappingBadge ${item.complete ? "complete" : "missing"}">${item.complete ? "Có mapping" : "Chưa gán app nào"}</span></td></tr>`).join("") : '<tr><td colspan="4">Chưa có nhân viên hoặc chưa tải được mapping.</td></tr>';
 }
 

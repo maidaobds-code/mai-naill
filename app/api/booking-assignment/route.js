@@ -1,8 +1,9 @@
 import { createBookingCancellationToken, verifyBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
-import { sendEmail, staffCatalog, salonSettings } from "../../../lib/serverEmail.js";
+import { sendEmail, staffCatalog, salonSettings, serviceCatalog } from "../../../lib/serverEmail.js";
 import { appointmentConfirmationEmail } from "../../../lib/appointmentEmail.js";
-import { overallSyncStatus, providerSyncState } from "../../../lib/bookingSync.js";
+import { overallSyncStatus, providerSyncState, syncTaskId } from "../../../lib/bookingSync.js";
 import { staff as seedStaff } from "../../../lib/salonData.js";
+import { nailieCapacityTask, staffQualifiedForService } from "../../../lib/salonCapacity.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -36,12 +37,13 @@ function overlaps(left, right) {
   return left.date === right.date && toMinutes(left.start) < toMinutes(right.end) && toMinutes(left.end) > toMinutes(right.start);
 }
 
-function availability(member, booking, allBookings, settings = {}) {
+function availability(member, booking, allBookings, settings = {}, services = []) {
   const own = allBookings.filter((item) => item.id !== booking.id && !item.deletedAt && (String(item.staffId || "") === String(member.id) || item.staff === member.name));
   const busy = own.filter((item) => !["cancelled", "completed"].includes(String(item.status).toLowerCase()) && overlaps(item, booking));
   const before = own.filter((item) => item.date === booking.date && String(item.end || "") <= String(booking.start || "")).sort((a, b) => String(b.end).localeCompare(String(a.end)))[0];
   const closedPeriods = (settings.staffClosedPeriods || []).filter((raw) => { const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/); return match && String(match[1]) === String(member.id) && match[2] === booking.date && toMinutes(booking.start) < toMinutes(match[4]) && toMinutes(booking.end) > toMinutes(match[3]); });
-  return { available: !busy.length && !closedPeriods.length, busy: Boolean(busy.length), closed: Boolean(closedPeriods.length), closedPeriods, previousBooking: before ? { start: before.start, end: before.end, customer: before.customer } : null };
+  const qualified = staffQualifiedForService(member, booking, services);
+  return { available: qualified && !busy.length && !closedPeriods.length, qualified, busy: Boolean(busy.length), closed: Boolean(closedPeriods.length), closedPeriods, previousBooking: before ? { start: before.start, end: before.end, customer: before.customer } : null };
 }
 
 function escapeHtml(value) {
@@ -53,10 +55,10 @@ export async function GET(request) {
   const claim = verifyBookingAssignmentToken(token);
   if (!claim) return Response.json({ ok: false, message: "Liên kết không hợp lệ hoặc đã hết hạn." }, { status: 401 });
   try {
-    const [allBookings, staff, settings] = await Promise.all([bookings(), availableStaff(), salonSettings()]);
+    const [allBookings, staff, settings, services] = await Promise.all([bookings(), availableStaff(), salonSettings(), serviceCatalog()]);
     const booking = allBookings.find((item) => item.id === claim.bookingId && !item.deletedAt);
     if (!booking) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn." }, { status: 404 });
-    const rankedStaff = staff.map((member, index) => ({ id: member.id, name: member.name, role: member.role, color: member.color, hasEmail: Boolean(member.email), ...availability(member, booking, allBookings, settings), originalOrder: index })).sort((a, b) => Number(b.available) - Number(a.available) || a.originalOrder - b.originalOrder);
+    const rankedStaff = staff.map((member, index) => ({ id: member.id, name: member.name, role: member.role, color: member.color, hasEmail: Boolean(member.email), ...availability(member, booking, allBookings, settings, services), originalOrder: index })).sort((a, b) => Number(b.available) - Number(a.available) || a.originalOrder - b.originalOrder);
     return Response.json({ ok: true, booking: { id: booking.id, customer: booking.customer, date: booking.date, start: booking.start, end: booking.end, service: booking.service, staff: booking.staff, staffId: booking.staffId, assignmentStatus: booking.assignmentStatus }, staff: rankedStaff }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return Response.json({ ok: false, message: error.message || "Không thể đọc lịch hẹn." }, { status: 500 }); }
 }
@@ -66,12 +68,14 @@ export async function POST(request) {
   const claim = verifyBookingAssignmentToken(body.token);
   if (!claim || !body.staffId) return Response.json({ ok: false, message: "Yêu cầu phân công không hợp lệ." }, { status: 401 });
   try {
-    const [allBookings, staff, settings] = await Promise.all([bookings(), availableStaff(), salonSettings()]);
+    const [allBookings, staff, settings, services] = await Promise.all([bookings(), availableStaff(), salonSettings(), serviceCatalog()]);
     const booking = allBookings.find((item) => item.id === claim.bookingId && !item.deletedAt);
+    if (!booking) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn." }, { status: 404 });
     const requestedNoPreference = body.staffId === "__NO_PREFERENCE__";
-    const member = requestedNoPreference ? staff.find((item) => availability(item, booking, allBookings, settings).available) : staff.find((item) => String(item.id) === String(body.staffId));
-    if (!booking || !member) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn hoặc nhân viên." }, { status: 404 });
-    const memberAvailability = availability(member, booking, allBookings, settings);
+    const member = requestedNoPreference ? staff.find((item) => availability(item, booking, allBookings, settings, services).available) : staff.find((item) => String(item.id) === String(body.staffId));
+    if (!member) return Response.json({ ok: false, message: "Không tìm thấy nhân viên phù hợp và còn trống." }, { status: 404 });
+    const memberAvailability = availability(member, booking, allBookings, settings, services);
+    if (!memberAvailability.qualified) return Response.json({ ok: false, code: "STAFF_NOT_QUALIFIED", message: `${member.name} chưa được cấu hình cho dịch vụ này.` }, { status: 409 });
     if (memberAvailability.closed && !body.overrideClosed) return Response.json({ ok: false, code: "STAFF_CLOSED", message: `${member.name} đang đóng lịch trong khung giờ này.` }, { status: 409 });
     const conflict = allBookings.find((item) => item.id !== booking.id && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()) && (String(item.staffId || "") === String(member.id) || item.staff === member.name) && overlaps(item, booking));
     if (conflict) return Response.json({ ok: false, message: `${member.name} đã có lịch trong khung giờ này.` }, { status: 409 });
@@ -83,10 +87,15 @@ export async function POST(request) {
       if (body.reopenOnly) return Response.json({ ok: true, reopenedOnly: true, booking });
     }
     const providerSync = providerSyncState(booking);
-    if (booking.assignmentStatus === "PENDING_CONFLICT") {
-      for (const provider of ["hotpepper", "nailie"]) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
-    }
-    const assigned = { ...booking, staff: member.name, staffId: member.id, staffEmail: member.email || "", staffRole: member.role || "", assignmentStatus: "ASSIGNED", approvalStatus: "OWNER_CONFIRMED", noPreference: requestedNoPreference, assignedAt: new Date().toISOString(), conflictResolvedAt: booking.assignmentStatus === "PENDING_CONFLICT" ? new Date().toISOString() : booking.conflictResolvedAt, conflictWith: booking.assignmentStatus === "PENDING_CONFLICT" ? "" : booking.conflictWith, providerSync, syncStatus: booking.assignmentStatus === "PENDING_CONFLICT" ? overallSyncStatus(providerSync) : booking.syncStatus };
+    const source = String(booking.source || "direct").toLowerCase();
+    const baseAssigned = { ...booking, staff: member.name, staffId: member.id, staffEmail: member.email || "", staffRole: member.role || "", assignmentStatus: "ASSIGNED", approvalStatus: "OWNER_CONFIRMED", noPreference: requestedNoPreference, assignedAt: new Date().toISOString(), conflictResolvedAt: booking.assignmentStatus === "PENDING_CONFLICT" ? new Date().toISOString() : booking.conflictResolvedAt, conflictWith: booking.assignmentStatus === "PENDING_CONFLICT" ? "" : booking.conflictWith };
+    const withAssignment = allBookings.map((item) => item.id === baseAssigned.id ? baseAssigned : item);
+    const syncTasks = [];
+    if (source !== "hotpepper") syncTasks.push({ target: "hotpepper", action: "block", bookingId: baseAssigned.id });
+    syncTasks.push(nailieCapacityTask(baseAssigned, withAssignment, staff, settings, baseAssigned.id, services));
+    for (let index = 0; index < syncTasks.length; index += 1) syncTasks[index] = { ...syncTasks[index], taskId: syncTaskId(syncTasks[index]) };
+    for (const task of syncTasks) providerSync[task.target] = { ...providerSync[task.target], status: "pending", error: "" };
+    const assigned = { ...baseAssigned, providerSync, syncStatus: overallSyncStatus(providerSync), pendingSyncActions: syncTasks };
     const next = allBookings.map((item) => item.id === assigned.id ? assigned : item);
     await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: next, updated_at: new Date().toISOString() }]) });
     const notification = await sendEmail({
@@ -111,7 +120,6 @@ export async function POST(request) {
     const customerReason = staffChanged ? changedReasons[customerLanguage] : "";
     const confirmation = appointmentConfirmationEmail({ booking: assigned, settings, language: customerLanguage, bookingUrl: `${origin}/booking?appointment=${encodeURIComponent(assigned.id)}`, changeUrl, cancelUrl, staffChangeReason: customerReason });
     const customerNotification = await sendEmail({ to: assigned.email, ...confirmation });
-    const syncTasks = booking.assignmentStatus === "PENDING_CONFLICT" ? ["hotpepper", "nailie"].map((target) => ({ target, action: "update", bookingId: assigned.id })) : [];
     return Response.json({ ok: true, booking: assigned, notification, customerNotification, syncTasks });
   } catch (error) { return Response.json({ ok: false, message: error.message || "Không thể phân công nhân viên." }, { status: 500 }); }
 }

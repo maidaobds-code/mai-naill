@@ -164,6 +164,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const pressRef = useRef(null);
   const paintRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
+  const pendingDayBookings = selectedDayBookings.filter((booking) => booking.assignmentStatus === "PENDING_ASSIGNMENT");
   const weekStart = mondayFor(selectedDate);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const visibleMonthDates = monthDates(selectedDate);
@@ -331,6 +332,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       staffEmail: assigned.email || accounts.find((account) => account.name === assigned.name || account.staffName === assigned.name)?.email || "",
       staffRole: assigned.role || "",
       staffPhone: assigned.phone || "",
+      assignmentStatus: selected.assignmentStatus === "PENDING_ASSIGNMENT" ? "ASSIGNED" : selected.assignmentStatus,
+      approvalStatus: selected.assignmentStatus === "PENDING_ASSIGNMENT" ? "OWNER_CONFIRMED" : selected.approvalStatus,
       language: selected.language || "vi",
       id: selected.draft ? `booking-${Date.now()}` : selected.id,
       day: selectedDay,
@@ -368,7 +371,17 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     else next.staffClosedPeriods = Array.from(new Set([...(settings.staffClosedPeriods || []), `${selected.staffId || staff.find((member) => member.name === selected.staff)?.id || selected.staff} ${period}`]));
     setSettings(next);
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
-    try { await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(next) }); } catch {}
+    try {
+      const settingsResponse = await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(next) });
+      if (!settingsResponse.ok) throw new Error("Không thể lưu trạng thái đóng lịch.");
+      const syncResponse = await fetch("/api/manual-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operation: "close", scope, date: selectedDate, start: selected.start, end: selected.end, staffId: selected.staffId || staff.find((member) => member.name === selected.staff)?.id || "", staff: selected.staff || "" }) });
+      const syncResult = await syncResponse.json().catch(() => ({}));
+      if (!syncResponse.ok || !syncResult.ok) throw new Error(syncResult.message || "Bot không thể nhận tác vụ đóng lịch.");
+      setBookingError("");
+    } catch (error) {
+      setBookingError(error.message || "Không thể đóng lịch và gửi tác vụ cho bot.");
+      return;
+    }
     setModalOpen(false);
   }
 
@@ -378,7 +391,17 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     else next.staffClosedPeriods = next.staffClosedPeriods.filter((value) => selectedStaffClosedPeriods.length ? !selectedStaffClosedPeriods.includes(value) : value !== staffPeriodKey);
     setSettings(next);
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
-    try { await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(next) }); } catch {}
+    try {
+      const settingsResponse = await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(next) });
+      if (!settingsResponse.ok) throw new Error("Không thể lưu trạng thái mở lịch.");
+      const syncResponse = await fetch("/api/manual-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operation: "open", scope, date: selectedDate, start: selected.start, end: selected.end, staffId: selected.staffId || staff.find((member) => member.name === selected.staff)?.id || "", staff: selected.staff || "" }) });
+      const syncResult = await syncResponse.json().catch(() => ({}));
+      if (!syncResponse.ok || !syncResult.ok) throw new Error(syncResult.message || "Bot không thể nhận tác vụ mở lịch.");
+      setBookingError("");
+    } catch (error) {
+      setBookingError(error.message || "Không thể mở lịch và gửi tác vụ cho bot.");
+      return;
+    }
     if (!keepModalOpen) setModalOpen(false);
   }
 
@@ -434,6 +457,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <div className="calendarHeader">
               <strong>{dateLabel(selectedDate)} · {c.dayView}</strong>
           </div>
+          {pendingDayBookings.length > 0 && <div className="syncNotice warning"><strong>Lịch Nailie chờ phân công ({pendingDayBookings.length})</strong>{pendingDayBookings.map((booking) => <button type="button" className="ghost" key={booking.id} onClick={() => { setSelected(booking); setModalOpen(true); }}><span>{booking.start}–{booking.end} · {booking.requestedNailieAccount || "Nailie"} · {booking.service || "Nailie booking"}</span><small>Chờ chủ salon chọn nhân viên</small></button>)}</div>}
           <div className="resourceTimeline" style={{ gridTemplateColumns: `var(--timeline-staff-width) calc(${Math.max(1, visibleIntervalSlots.length)} * var(--timeline-slot-width))` }}>
             <div className="resourceHeader">{c.staff}</div>
             <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>{visibleIntervalSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>

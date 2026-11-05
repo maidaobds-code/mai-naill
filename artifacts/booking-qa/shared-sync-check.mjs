@@ -53,8 +53,10 @@ assert.equal(deleteResult.ok, true);
 assert.equal(deleteResult.value.length, 2);
 assert.equal(deleteResult.value.every((item) => Boolean(item.deletedAt)), true);
 assert.deepEqual(deleteResult.syncTasks.map((task) => task.target).sort(), ["hotpepper", "nailie"]);
-assert.equal(deleteResult.syncTasks.every((task) => task.action === "cancel"), true);
-assert.equal(deleteResult.syncTasks.every((task) => task.match.date === "2026-10-26" && task.match.start === "10:00" && task.match.end === "11:00" && task.match.staff === "Mai"), true);
+assert.equal(deleteResult.syncTasks.find((task) => task.target === "hotpepper").action, "cancel");
+assert.equal(deleteResult.syncTasks.find((task) => task.target === "nailie").action, "capacity_block");
+assert.equal(deleteResult.syncTasks.every((task) => task.match.date === "2026-10-26" && task.match.start === "10:00" && task.match.end === "11:00"), true);
+assert.equal(deleteResult.syncTasks.find((task) => task.target === "hotpepper").match.staff, "Mai");
 assert.equal(deleteResult.value.every((item) => item.pendingSyncActions?.length === 2), true);
 
 // Account B reloads and must receive only the tombstone (hidden by the UI).
@@ -86,8 +88,9 @@ assert.equal(readAfterCreate.value.some((item) => item.id === newBooking.id && !
 const movedBooking = { ...newBooking, start: "16:30", end: "18:00" };
 const moveResult = await (await route.POST(request([movedBooking]))).json();
 assert.equal(moveResult.ok, true);
-assert.equal(moveResult.syncTasks.every((task) => task.action === "update"), true);
-assert.equal(moveResult.syncTasks.every((task) => task.previousMatch?.start === "12:00" && task.previousMatch?.end === "13:00"), true);
+assert.equal(moveResult.syncTasks.find((task) => task.target === "hotpepper").action, "update");
+assert.equal(moveResult.syncTasks.find((task) => task.target === "hotpepper").previousMatch?.start, "12:00");
+assert.equal(moveResult.syncTasks.filter((task) => task.target === "nailie").length, 2);
 assert.equal(moveResult.value.find((item) => item.id === newBooking.id).start, "16:30");
 
 console.log("PASS numeric ID is normalized to string ID");

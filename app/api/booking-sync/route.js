@@ -1,6 +1,7 @@
-import { acknowledgeProviderSync, ingestExternalBooking } from "../../../lib/bookingSync.js";
+import { acknowledgeProviderSync, ingestExternalBooking, syncTaskId } from "../../../lib/bookingSync.js";
 import { createBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
-import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
+import { managementEmails, sendEmail, salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
+import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -67,14 +68,35 @@ async function notifyConflict(request, conflicts) {
   return sendEmail({ to: recipients, subject, text, html });
 }
 
+async function notifyPendingAssignment(request, booking) {
+  if (booking?.assignmentStatus !== "PENDING_ASSIGNMENT") return null;
+  const recipients = await managementEmails();
+  const token = createBookingAssignmentToken(booking.id);
+  const url = `${publicOrigin(request)}/assign-booking?token=${encodeURIComponent(token)}`;
+  const account = booking.requestedNailieAccount || "Nailie";
+  const subject = `Mai Beauty Salon · Nailie chờ phân công · ${booking.date} ${booking.start}`;
+  const text = `Tài khoản: ${account}\nNgày giờ: ${booking.date} ${booking.start}-${booking.end}\nDịch vụ: ${booking.service || "Nailie booking"}\nThời lượng: ${booking.durationMinutes || "—"} phút\nTrạng thái: Chờ phân công nhân viên\nPhân công: ${url}`;
+  const html = `<div style="font-family:Arial,sans-serif;color:#332936"><h2>Lịch Nailie chờ phân công</h2><p><strong>Tài khoản:</strong> ${escapeHtml(account)}</p><p><strong>Ngày giờ:</strong> ${escapeHtml(booking.date)} · ${escapeHtml(booking.start)}–${escapeHtml(booking.end)}</p><p><strong>Dịch vụ:</strong> ${escapeHtml(booking.service || "Nailie booking")}</p><p><strong>Trạng thái:</strong> Chờ phân công nhân viên</p><p><a href="${escapeHtml(url)}">Chọn nhân viên</a></p></div>`;
+  return sendEmail({ to: recipients, subject, text, html });
+}
+
 export async function POST(request) {
   if (!authorized(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
   try {
     const current = await readBookings();
+    const existingExternal = body.kind === "ack" ? null : current.find((booking) => String(booking.source || "").toLowerCase() === String(body.provider || "").toLowerCase() && String(booking.externalBookingId || "") === String(body.externalBookingId || ""));
     const outcome = body.kind === "ack" ? acknowledgeProviderSync(current, body) : ingestExternalBooking(current, body);
+    const generatedTasks = [...(outcome.tasks || [])];
+    if (body.kind !== "ack" && outcome.result?.date && outcome.result?.start && outcome.result?.end) {
+      const [staff, settings, services] = await Promise.all([staffCatalog(), salonSettings(), serviceCatalog()]);
+      const moved = existingExternal && ["date", "start", "end"].some((field) => String(existingExternal[field] || "") !== String(outcome.result[field] || ""));
+      if (moved) generatedTasks.push(nailieCapacityTask(existingExternal, outcome.bookings, staff, settings, outcome.result.id, services));
+      generatedTasks.push(nailieCapacityTask(outcome.result, outcome.bookings, staff, settings, outcome.result.id, services));
+    }
+    const identifiedTasks = generatedTasks.map((task) => ({ ...task, taskId: task.taskId || syncTaskId(task) }));
     const tasksByBooking = new Map();
-    for (const task of outcome.tasks || []) {
+    for (const task of identifiedTasks) {
       const key = String(task.bookingId || "");
       if (!tasksByBooking.has(key)) tasksByBooking.set(key, []);
       tasksByBooking.get(key).push(task);
@@ -88,7 +110,8 @@ export async function POST(request) {
     });
     const value = await saveBookings(queued);
     const notification = outcome.conflicts ? await notifyConflict(request, outcome.conflicts).catch((error) => ({ ok: false, reason: error.message })) : null;
-    return Response.json({ ok: true, conflict: Boolean(outcome.conflicts), value, result: outcome.result, conflicts: outcome.conflicts || [], tasks: outcome.tasks || [], notification });
+    const assignmentNotification = (!existingExternal || existingExternal.assignmentStatus !== "PENDING_ASSIGNMENT") ? await notifyPendingAssignment(request, outcome.result).catch((error) => ({ ok: false, reason: error.message })) : null;
+    return Response.json({ ok: true, conflict: Boolean(outcome.conflicts), value, result: outcome.result, conflicts: outcome.conflicts || [], tasks: identifiedTasks, notification, assignmentNotification });
   } catch (error) {
     return Response.json({ ok: false, message: error.message || "Booking synchronization failed" }, { status: 400 });
   }

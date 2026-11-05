@@ -1,7 +1,9 @@
 import { createBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
-import { overallSyncStatus, providerSyncState } from "../../../lib/bookingSync.js";
+import { overallSyncStatus, providerSyncState, syncTaskId } from "../../../lib/bookingSync.js";
 import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
 import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth.js";
+import { salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
+import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -43,7 +45,14 @@ function normalizeId(booking) {
 }
 
 function mainaillSyncMetadata(booking, previous) {
-  if (String(booking?.source || "direct").toLowerCase() !== "direct") return booking;
+  const source = String(booking?.source || "direct").toLowerCase();
+  if (source === "nailie" && previous?.assignmentStatus === "PENDING_ASSIGNMENT" && (booking.staffId || booking.staff)) {
+    const providerSync = providerSyncState(previous);
+    providerSync.hotpepper = { ...providerSync.hotpepper, status: "pending", error: "" };
+    providerSync.nailie = { ...providerSync.nailie, status: "pending", error: "" };
+    return { ...booking, source, assignmentStatus: "ASSIGNED", approvalStatus: "OWNER_CONFIRMED", assignedAt: new Date().toISOString(), providerSync, syncStatus: overallSyncStatus(providerSync), updatedAt: new Date().toISOString() };
+  }
+  if (source !== "direct") return booking;
   const changed = !previous || ["date", "start", "end", "staffId", "staff", "status"].some((field) => String(previous?.[field] || "") !== String(booking?.[field] || ""));
   if (!changed) return booking;
   const providerSync = providerSyncState(previous || booking);
@@ -92,6 +101,7 @@ export async function POST(request) {
   try {
     const currentRows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
     const current = compactBookings(currentRows?.[0]?.value);
+    const [staff, settings, services] = await Promise.all([staffCatalog(), salonSettings(), serviceCatalog()]);
     const rawSubmitted = compactBookings(body.bookings);
     const submitted = rawSubmitted.map((booking) => mainaillSyncMetadata(booking, current.find((item) => item.id === booking.id)));
     const currentIds = new Set(current.map((item) => item.id));
@@ -112,19 +122,26 @@ export async function POST(request) {
       if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
     }
     const merged = compactBookings([...protectedBookings, ...currentAfterRelatedDeletes.filter((item) => item.id && !incomingIds.has(item.id))]);
-    const syncTasks = submitted.filter((booking) => String(booking.source || "").toLowerCase() === "direct" && !booking.deletedAt).flatMap((booking) => {
+    const syncTasks = submitted.filter((booking) => !booking.deletedAt).flatMap((booking) => {
       const previous = current.find((item) => item.id === booking.id);
+      const source = String(booking.source || "direct").toLowerCase();
+      const newlyAssignedNailie = source === "nailie" && previous?.assignmentStatus === "PENDING_ASSIGNMENT" && booking.assignmentStatus === "ASSIGNED";
+      if (source !== "direct" && !newlyAssignedNailie) return [];
       const changedSlot = previous && !sameSlot(previous, booking);
       const previousMatch = changedSlot ? { date: previous.date, start: previous.start, end: previous.end, staffId: previous.staffId || "", staff: previous.staff || "" } : null;
-      return ["hotpepper", "nailie"].filter((provider) => booking.providerSync?.[provider]?.status === "pending").map((target) => ({ target, action: previous ? "update" : "block", bookingId: booking.id, ...(previousMatch ? { previousMatch } : {}) }));
+      const tasks = [{ target: "hotpepper", action: newlyAssignedNailie ? "block" : previous ? "update" : "block", bookingId: booking.id, ...(previousMatch ? { previousMatch } : {}) }];
+      if (previousMatch) tasks.push(nailieCapacityTask(previousMatch, merged, staff, settings, booking.id, services));
+      tasks.push(nailieCapacityTask(booking, merged, staff, settings, booking.id, services));
+      return tasks;
     });
-    const tasksByBooking = new Map(syncTasks.map((task) => [String(task.bookingId), []]));
-    for (const task of syncTasks) tasksByBooking.get(String(task.bookingId))?.push(task);
+    const identifiedSyncTasks = syncTasks.map((task) => ({ ...task, taskId: syncTaskId(task) }));
+    const tasksByBooking = new Map(identifiedSyncTasks.map((task) => [String(task.bookingId), []]));
+    for (const task of identifiedSyncTasks) tasksByBooking.get(String(task.bookingId))?.push(task);
     const mergedWithTasks = merged.map((booking) => tasksByBooking.has(String(booking.id)) ? { ...booking, pendingSyncActions: tasksByBooking.get(String(booking.id)) } : booking);
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: mergedWithTasks, updated_at: new Date().toISOString() }]) });
     const newOnlineBookings = submitted.filter((booking) => booking.id && !booking.deletedAt && !currentIds.has(booking.id) && String(booking.source || "").toLowerCase() === "direct");
     const notifications = await Promise.all(newOnlineBookings.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
-    return Response.json({ ok: true, value: rows?.[0]?.value || mergedWithTasks, assignmentNotifications: notifications, syncTasks });
+    return Response.json({ ok: true, value: rows?.[0]?.value || mergedWithTasks, assignmentNotifications: notifications, syncTasks: identifiedSyncTasks });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
 }
 
@@ -141,12 +158,20 @@ export async function DELETE(request) {
     const deletedAt = target.deletedAt || new Date().toISOString();
     const match = { date: target.date, start: target.start, end: target.end, staffId: target.staffId || "", staff: target.staff || "" };
     const source = String(target.source || "direct").toLowerCase();
-    const syncProviders = ["hotpepper", "nailie"].filter((provider) => source === "direct" || provider !== source);
-    const syncTasks = syncProviders.map((provider) => ({ target: provider, action: "cancel", bookingId: target.id, externalBookingId: target.providerSync?.[provider]?.externalBookingId || "", match }));
-    const next = current.map((item) => {
+    const syncProviders = source === "hotpepper" ? [] : ["hotpepper"];
+    let next = current.map((item) => {
+      if (item.id !== id && !sameSlot(item, target)) return item;
+      return { ...item, status: "CANCELLED", cancelledAt: item.cancelledAt || deletedAt, deletedAt: item.deletedAt || deletedAt };
+    });
+    const [staff, settings, services] = await Promise.all([staffCatalog(), salonSettings(), serviceCatalog()]);
+    const syncTasks = [
+      ...syncProviders.map((provider) => ({ target: provider, action: "cancel", bookingId: target.id, externalBookingId: target.providerSync?.[provider]?.externalBookingId || "", match })),
+      nailieCapacityTask(match, next, staff, settings, target.id, services),
+    ].map((task) => ({ ...task, taskId: syncTaskId(task) }));
+    next = next.map((item) => {
       if (item.id !== id && !sameSlot(item, target)) return item;
       const providerSync = providerSyncState(item);
-      for (const provider of syncProviders) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
+      for (const provider of new Set(syncTasks.map((task) => task.target))) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
       return { ...item, status: "CANCELLED", cancelledAt: item.cancelledAt || deletedAt, deletedAt: item.deletedAt || deletedAt, providerSync, syncStatus: overallSyncStatus(providerSync), pendingSyncActions: syncTasks };
     });
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {
