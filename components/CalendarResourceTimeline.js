@@ -61,6 +61,14 @@ function sameBookingDate(booking, date) {
   return bookingDay(booking) === Number(date.slice(-2));
 }
 
+function calendarStaffName(value) {
+  return String(value || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+}
+
+function comparableStaffName(value) {
+  return calendarStaffName(value).replace(/\s+/g, "").toLowerCase();
+}
+
 function mondayFor(date) {
   const value = new Date(`${date}T12:00:00Z`);
   const offset = (value.getUTCDay() + 6) % 7;
@@ -165,6 +173,12 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const paintRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
   const pendingDayBookings = selectedDayBookings.filter((booking) => booking.assignmentStatus === "PENDING_ASSIGNMENT");
+  const mappedStaffKeys = new Set(staff.flatMap((member) => [String(member.id || ""), comparableStaffName(member.name)]).filter(Boolean));
+  const externalStaff = [...new Map(selectedDayBookings.filter((booking) => booking.staff && !mappedStaffKeys.has(String(booking.staffId || "")) && !mappedStaffKeys.has(comparableStaffName(booking.staff))).map((booking) => {
+    const name = calendarStaffName(booking.staff);
+    return [comparableStaffName(name), { id: `external-${comparableStaffName(name)}`, name, color: "#f59e0b", status: "HOT · chưa mapping", external: true }];
+  })).values()];
+  const calendarStaff = [...staff, ...externalStaff];
   const weekStart = mondayFor(selectedDate);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const visibleMonthDates = monthDates(selectedDate);
@@ -461,8 +475,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <div className="resourceTimeline" style={{ gridTemplateColumns: `var(--timeline-staff-width) calc(${Math.max(1, visibleIntervalSlots.length)} * var(--timeline-slot-width))` }}>
             <div className="resourceHeader">{c.staff}</div>
             <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>{visibleIntervalSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
-            {staff.map((member) => {
-              const memberBookings = selectedDayBookings.filter((booking) => booking.staff === member.name || String(booking.staffId || "") === String(member.id));
+            {calendarStaff.map((member) => {
+              const memberBookings = selectedDayBookings.filter((booking) => member.external ? comparableStaffName(booking.staff) === comparableStaffName(member.name) : comparableStaffName(booking.staff) === comparableStaffName(member.name) || String(booking.staffId || "") === String(member.id));
               return (
                 <div className="resourceRow" key={member.id}>
                   <div className="resourceStaff">
@@ -470,7 +484,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
                   <div className="resourceLane" style={{ backgroundSize: "var(--timeline-slot-width) 100%" }}>
-                    {closedRangesFor(member).map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`} />)}
+                    {!member.external && closedRangesFor(member).map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`} />)}
                     <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>
                       {visibleIntervalSlots.map((hour) => (
                         <button
@@ -478,6 +492,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                           key={`${member.id}-${hour}`}
                           data-hour={hour}
                           data-member={member.id}
+                          disabled={member.external}
                           style={{ "--paint-color": member.color }}
                           onPointerDown={(event) => beginPaint(event, hour, member)}
                           onPointerMove={movePaint}

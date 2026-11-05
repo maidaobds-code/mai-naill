@@ -85,12 +85,15 @@ assert.match(syncRouteSource, /pendingSyncActions/);
 const nailieWorkerSource = fs.readFileSync(new URL("../../automation/nailie-worker.mjs", import.meta.url), "utf8");
 const salonboardWorkerSource = fs.readFileSync(new URL("../../automation/salonboard-worker.mjs", import.meta.url), "utf8");
 const cancellationRouteSource = fs.readFileSync(new URL("../../app/api/booking-cancellation/route.js", import.meta.url), "utf8");
+const calendarSource = fs.readFileSync(new URL("../../components/CalendarResourceTimeline.js", import.meta.url), "utf8");
 assert.match(nailieWorkerSource, /"cancel", "unblock"/);
 assert.match(nailieWorkerSource, /Nailie external bookings scanned/);
 assert.match(salonboardWorkerSource, /reopenManagedSlot/);
 assert.match(salonboardWorkerSource, /SALON BOARD external bookings scanned/);
 assert.match(cancellationRouteSource, /pendingSyncActions/);
 assert.match(cancellationRouteSource, /action: "cancel"/);
+assert.match(calendarSource, /HOT · chưa mapping/);
+assert.match(calendarSource, /calendarStaff\.map/);
 
 console.log("PASS Nailie booking becomes an unassigned Mainaill hold");
 console.log("PASS duplicate external events update instead of creating a loop");
@@ -104,4 +107,5 @@ console.log("PASS conflict Gmail contains separate reassignment links and does n
 console.log("PASS workers support external ingestion and exact-slot reopening");
 console.log("PASS customer cancellation also queues managed-slot reopening");
 console.log("PASS Nailie rescans preserve assignment and moved bookings release the old HOT slot");
+console.log("PASS unmapped HOT bookings remain visible on dedicated calendar rows");
 
