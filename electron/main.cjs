@@ -28,7 +28,7 @@ function configPath() {
 }
 
 function ensureDataFolders() {
-  for (const folder of [dataRoot(), path.join(dataRoot(), "logs"), path.join(dataRoot(), "profiles", "nailie"), path.join(dataRoot(), "profiles", "salonboard")]) fs.mkdirSync(folder, { recursive: true });
+  for (const folder of [dataRoot(), path.join(dataRoot(), "logs"), path.join(dataRoot(), "profiles", "nailie"), path.join(dataRoot(), "profiles", "salonboard"), path.join(dataRoot(), "profiles", "salonboard-v2")]) fs.mkdirSync(folder, { recursive: true });
 }
 
 function readConfig() {
@@ -81,7 +81,7 @@ function workerEnvironment(name, config) {
   };
   return {
     ...common,
-    SALONBOARD_PROFILE_DIR: path.join(dataRoot(), "profiles", "salonboard"),
+    SALONBOARD_PROFILE_DIR: path.join(dataRoot(), "profiles", "salonboard-v2"),
     SALONBOARD_LOG: path.join(dataRoot(), "logs", "salonboard-worker.log"),
     SALONBOARD_DRY_RUN: String(config.salonboardDryRun !== false),
     SALONBOARD_POLL_MS: String(randomPollMs(config)),

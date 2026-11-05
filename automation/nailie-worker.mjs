@@ -6,8 +6,10 @@
  * bypassed. Nailie's markup can change, so write selectors are configurable.
  */
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 
 function dateKey(date = new Date()) {
@@ -22,6 +24,9 @@ const profileDir = process.env.NAILIE_PROFILE_DIR || path.resolve(".nailie-profi
 const pollMs = Math.max(30_000, Number(process.env.NAILIE_POLL_MS || 60_000));
 const dryRun = String(process.env.NAILIE_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.NAILIE_LOG || path.resolve("logs", "nailie-worker.log");
+const debugPort = Number(process.env.NAILIE_DEBUG_PORT || 9230);
+const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
+const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 
 function log(message, details = "") {
   const line = `${new Date().toISOString()} ${message}${details ? ` ${details}` : ""}`;
@@ -112,13 +117,112 @@ async function applyActions(page, actions) {
   }
 }
 
-async function run() {
-  const browser = await chromium.launchPersistentContext(profileDir, {
-    headless: false,
-    viewport: { width: 1440, height: 1000 },
-    args: ["--disable-dev-shm-usage"],
+function compactName(value) {
+  return String(value || "").replace(/\s+/g, "").toLowerCase();
+}
+
+function minutes(value) {
+  const [hour, minute] = String(value || "").split(":").map(Number);
+  return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : -1;
+}
+
+async function fetchSyncTasks() {
+  if (!syncSecret) throw new Error("BOOKING_SYNC_SECRET is required");
+  const response = await fetch(`${mainaillUrl}/api/booking-sync?provider=nailie`, {
+    headers: { authorization: `Bearer ${syncSecret}` },
+    cache: "no-store",
   });
-  const page = browser.pages()[0] || await browser.newPage();
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill HTTP ${response.status}`);
+  return Array.isArray(result.tasks) ? result.tasks : [];
+}
+
+async function acknowledgeTask(task, status, error = "") {
+  const response = await fetch(`${mainaillUrl}/api/booking-sync`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" },
+    body: JSON.stringify({ kind: "ack", provider: "nailie", bookingId: task.booking.id, status, error }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ack HTTP ${response.status}`);
+}
+
+async function applyExactSlotTask(page, task) {
+  if (!["block", "update"].includes(task.action)) throw new Error(`Unsupported Nailie action: ${task.action}`);
+  const booking = task.booking || {};
+  const mapping = staffMapping();
+  const mapped = mapping[booking.staff] || Object.entries(mapping).find(([name]) => compactName(name) === compactName(booking.staff))?.[1] || [];
+  const externalName = String(mapped[0] || booking.staff || "");
+  const start = minutes(booking.start);
+  const end = minutes(booking.end);
+  if (!booking.date || !externalName || start < 0 || end <= start || start % 30 || end % 30) throw new Error("Nailie task must use exact 30-minute boundaries");
+
+  await page.goto(`https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${booking.date}&showBooking=true`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForSelector("tr.ant-table-row[data-row-key]", { timeout: 20_000 });
+  const rows = page.locator("tr.ant-table-row[data-row-key]");
+  let rowIndex = -1;
+  for (let index = 0; index < await rows.count(); index += 1) {
+    const staffText = await rows.nth(index).locator("td").first().innerText();
+    if (compactName(staffText) === compactName(externalName)) { rowIndex = index; break; }
+  }
+  if (rowIndex < 0) throw new Error(`Nailie staff not found: ${externalName}`);
+  const row = rows.nth(rowIndex);
+  const cells = row.locator("td");
+  const prepared = [];
+  for (let slot = start; slot < end; slot += 30) {
+    const cellIndex = 1 + (slot / 30);
+    const cell = cells.nth(cellIndex);
+    const icon = cell.locator("img");
+    const before = String(await icon.getAttribute("alt") || "").toLowerCase();
+    if (!before) throw new Error(`Nailie slot icon missing at ${Math.floor(slot / 60)}:${String(slot % 60).padStart(2, "0")}`);
+    prepared.push({ slot, before });
+    if (before === "x") continue;
+    if (before !== "o") throw new Error(`Unexpected Nailie slot state: ${before}`);
+    if (!dryRun) {
+      await waitBeforeOperation();
+      await cell.click();
+      await page.waitForFunction(({ rowKey, index }) => {
+        const target = document.querySelector(`tr[data-row-key="${rowKey}"]`)?.querySelectorAll("td")?.[index]?.querySelector("img");
+        return String(target?.getAttribute("alt") || "").toLowerCase() === "x";
+      }, { rowKey: await row.getAttribute("data-row-key"), index: cellIndex }, { timeout: 15_000 });
+    }
+  }
+  log(dryRun ? "DRY_RUN exact Nailie slots prepared" : "Nailie exact slots blocked", JSON.stringify({ bookingId: booking.id, staff: externalName, date: booking.date, start: booking.start, end: booking.end, prepared }));
+}
+
+async function launchChrome() {
+  const bundledRoot = process.env.PLAYWRIGHT_BROWSERS_PATH || "";
+  const candidates = [
+    bundledRoot && path.join(bundledRoot, "chromium-1248", "chrome-win64", "chrome.exe"),
+    process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, "Google", "Chrome", "Application", "chrome.exe"),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"),
+  ].filter(Boolean);
+  const executable = candidates.find((item) => fsSync.existsSync(item));
+  if (!executable) throw new Error("Không tìm thấy Chrome cho Nailie");
+  const child = spawn(executable, [
+    `--remote-debugging-port=${debugPort}`,
+    `--user-data-dir=${profileDir}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    url,
+  ], { detached: false, windowsHide: false, stdio: "ignore" });
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`);
+      if (response.ok) return child;
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  child.kill();
+  throw new Error(`Nailie Chrome không mở được remote debugging port ${debugPort}`);
+}
+
+async function run() {
+  await launchChrome();
+  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
+  const context = browser.contexts()[0];
+  if (!context) throw new Error("Nailie Chrome CDP không có browser context");
+  const page = context.pages().find((item) => item.url().includes("salon.nailie.jp")) || context.pages()[0] || await context.newPage();
   await page.goto(url, { waitUntil: "domcontentloaded" });
   log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs}`);
 
@@ -128,20 +232,21 @@ async function run() {
       if (/login|sign-in/i.test(page.url())) {
         log("LOGIN_REQUIRED: sign in to Nailie in the visible browser");
       } else {
-        const schedule = await readSchedule(page);
-        const actions = desiredActions(schedule, staffMapping());
-        const signature = JSON.stringify(actions);
-        if (signature !== lastSignature) {
-          lastSignature = signature;
-          log("Nailie schedule changed", JSON.stringify({ rows: schedule.length, actions }));
-          await applyActions(page, actions);
+        const tasks = await fetchSyncTasks();
+        for (const task of tasks) {
+          try {
+            await applyExactSlotTask(page, task);
+            if (!dryRun) await acknowledgeTask(task, "synced");
+          } catch (error) {
+            log("Nailie sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
+            if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
+          }
         }
       }
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
-    await page.reload({ waitUntil: "domcontentloaded" }).catch((error) => log("reload failed", error.message));
   }
 }
 

@@ -6,15 +6,22 @@
  * have been verified against the salon account.
  */
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 
-const url = process.env.SALONBOARD_SCHEDULE_URL || "https://salonboard.com/KLP/schedule/salonSchedule/";
+const url = process.env.SALONBOARD_SCHEDULE_URL || "https://salonboard.com/login/";
+const loginUrl = "https://salonboard.com/login/";
+const scheduleUrl = "https://salonboard.com/KLP/schedule/salonSchedule/";
 const profileDir = process.env.SALONBOARD_PROFILE_DIR || path.resolve(".salonboard-profile");
+const debugPort = Number(process.env.SALONBOARD_DEBUG_PORT || 9229);
 const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000));
 const dryRun = String(process.env.SALONBOARD_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-worker.log");
+const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
+const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 
 function log(message, details = "") {
   const line = `${new Date().toISOString()} ${message}${details ? ` ${details}` : ""}`;
@@ -79,13 +86,109 @@ async function blockStaffSchedule(page, item) {
   throw new Error(`Blocking is not enabled for ${item.staffName}; verify shift selectors first`);
 }
 
-async function run() {
-  const browser = await chromium.launchPersistentContext(profileDir, {
-    headless: false,
-    viewport: { width: 1440, height: 1000 },
-    args: ["--disable-dev-shm-usage"],
+function compactName(value) {
+  return String(value || "").replace(/\s+/g, "").toLowerCase();
+}
+
+async function fetchSyncTasks() {
+  if (!syncSecret) throw new Error("BOOKING_SYNC_SECRET is required");
+  const response = await fetch(`${mainaillUrl}/api/booking-sync?provider=hotpepper`, {
+    headers: { authorization: `Bearer ${syncSecret}` },
+    cache: "no-store",
   });
-  const page = browser.pages()[0] || await browser.newPage();
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill HTTP ${response.status}`);
+  return Array.isArray(result.tasks) ? result.tasks : [];
+}
+
+async function acknowledgeTask(task, status, error = "") {
+  const response = await fetch(`${mainaillUrl}/api/booking-sync`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" },
+    body: JSON.stringify({ kind: "ack", provider: "hotpepper", bookingId: task.booking.id, status, error }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ack HTTP ${response.status}`);
+}
+
+async function openScheduleForm(page, task) {
+  const booking = task.booking || {};
+  const rule = staffRules()[booking.staff] || Object.entries(staffRules()).find(([name]) => compactName(name) === compactName(booking.staff))?.[1];
+  const externalName = String(rule?.externalStaffName || rule?.externalStaffId || booking.staff || "");
+  const date = String(booking.date || "").replaceAll("-", "").replaceAll("/", "");
+  const [startHour, startMinute] = String(booking.start || "").split(":");
+  const [endHour, endMinute] = String(booking.end || "").split(":");
+  if (!/^\d{8}$/.test(date) || !startHour || !startMinute || !endHour || !endMinute || !externalName) throw new Error("Invalid exact-slot booking task");
+
+  await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForSelector('[id^="STAFF_"]', { timeout: 20_000 });
+  const heads = page.locator('[id^="STAFF_"]');
+  const rows = page.locator("li.jscScheduleMainTableLine");
+  let staffIndex = -1;
+  for (let index = 0; index < await heads.count(); index += 1) {
+    if (compactName(await heads.nth(index).innerText()) === compactName(externalName)) { staffIndex = index; break; }
+  }
+  if (staffIndex < 0) throw new Error(`SALON BOARD staff not found: ${externalName}`);
+
+  const row = rows.nth(staffIndex);
+  const area = row.locator(".jscScheduleSetArea");
+  const areaBox = await area.boundingBox();
+  const firstTime = row.locator(".scheduleTime").first();
+  const timeBox = await firstTime.boundingBox();
+  const [firstHour, firstMinute] = (await firstTime.innerText()).split(":").map(Number);
+  if (!areaBox || !timeBox) throw new Error("SALON BOARD schedule grid is not visible");
+  const startMinutes = Number(startHour) * 60 + Number(startMinute);
+  const firstMinutes = firstHour * 60 + firstMinute;
+  await page.mouse.click(areaBox.x + ((startMinutes - firstMinutes) * timeBox.width / 60) + 3, areaBox.y + areaBox.height / 2);
+  const timeChoice = page.locator(".jscScheduleTimePeriodModal [data-start-time]").filter({ hasText: `${startHour}:${startMinute}` });
+  if (await timeChoice.isVisible().catch(() => false)) await timeChoice.click();
+  await page.waitForSelector("#fnc_schedule", { timeout: 20_000 });
+  await page.locator("#fnc_schedule").click();
+  await page.waitForSelector('[name="schEndHour"]', { timeout: 20_000 });
+
+  const staffValue = await page.locator('[name="staffId"] option').evaluateAll((options, target) => {
+    const compact = (value) => String(value || "").replace(/\s+/g, "").toLowerCase();
+    return options.find((option) => compact(option.textContent) === compact(target))?.value || "";
+  }, externalName);
+  if (!staffValue) throw new Error(`SALON BOARD staff option not found: ${externalName}`);
+  await page.locator('[name="staffId"]').selectOption(staffValue);
+  await page.locator('[name="rsvHour"]').selectOption(startHour);
+  await page.locator('[name="rsvMinute"]').selectOption(startMinute);
+  await page.locator('[name="schEndHour"]').selectOption(endHour);
+  await page.locator('[name="schEndMinute"]').selectOption(endMinute);
+  await page.locator('[name="schTitle"]').fill("Mainaill予約");
+  await page.locator('[name="schMemo"]').fill(`Mainaill booking ${booking.id}`);
+  const prepared = await page.evaluate(() => ({
+    date: document.querySelector('[name="date"]')?.value,
+    staff: document.querySelector('[name="staffId"]')?.selectedOptions?.[0]?.textContent?.trim(),
+    start: `${document.querySelector('[name="rsvHour"]')?.value}:${document.querySelector('[name="rsvMinute"]')?.value}`,
+    end: `${document.querySelector('[name="schEndHour"]')?.value}:${document.querySelector('[name="schEndMinute"]')?.value}`,
+  }));
+  if (prepared.date !== date || compactName(prepared.staff) !== compactName(externalName) || prepared.start !== `${startHour}:${startMinute}` || prepared.end !== `${endHour}:${endMinute}`) {
+    throw new Error(`SALON BOARD form verification failed: ${JSON.stringify(prepared)}`);
+  }
+  return prepared;
+}
+
+async function applySyncTask(page, task) {
+  if (!["block", "update"].includes(task.action)) throw new Error(`Unsupported SALON BOARD action: ${task.action}`);
+  const prepared = await openScheduleForm(page, task);
+  if (dryRun) {
+    log("DRY_RUN exact SALON BOARD slot prepared", JSON.stringify({ task, prepared }));
+    return;
+  }
+  await waitBeforeOperation();
+  await page.locator("#regist").click();
+  await page.waitForLoadState("domcontentloaded");
+  log("SALON BOARD exact slot blocked", JSON.stringify({ bookingId: task.booking.id, ...prepared }));
+}
+
+async function run() {
+  await launchChrome();
+  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
+  const context = browser.contexts()[0];
+  if (!context) throw new Error("Chrome CDP không có browser context");
+  const page = context.pages().find((item) => item.url().includes("salonboard.com")) || context.pages()[0] || await context.newPage();
   // Keep the persistent profile visible so the user can complete SALON BOARD
   // login manually. A blank/new tab must never be treated as the logged-in
   // page, and navigation errors should be retried instead of leaving Chrome
@@ -93,32 +196,42 @@ async function run() {
   await navigate(page);
   log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs}`);
 
-  let lastSignature = "";
   for (;;) {
     try {
-      if (isLoginPage(page)) {
+      if (await isSessionExpired(page)) {
+        log("SESSION_EXPIRED: returning to SALON BOARD login");
+        await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));
+      } else if (isLoginPage(page)) {
         log("LOGIN_REQUIRED: sign in to SALON BOARD in the visible browser");
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
       }
-      const matches = await inspect(page);
-      const signature = JSON.stringify(matches);
-      if (signature !== lastSignature) {
-        lastSignature = signature;
-        log("schedule changed", JSON.stringify(matches));
-        for (const item of matches) await blockStaffSchedule(page, item);
+      const tasks = await fetchSyncTasks();
+      for (const task of tasks) {
+        try {
+          await applySyncTask(page, task);
+          if (!dryRun) await acknowledgeTask(task, "synced");
+        } catch (error) {
+          log("SALON BOARD sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
+          if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
+        }
       }
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
-    await page.reload({ waitUntil: "domcontentloaded" }).catch(async (error) => { log("reload failed", error.message); await navigate(page); });
   }
 }
 
 function isLoginPage(page) {
   const current = page.url();
   return !current || current === "about:blank" || /login|ログイン/i.test(current);
+}
+
+async function isSessionExpired(page) {
+  if (/login|ログイン/i.test(page.url())) return false;
+  const body = await page.locator("body").innerText().catch(() => "");
+  return /ログインの有効期限が切れました|再度ログインしてください|session expired/i.test(body);
 }
 
 async function navigate(page) {
@@ -138,3 +251,28 @@ run().catch((error) => {
   log("fatal worker error", error?.stack || error?.message || String(error));
   process.exitCode = 1;
 });
+
+async function launchChrome() {
+  const candidates = [
+    process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, "Google", "Chrome", "Application", "chrome.exe"),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"),
+  ].filter(Boolean);
+  const executable = candidates.find((item) => fsSync.existsSync(item));
+  if (!executable) throw new Error("Không tìm thấy Google Chrome cài trên máy");
+  const child = spawn(executable, [
+    `--remote-debugging-port=${debugPort}`,
+    `--user-data-dir=${profileDir}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    loginUrl,
+  ], { detached: false, windowsHide: false, stdio: "ignore" });
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    try {
+      const response = await fetch(`http://127.0.0.1:${debugPort}/json/version`);
+      if (response.ok) return child;
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  child.kill();
+  throw new Error(`Chrome không mở được remote debugging port ${debugPort}`);
+}
