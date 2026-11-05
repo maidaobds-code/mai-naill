@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.test";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
@@ -108,3 +109,9 @@ assert.equal(orphanCleanupResponse.status, 200);
 assert.deepEqual(orphanCleanupResult.removedAccountIds, ["staff-old"]);
 assert.deepEqual(accountValue.map((account) => account.id), ["owner", "staff-current-staff", "customer-keep"]);
 console.log("PASS saving the authoritative staff list removes every orphan staff account but preserves owner and customer accounts");
+
+const staffManagementSource = fs.readFileSync(new URL("../../components/StaffManagement.js", import.meta.url), "utf8");
+assert.match(staffManagementSource, /passwordConfirmation/);
+assert.match(staffManagementSource, /draft\.accountPassword !== passwordConfirmation/);
+assert.equal((staffManagementSource.match(/passwordVisibilityButton/g) || []).length >= 2, true);
+console.log("PASS staff creation requires matching password confirmation and provides visibility buttons");

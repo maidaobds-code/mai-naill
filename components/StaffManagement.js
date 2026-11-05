@@ -8,6 +8,10 @@ import { tx } from "../lib/i18nClean";
 
 const staffColors = [["Lavender", "#a78bfa"], ["Lilac", "#c084fc"], ["Bubblegum", "#f9a8d4"], ["Hồng neon", "#f472b6"], ["Peach", "#fdba74"], ["Coral", "#fb7185"], ["Lemon", "#fde047"], ["Butter", "#fef08a"], ["Mint", "#86efac"], ["Emerald", "#34d399"], ["Aqua", "#5eead4"], ["Sky", "#7dd3fc"], ["Blue", "#60a5fa"], ["Periwinkle", "#818cf8"], ["Cobalt", "#4f46e5"], ["Teal", "#0d9488"], ["Lime", "#a3e635"], ["Tangerine", "#fb923c"], ["Magenta", "#e879f9"], ["Plum", "#a855f7"]];
 
+function PasswordVisibilityIcon({ visible }) {
+  return visible ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.2A11 11 0 0 1 12 4c5 0 8.7 4.1 9.8 6a3.1 3.1 0 0 1 0 2 11.7 11.7 0 0 1-3 3.7M6.1 6.1A12.5 12.5 0 0 0 2.2 10a1.7 1.7 0 0 0 0 1.6C3.3 13.5 7 17.6 12 17.6c1.1 0 2.1-.2 3.1-.6" /></svg> : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.2 11.6C3.3 9.7 7 5.6 12 5.6s8.7 4.1 9.8 6a1.7 1.7 0 0 1 0 1.6c-1.1 1.9-4.8 6-9.8 6s-8.7-4.1-9.8-6a1.7 1.7 0 0 1 0-1.6Z" /><circle cx="12" cy="12.4" r="2.8" /></svg>;
+}
+
 function newStaff(nextId) {
   return {
     id: `draft-${nextId}`,
@@ -46,7 +50,11 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const [roleDraft, setRoleDraft] = useState({});
   const [accountMessage, setAccountMessage] = useState("");
   const [bookingDraft, setBookingDraft] = useState(null);
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
   const bookingCopy = language === "ja" ? { title: "指名設定", edit: "表示設定", displayName: "表示名", fee: "指名料（円）", description: "お客様向け説明", image: "スタッフ画像", visible: "Web予約で表示", save: "指名設定を保存", cancel: "キャンセル" } : language === "en" ? { title: "Booking designation settings", edit: "Display settings", displayName: "Display name", fee: "Designation fee (JPY)", description: "Customer-facing description", image: "Staff image", visible: "Show in online booking", save: "Save designation settings", cancel: "Cancel" } : { title: "Cài đặt chỉ định nhân viên", edit: "Cài đặt hiển thị", displayName: "Tên hiển thị", fee: "Phí chỉ định (JPY)", description: "Mô tả hiển thị cho khách", image: "Ảnh nhân viên", visible: "Hiển thị trên Booking", save: "Lưu cài đặt chỉ định", cancel: "Hủy" };
+  const passwordCopy = language === "ja" ? { confirm: "パスワード（確認）", mismatch: "パスワードが一致しません。", show: "パスワードを表示", hide: "パスワードを隠す" } : language === "en" ? { confirm: "Confirm password", mismatch: "The passwords do not match.", show: "Show password", hide: "Hide password" } : language === "zh" ? { confirm: "确认密码", mismatch: "两次密码不一致。", show: "显示密码", hide: "隐藏密码" } : language === "ko" ? { confirm: "비밀번호 확인", mismatch: "비밀번호가 일치하지 않습니다.", show: "비밀번호 표시", hide: "비밀번호 숨기기" } : { confirm: "Nhập lại mật khẩu", mismatch: "Hai mật khẩu không trùng nhau.", show: "Hiện mật khẩu", hide: "Ẩn mật khẩu" };
   const draftChanged = Boolean(draft.name || draft.email || draft.accountPassword || draft.role !== "staff");
 
   function updateDraft(field, value) {
@@ -56,12 +64,16 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   async function addStaff() {
     if (!draft.name.trim() || !draft.email.trim()) return setAccountMessage("Vui lòng nhập tên và email đăng nhập.");
     if (!draft.accountPassword || draft.accountPassword.length < 6) return setAccountMessage("Mật khẩu phải có ít nhất 6 ký tự.");
+    if (draft.accountPassword !== passwordConfirmation) return setAccountMessage(passwordCopy.mismatch);
     const uniqueId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const record = { ...draft, id: uniqueId, external: normalizeExternalAccounts(draft.external), credentialStatus: draft.accountPassword ? c.accountReady : c.needsPassword };
     try {
       await upsertStaffAccount(record, draft.accountPassword);
       setStaff((current) => [...current, record]);
       setDraft(newStaff(Date.now()));
+      setPasswordConfirmation("");
+      setShowPassword(false);
+      setShowPasswordConfirmation(false);
       setAccountMessage("Đã tạo và đồng bộ tài khoản nhân viên.");
     } catch (error) { setAccountMessage(`Không thể tạo tài khoản: ${error.message}`); }
   }
@@ -147,7 +159,8 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <label>{c.role}<select value={draft.role} onChange={(event) => updateDraft("role", event.target.value)}><option value="staff">{c.staffRole}</option><option value="manager">Quản lý</option><option value="owner">{c.owner}</option></select></label>
           <label>{c.calendarColor}<div className="staffColorPicker">{staffColors.map(([name, color]) => <button type="button" key={color} title={name} aria-label={name} className={draft.color === color ? "staffColorChoice active" : "staffColorChoice"} style={{ background: color }} onClick={() => updateDraft("color", color)}><span>{name}</span></button>)}</div></label>
           <label>{c.loginEmail}<input type="email" value={draft.email} onChange={(event) => updateDraft("email", event.target.value)} placeholder="staff@example.com" /></label>
-          <label>{c.password}<input type="password" value={draft.accountPassword} onChange={(event) => updateDraft("accountPassword", event.target.value)} placeholder={c.passwordPlaceholder} /></label>
+          <label>{c.password}<span className="staffPasswordInput"><input type={showPassword ? "text" : "password"} value={draft.accountPassword} onChange={(event) => updateDraft("accountPassword", event.target.value)} placeholder={c.passwordPlaceholder} /><button className="passwordVisibilityButton" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? passwordCopy.hide : passwordCopy.show} title={showPassword ? passwordCopy.hide : passwordCopy.show}><PasswordVisibilityIcon visible={showPassword} /></button></span></label>
+          <label>{passwordCopy.confirm}<span className="staffPasswordInput"><input type={showPasswordConfirmation ? "text" : "password"} value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} placeholder={passwordCopy.confirm} /><button className="passwordVisibilityButton" type="button" onClick={() => setShowPasswordConfirmation((visible) => !visible)} aria-label={showPasswordConfirmation ? passwordCopy.hide : passwordCopy.show} title={showPasswordConfirmation ? passwordCopy.hide : passwordCopy.show}><PasswordVisibilityIcon visible={showPasswordConfirmation} /></button></span></label>
         </div>
         {draftChanged && !accountMessage && <p className="storeNote">Bạn đã thay đổi thông tin. Hãy bấm “{c.addStaff.replace("+ ", "") }” để lưu.</p>}
         {accountMessage && <p className="storeNote">{accountMessage}</p>}
