@@ -44,7 +44,7 @@
     "appId": "com.mainaill.bot",
     "productName": "Mainaill Bot",
     "asar": true,
-    "files": ["electron/**/*", "automation/**/*", "package.json", "node_modules/**/*"],
+    "files": ["electron/**/*", "automation/**/*", "lib/salonboardNames.mjs", "package.json", "node_modules/**/*"],
     "directories": { "output": "dist" },
     "extraResources": [{ "from": "vendor/playwright-browsers", "to": "playwright-browsers" }],
     "nsis": {
