@@ -12,6 +12,7 @@ import process from "node:process";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chromium } from "playwright";
+import { compactSalonboardName as compactName, salonboardStaffHeaderName as staffHeaderName } from "../lib/salonboardNames.mjs";
 
 const url = process.env.SALONBOARD_SCHEDULE_URL || "https://salonboard.com/login/";
 const loginUrl = "https://salonboard.com/login/";
@@ -88,10 +89,6 @@ async function blockStaffSchedule(page, item) {
   throw new Error(`Blocking is not enabled for ${item.staffName}; verify shift selectors first`);
 }
 
-function compactName(value) {
-  return String(value || "").replace(/\s+/g, "").toLowerCase();
-}
-
 function dateKey(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -100,8 +97,9 @@ function dateKey(date = new Date()) {
 }
 
 function internalStaffName(externalName) {
-  const match = Object.entries(staffRules()).find(([name, rule]) => compactName(rule?.externalStaffName || rule?.externalStaffId || name) === compactName(externalName));
-  return match?.[0] || externalName;
+  const headerName = staffHeaderName(externalName);
+  const match = Object.entries(staffRules()).find(([name, rule]) => compactName(rule?.externalStaffName || rule?.externalStaffId || name) === compactName(headerName));
+  return match?.[0] || headerName;
 }
 
 async function ingestExternalBooking(event) {
@@ -125,7 +123,8 @@ async function scanExternalBookings(page, date) {
     return heads.flatMap((head, index) => [...(rows[index]?.querySelectorAll(".scheduleReservation") || [])].map((item) => {
       let range = [];
       try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
-      return { externalStaff: (head.textContent || "").trim(), start: range[0] || "", end: range[1] || "", customer: (item.querySelector(".scheduleReserveName")?.textContent || "").replace(/\s*様\s*$/, "").trim() };
+      const externalStaff = String(head.textContent || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+      return { externalStaff, start: range[0] || "", end: range[1] || "", customer: (item.querySelector(".scheduleReserveName")?.textContent || "").replace(/\s*様\s*$/, "").trim() };
     }));
   });
   let observations = {};
@@ -191,7 +190,7 @@ async function openScheduleForm(page, task) {
   const rows = page.locator("li.jscScheduleMainTableLine");
   let staffIndex = -1;
   for (let index = 0; index < await heads.count(); index += 1) {
-    if (compactName(await heads.nth(index).innerText()) === compactName(externalName)) { staffIndex = index; break; }
+    if (compactName(staffHeaderName(await heads.nth(index).innerText())) === compactName(externalName)) { staffIndex = index; break; }
   }
   if (staffIndex < 0) throw new Error(`SALON BOARD staff not found: ${externalName}`);
 
@@ -287,7 +286,7 @@ async function reopenManagedSlot(page, task) {
   const rows = page.locator("li.jscScheduleMainTableLine");
   let staffIndex = -1;
   for (let index = 0; index < await heads.count(); index += 1) {
-    if (compactName(await heads.nth(index).innerText()) === compactName(externalName)) { staffIndex = index; break; }
+    if (compactName(staffHeaderName(await heads.nth(index).innerText())) === compactName(externalName)) { staffIndex = index; break; }
   }
   if (staffIndex < 0) throw new Error(`SALON BOARD staff not found: ${externalName}`);
   const managedItem = rows.nth(staffIndex).locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${booking.id}` }).first();
