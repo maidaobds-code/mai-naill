@@ -59,6 +59,8 @@ assert.deepEqual(cleared.result.pendingSyncActions, [{ target: "nailie", action:
 const capacityQueue = [{ ...acknowledged.result, pendingSyncActions: [{ target: "nailie", action: "capacity_unblock", taskId: "old" }, { target: "nailie", action: "capacity_block", taskId: "new" }] }];
 const oneCapacityAck = acknowledgeProviderSync(capacityQueue, { provider: "nailie", bookingId: acknowledged.result.id, taskId: "old", status: "synced" });
 assert.deepEqual(oneCapacityAck.result.pendingSyncActions, [{ target: "nailie", action: "capacity_block", taskId: "new" }]);
+const retryAfterError = acknowledgeProviderSync(capacityQueue, { provider: "nailie", bookingId: acknowledged.result.id, taskId: "old", status: "error", error: "temporary selector failure" });
+assert.deepEqual(retryAfterError.result.pendingSyncActions, capacityQueue[0].pendingSyncActions);
 
 const cancelled = ingestExternalBooking(acknowledged.bookings, { provider: "nailie", externalBookingId: "NL-100", action: "cancel" });
 assert.equal(cancelled.result.status, "CANCELLED");
@@ -90,6 +92,8 @@ assert.match(nailieWorkerSource, /"cancel", "unblock"/);
 assert.match(nailieWorkerSource, /Nailie external bookings scanned/);
 assert.match(salonboardWorkerSource, /reopenManagedSlot/);
 assert.match(salonboardWorkerSource, /SALON BOARD external bookings scanned/);
+assert.match(salonboardWorkerSource, /memoField\.first\(\)\.inputValue/);
+assert.match(syncRouteSource, /providerSync\?\.hotpepper\?\.status === "error"/);
 assert.match(cancellationRouteSource, /pendingSyncActions/);
 assert.match(cancellationRouteSource, /action: "cancel"/);
 assert.match(calendarSource, /HOT · chưa mapping/);
@@ -102,6 +106,7 @@ console.log("PASS overlapping external bookings require manual resolution");
 console.log("PASS provider acknowledgements produce per-platform synced status");
 console.log("PASS provider acknowledgement removes only its completed sync action");
 console.log("PASS multiple Nailie capacity tasks are acknowledged independently");
+console.log("PASS failed sync tasks remain retryable and deleted HOT blocks are recovered");
 console.log("PASS cancellation is propagated to the other platform");
 console.log("PASS conflict Gmail contains separate reassignment links and does not close either platform");
 console.log("PASS workers support external ingestion and exact-slot reopening");

@@ -38,7 +38,14 @@ export async function GET(request) {
   if (!["hotpepper", "nailie"].includes(provider)) return Response.json({ ok: false, message: "Invalid provider" }, { status: 400 });
   try {
     const bookings = await readBookings();
-    const tasks = bookings.flatMap((booking) => (Array.isArray(booking.pendingSyncActions) ? booking.pendingSyncActions : []).filter((action) => action.target === provider).map((action) => ({ ...action, booking: { id: booking.id, date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff, status: booking.status } })));
+    const tasks = bookings.flatMap((booking) => {
+      const pending = (Array.isArray(booking.pendingSyncActions) ? booking.pendingSyncActions : []).filter((action) => action.target === provider);
+      if (!pending.length && provider === "hotpepper" && booking.deletedAt && booking.providerSync?.hotpepper?.status === "error" && booking.date && booking.start && booking.end && (booking.staffId || booking.staff)) {
+        const retry = { target: "hotpepper", action: "cancel", bookingId: booking.id, match: { date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId || "", staff: booking.staff || "" } };
+        pending.push({ ...retry, taskId: syncTaskId(retry) });
+      }
+      return pending.map((action) => ({ ...action, booking: { id: booking.id, date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff, status: booking.status } }));
+    });
     return Response.json({ ok: true, provider, tasks }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     return Response.json({ ok: false, message: error.message || "Cannot read sync tasks" }, { status: 500 });

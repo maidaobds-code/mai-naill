@@ -302,8 +302,9 @@ async function reopenManagedSlot(page, task) {
   await managedItem.click();
   await page.locator(".mod_popup_02.sch.js_yotei .mod_btn_10").click();
   await page.waitForURL(/\/KLP\/set\/scheduleChange\//, { timeout: 20_000 });
-  const formText = await page.locator("body").innerText();
-  if (!formText.includes(`Mainaill booking ${booking.id}`)) throw new Error("SALON BOARD managed-slot ownership verification failed");
+  const memoField = page.locator('[name="schMemo"]');
+  const savedMemo = await memoField.count() ? await memoField.first().inputValue().catch(() => "") : "";
+  if (String(savedMemo).trim() !== `Mainaill booking ${booking.id}`) throw new Error(`SALON BOARD managed-slot ownership verification failed: ${savedMemo || "memo missing"}`);
   await page.evaluate(() => { window.confirm = () => true; });
   await page.locator("#delete").click();
   await page.waitForURL(/\/KLP\/schedule\/salonSchedule\//, { timeout: 20_000 });
