@@ -83,6 +83,13 @@ assert.deepEqual(createResult.syncTasks.map((task) => task.target).sort(), ["hot
 const readAfterCreate = await (await route.GET()).json();
 assert.equal(readAfterCreate.value.some((item) => item.id === newBooking.id && !item.deletedAt), true);
 
+const movedBooking = { ...newBooking, start: "16:30", end: "18:00" };
+const moveResult = await (await route.POST(request([movedBooking]))).json();
+assert.equal(moveResult.ok, true);
+assert.equal(moveResult.syncTasks.every((task) => task.action === "update"), true);
+assert.equal(moveResult.syncTasks.every((task) => task.previousMatch?.start === "12:00" && task.previousMatch?.end === "13:00"), true);
+assert.equal(moveResult.value.find((item) => item.id === newBooking.id).start, "16:30");
+
 console.log("PASS numeric ID is normalized to string ID");
 console.log("PASS unauthenticated deletion is rejected");
 console.log("PASS deletion remains after server reload");
@@ -91,4 +98,5 @@ console.log("PASS legacy duplicate with another ID is deleted in the same slot")
 console.log("PASS owner and staff reads are identical");
 console.log("PASS new manual booking remains visible after server reload");
 console.log("PASS Mainaill bookings create pending sync tasks for Nailie and HOT PEPPER");
+console.log("PASS moving a Mainaill booking queues old-slot reopening before new-slot blocking");
 console.log("PASS deleting a Mainaill booking queues exact-slot cancellation for both external apps");

@@ -198,6 +198,10 @@ async function scanExternalBookings(page, date) {
 async function applyExactSlotTask(page, task) {
   if (!["block", "update", "cancel", "unblock"].includes(task.action)) throw new Error(`Unsupported Nailie action: ${task.action}`);
   const booking = task.booking || {};
+  if (task.action === "update" && task.previousMatch) {
+    await applyExactSlotTask(page, { ...task, action: "unblock", previousMatch: null, booking: { ...booking, ...task.previousMatch } });
+    return applyExactSlotTask(page, { ...task, action: "block", previousMatch: null });
+  }
   const mapping = staffMapping();
   const mapped = mapping[booking.staff] || Object.entries(mapping).find(([name]) => compactName(name) === compactName(booking.staff))?.[1] || [];
   const externalName = String(mapped[0] || booking.staff || "");

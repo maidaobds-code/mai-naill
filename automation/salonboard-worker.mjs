@@ -233,6 +233,10 @@ async function openScheduleForm(page, task) {
 async function applySyncTask(page, task) {
   if (["cancel", "unblock"].includes(task.action)) return reopenManagedSlot(page, task);
   if (!["block", "update"].includes(task.action)) throw new Error(`Unsupported SALON BOARD action: ${task.action}`);
+  if (task.action === "update" && task.previousMatch) {
+    await reopenManagedSlot(page, { ...task, action: "unblock", previousMatch: null, booking: { ...task.booking, ...task.previousMatch } });
+    return applySyncTask(page, { ...task, action: "block", previousMatch: null });
+  }
   const prepared = await openScheduleForm(page, task);
   if (prepared.alreadySaved) {
     log("SALON BOARD exact slot already blocked", JSON.stringify({ bookingId: task.booking.id, ...prepared }));

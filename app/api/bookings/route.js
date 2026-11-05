@@ -112,7 +112,12 @@ export async function POST(request) {
       if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
     }
     const merged = compactBookings([...protectedBookings, ...currentAfterRelatedDeletes.filter((item) => item.id && !incomingIds.has(item.id))]);
-    const syncTasks = submitted.filter((booking) => String(booking.source || "").toLowerCase() === "direct" && !booking.deletedAt).flatMap((booking) => ["hotpepper", "nailie"].filter((provider) => booking.providerSync?.[provider]?.status === "pending").map((target) => ({ target, action: currentIds.has(booking.id) ? "update" : "block", bookingId: booking.id })));
+    const syncTasks = submitted.filter((booking) => String(booking.source || "").toLowerCase() === "direct" && !booking.deletedAt).flatMap((booking) => {
+      const previous = current.find((item) => item.id === booking.id);
+      const changedSlot = previous && !sameSlot(previous, booking);
+      const previousMatch = changedSlot ? { date: previous.date, start: previous.start, end: previous.end, staffId: previous.staffId || "", staff: previous.staff || "" } : null;
+      return ["hotpepper", "nailie"].filter((provider) => booking.providerSync?.[provider]?.status === "pending").map((target) => ({ target, action: previous ? "update" : "block", bookingId: booking.id, ...(previousMatch ? { previousMatch } : {}) }));
+    });
     const tasksByBooking = new Map(syncTasks.map((task) => [String(task.bookingId), []]));
     for (const task of syncTasks) tasksByBooking.get(String(task.bookingId))?.push(task);
     const mergedWithTasks = merged.map((booking) => tasksByBooking.has(String(booking.id)) ? { ...booking, pendingSyncActions: tasksByBooking.get(String(booking.id)) } : booking);
