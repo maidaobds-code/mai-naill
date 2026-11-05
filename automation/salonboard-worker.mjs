@@ -178,8 +178,19 @@ async function applySyncTask(page, task) {
     return;
   }
   await waitBeforeOperation();
+  // SALON BOARD asks for a native JavaScript confirmation before submitting.
+  // The worker is already gated by dry-run mode, so accept only this prepared
+  // submission and then verify the persisted time range on the schedule page.
+  await page.evaluate(() => { window.confirm = () => true; });
   await page.locator("#regist").click();
-  await page.waitForLoadState("domcontentloaded");
+  await page.waitForURL(/\/KLP\/schedule\/salonSchedule\//, { timeout: 20_000 });
+  const savedItem = page.locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${task.booking.id}` }).first();
+  await savedItem.waitFor({ state: "visible", timeout: 20_000 });
+  const savedRange = await savedItem.locator(".jscScheduleTimeZoneSetting").textContent();
+  const expectedRange = JSON.stringify([prepared.start, prepared.end]);
+  if (String(savedRange || "").replace(/\s+/g, "") !== expectedRange.replace(/\s+/g, "")) {
+    throw new Error(`SALON BOARD saved-slot verification failed: ${savedRange}`);
+  }
   log("SALON BOARD exact slot blocked", JSON.stringify({ bookingId: task.booking.id, ...prepared }));
 }
 
