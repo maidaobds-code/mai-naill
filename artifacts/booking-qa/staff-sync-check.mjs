@@ -83,6 +83,17 @@ assert.deepEqual(accountValue.map((account) => account.id), ["owner"]);
 assert.equal(accountValue.some((account) => account.email === "reuse@example.com"), false);
 console.log("PASS deleting a staff login removes its Supabase account and releases the email");
 
+accountValue = [{ id: "owner-existing", role: "owner", name: "Old Owner", email: "info@mainaill.com", passwordHash: "old-hash" }];
+const ownerAccountRequest = new Request("https://salon.example.com/api/accounts", { method: "POST", headers: { cookie: adminCookie(createAdminSession()), "content-type": "application/json" }, body: JSON.stringify({ account: { id: "staff-new-owner", role: "owner", name: "MAI", staffName: "MAI", email: "info@mainaill.com", passwordHash: "new-hash" } }) });
+const ownerAccountResponse = await accountsRoute.POST(ownerAccountRequest);
+const ownerAccountResult = await ownerAccountResponse.json();
+assert.equal(ownerAccountResponse.status, 200);
+assert.equal(ownerAccountResult.ok, true);
+assert.equal(accountValue.length, 1);
+assert.equal(accountValue[0].id, "staff-new-owner");
+assert.equal(accountValue[0].role, "owner");
+console.log("PASS a new owner staff account can reuse an email released from the previous account");
+
 remoteValue = [{ id: "current-staff", name: "Current", email: "current@example.com", role: "staff" }];
 accountValue = [
   { id: "owner", role: "owner", name: "Owner", email: "owner@test.local", passwordHash: "hash" },
