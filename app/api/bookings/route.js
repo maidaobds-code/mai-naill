@@ -112,11 +112,14 @@ export async function POST(request) {
       if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
     }
     const merged = compactBookings([...protectedBookings, ...currentAfterRelatedDeletes.filter((item) => item.id && !incomingIds.has(item.id))]);
-    const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: merged, updated_at: new Date().toISOString() }]) });
+    const syncTasks = submitted.filter((booking) => String(booking.source || "").toLowerCase() === "direct" && !booking.deletedAt).flatMap((booking) => ["hotpepper", "nailie"].filter((provider) => booking.providerSync?.[provider]?.status === "pending").map((target) => ({ target, action: currentIds.has(booking.id) ? "update" : "block", bookingId: booking.id })));
+    const tasksByBooking = new Map(syncTasks.map((task) => [String(task.bookingId), []]));
+    for (const task of syncTasks) tasksByBooking.get(String(task.bookingId))?.push(task);
+    const mergedWithTasks = merged.map((booking) => tasksByBooking.has(String(booking.id)) ? { ...booking, pendingSyncActions: tasksByBooking.get(String(booking.id)) } : booking);
+    const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: mergedWithTasks, updated_at: new Date().toISOString() }]) });
     const newOnlineBookings = submitted.filter((booking) => booking.id && !booking.deletedAt && !currentIds.has(booking.id) && String(booking.source || "").toLowerCase() === "direct");
     const notifications = await Promise.all(newOnlineBookings.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
-    const syncTasks = submitted.filter((booking) => String(booking.source || "").toLowerCase() === "direct" && !booking.deletedAt).flatMap((booking) => ["hotpepper", "nailie"].filter((provider) => booking.providerSync?.[provider]?.status === "pending").map((target) => ({ target, action: currentIds.has(booking.id) ? "update" : "block", bookingId: booking.id })));
-    return Response.json({ ok: true, value: rows?.[0]?.value || merged, assignmentNotifications: notifications, syncTasks });
+    return Response.json({ ok: true, value: rows?.[0]?.value || mergedWithTasks, assignmentNotifications: notifications, syncTasks });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
 }
 
