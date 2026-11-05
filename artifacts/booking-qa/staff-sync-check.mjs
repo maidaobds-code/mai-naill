@@ -82,3 +82,18 @@ assert.equal(deleteResult.ok, true);
 assert.deepEqual(accountValue.map((account) => account.id), ["owner"]);
 assert.equal(accountValue.some((account) => account.email === "reuse@example.com"), false);
 console.log("PASS deleting a staff login removes its Supabase account and releases the email");
+
+remoteValue = [{ id: "current-staff", name: "Current", email: "current@example.com", role: "staff" }];
+accountValue = [
+  { id: "owner", role: "owner", name: "Owner", email: "owner@test.local", passwordHash: "hash" },
+  { id: "staff-current-staff", role: "staff", name: "Current", staffName: "Current", email: "current@example.com", passwordHash: "hash" },
+  { id: "staff-old", role: "staff", name: "Old", staffName: "Old", email: "old@example.com", passwordHash: "hash" },
+  { id: "customer-keep", role: "customer", name: "Customer", email: "customer@example.com", passwordHash: "hash" },
+];
+const orphanCleanupRequest = new Request("https://salon.example.com/api/staff", { method: "POST", headers: { cookie: adminCookie(createAdminSession()), "content-type": "application/json" }, body: JSON.stringify({ value: remoteValue }) });
+const orphanCleanupResponse = await route.POST(orphanCleanupRequest);
+const orphanCleanupResult = await orphanCleanupResponse.json();
+assert.equal(orphanCleanupResponse.status, 200);
+assert.deepEqual(orphanCleanupResult.removedAccountIds, ["staff-old"]);
+assert.deepEqual(accountValue.map((account) => account.id), ["owner", "staff-current-staff", "customer-keep"]);
+console.log("PASS saving the authoritative staff list removes every orphan staff account but preserves owner and customer accounts");

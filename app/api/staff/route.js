@@ -29,6 +29,15 @@ function staffFromAccounts(accounts) {
   }));
 }
 
+function accountMatchesStaff(account, staff) {
+  const accountStaffId = String(account?.id || "").replace(/^staff-/, "");
+  const accountEmail = String(account?.email || "").trim().toLowerCase();
+  const accountName = String(account?.staffName || account?.name || "").trim().toLowerCase();
+  return staff.some((member) => String(member?.id || "") === accountStaffId
+    || (accountEmail && String(member?.email || "").trim().toLowerCase() === accountEmail)
+    || (accountName && [member?.name, member?.displayName].some((value) => String(value || "").trim().toLowerCase() === accountName)));
+}
+
 async function rest(path, options = {}) {
   if (!SUPABASE_URL || !KEY) throw new Error("Supabase server configuration is missing");
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, { ...options, cache: "no-store", headers: { apikey: KEY, authorization: `Bearer ${KEY}`, "content-type": "application/json", ...(options.headers || {}) } });
@@ -67,6 +76,13 @@ export async function POST(request) {
   const value = body.value.map(({ accountPassword, ...member }) => member);
   try {
     await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
-    return Response.json({ ok: true, value });
+    const accountRows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${ACCOUNTS_KV}&select=value&limit=1`);
+    const accounts = Array.isArray(accountRows?.[0]?.value) ? accountRows[0].value : [];
+    const removedAccounts = accounts.filter((account) => ["staff", "manager"].includes(account?.role) && !accountMatchesStaff(account, value));
+    const nextAccounts = accounts.filter((account) => !removedAccounts.includes(account));
+    if (removedAccounts.length) {
+      await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: ACCOUNTS_KV, value: nextAccounts, updated_at: new Date().toISOString() }]) });
+    }
+    return Response.json({ ok: true, value, removedAccountIds: removedAccounts.map((account) => account.id) });
   } catch { return Response.json({ ok: false, message: "Không thể lưu danh sách nhân viên." }, { status: 500 }); }
 }
