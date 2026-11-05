@@ -39,8 +39,8 @@ const copy = {
 export default function StaffManagement({ label = "Staff", embedded = false, language = "vi" }) {
   const c = copy[language] || copy.vi;
   const tc = (key) => tx(language, "common", key);
-  const { staff, setStaff, syncStatus, syncError } = useStaffStore();
-  const { accounts, upsertStaffAccount, resetPassword, updateAccountRole } = useAccountStore();
+  const { staff, setStaff, saveStaff, syncStatus, syncError } = useStaffStore();
+  const { accounts, upsertStaffAccount, resetPassword, updateAccountRole, deleteAccount } = useAccountStore();
   const [draft, setDraft] = useState(newStaff(seedStaff.length + 1));
   const [resetDraft, setResetDraft] = useState({});
   const [roleDraft, setRoleDraft] = useState({});
@@ -79,9 +79,24 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     } catch (error) { setAccountMessage(`Không thể đổi mật khẩu: ${error.message}`); }
   }
 
-  function deleteStaff(id) {
-    setStaff((current) => current.filter((member) => member.id !== id));
-    setAccountMessage("Đang xóa và đồng bộ danh sách nhân viên lên server…");
+  async function deleteStaff(id) {
+    const member = staff.find((item) => item.id === id);
+    if (!member) return;
+    const normalizedEmail = String(member.email || "").trim().toLowerCase();
+    const emailMatches = normalizedEmail ? accounts.filter((item) => String(item.email || "").trim().toLowerCase() === normalizedEmail) : [];
+    const nameMatches = accounts.filter((item) => item.name === member.name || item.staffName === member.name);
+    const account = emailMatches.length === 1 ? emailMatches[0] : accounts.find((item) => item.id === `staff-${member.id}`) || (nameMatches.length === 1 ? nameMatches[0] : null);
+    setAccountMessage("Đang xóa tài khoản và nhân viên khỏi Supabase…");
+    try {
+      if (account) {
+        const deleted = await deleteAccount(account.id);
+        if (!deleted.ok) throw new Error(deleted.message);
+      }
+      await saveStaff(staff.filter((item) => item.id !== id));
+      setAccountMessage(`Đã xóa ${member.name} và giải phóng email đăng nhập.`);
+    } catch (error) {
+      setAccountMessage(`Không thể xóa nhân viên: ${error.message}`);
+    }
   }
 
   function editBookingDisplay(member) {

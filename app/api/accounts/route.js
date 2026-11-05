@@ -1,4 +1,4 @@
-import { isAdminRequest as adminRequest, isOwnerRequest } from "../../../lib/serverAuth";
+import { isAdminRequest as adminRequest, isOwnerRequest } from "../../../lib/serverAuth.js";
 
 function isAdminRequest(request) {
   return adminRequest(request) || isOwnerRequest(request);
@@ -50,4 +50,21 @@ export async function POST(request) {
     await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
     return Response.json({ ok: true, value });
   } catch { return Response.json({ ok: false, message: "Không thể lưu tài khoản." }, { status: 500 }); }
+}
+
+export async function DELETE(request) {
+  if (!isAdminRequest(request)) return Response.json({ ok: false, message: "Phiên chủ quán không hợp lệ." }, { status: 401 });
+  const body = await request.json().catch(() => ({}));
+  const accountId = String(body.accountId || "");
+  if (!accountId) return Response.json({ ok: false, message: "Thiếu mã tài khoản." }, { status: 400 });
+  try {
+    const rows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${KV}&select=value&limit=1`);
+    const current = Array.isArray(rows?.[0]?.value) ? rows[0].value : [];
+    const target = current.find((account) => String(account.id) === accountId);
+    if (!target) return Response.json({ ok: true, value: current, deletedId: accountId });
+    if (target.role === "owner" && current.filter((account) => account.role === "owner").length <= 1) return Response.json({ ok: false, message: "Không thể xóa chủ quán cuối cùng." }, { status: 409 });
+    const value = current.filter((account) => String(account.id) !== accountId);
+    await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
+    return Response.json({ ok: true, value, deletedId: accountId });
+  } catch { return Response.json({ ok: false, message: "Không thể xóa tài khoản khỏi Supabase." }, { status: 500 }); }
 }

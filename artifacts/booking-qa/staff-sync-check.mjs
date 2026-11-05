@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.test";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
 process.env.CATALOG_OWNER_ID = "00000000-0000-0000-0000-000000000001";
+process.env.ADMIN_USER = "owner@test.local";
+process.env.ADMIN_PASS = "test-admin-password";
+process.env.ADMIN_SESSION_SECRET = "test-session-secret";
 
 const staff = [{ id: "staff-1", name: "Synced Mai", role: "Nailist", bookingVisible: true }];
 let remoteValue = staff;
@@ -12,6 +15,7 @@ globalThis.fetch = async (url, options = {}) => {
   if ((options.method || "GET") === "POST") {
     const row = JSON.parse(options.body)[0];
     if (row.key === "nail-japan-staff") remoteValue = row.value;
+    if (row.key === "nail-japan-accounts-v1") accountValue = row.value;
     return Response.json([]);
   }
   if (String(url).includes("key=eq.nail-japan-accounts-v1")) return Response.json([{ value: accountValue }]);
@@ -63,3 +67,18 @@ assert.equal(restoreResult.value.length, 2);
 assert.deepEqual(restoreResult.value.map((member) => member.name), ["MAI", "Nailist thật"]);
 assert.deepEqual(remoteValue.map((member) => member.id), ["real-mai", "real-nailist"]);
 console.log("PASS real owner/staff accounts restore the shared employee list");
+
+const accountsRoute = await import("../../app/api/accounts/route.js");
+const { createAdminSession, adminCookie } = await import("../../lib/serverAuth.js");
+accountValue = [
+  { id: "owner", role: "owner", name: "Owner", email: "owner@test.local", passwordHash: "hash" },
+  { id: "staff-delete-me", role: "staff", name: "Delete Me", email: "reuse@example.com", passwordHash: "hash" },
+];
+const deleteRequest = new Request("https://salon.example.com/api/accounts", { method: "DELETE", headers: { cookie: adminCookie(createAdminSession()), "content-type": "application/json" }, body: JSON.stringify({ accountId: "staff-delete-me" }) });
+const deleteResponse = await accountsRoute.DELETE(deleteRequest);
+const deleteResult = await deleteResponse.json();
+assert.equal(deleteResponse.status, 200);
+assert.equal(deleteResult.ok, true);
+assert.deepEqual(accountValue.map((account) => account.id), ["owner"]);
+assert.equal(accountValue.some((account) => account.email === "reuse@example.com"), false);
+console.log("PASS deleting a staff login removes its Supabase account and releases the email");
