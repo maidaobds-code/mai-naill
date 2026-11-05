@@ -147,8 +147,56 @@ async function acknowledgeTask(task, status, error = "") {
   if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ack HTTP ${response.status}`);
 }
 
+async function ingestExternalBooking(event) {
+  const response = await fetch(`${mainaillUrl}/api/booking-sync`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" },
+    body: JSON.stringify(event),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ingest HTTP ${response.status}`);
+  return result;
+}
+
+function internalStaffName(externalId, externalName) {
+  const mapping = staffMapping();
+  const match = Object.entries(mapping).find(([, values]) => values.some((value) => compactName(value) === compactName(externalId) || compactName(value) === compactName(externalName)));
+  return match?.[0] || externalName;
+}
+
+function tokyoParts(value) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(value)).map((part) => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
+
+async function scanExternalBookings(page, date) {
+  const responsePromise = page.waitForResponse((response) => response.url().includes("/api/v1/bookings?page=1&limit=10000"), { timeout: 20_000 });
+  await page.goto(`https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${date}&showBooking=true`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  const response = await responsePromise;
+  const payload = await response.json();
+  const records = Array.isArray(payload?.data?.data) ? payload.data.data : [];
+  let imported = 0;
+  for (const record of records) {
+    if (Number(record.status) !== 4) continue;
+    const order = Array.isArray(record.orders) ? record.orders.find((item) => item?.staff) : null;
+    const externalName = String(order?.staff?.name || "").trim();
+    const externalId = String(order?.staff?.id || "").trim();
+    if (!record.id || !record.startTime || !record.endTime || !externalName) continue;
+    const start = tokyoParts(record.startTime);
+    const end = tokyoParts(record.endTime);
+    await ingestExternalBooking({
+      provider: "nailie",
+      externalBookingId: String(record.id),
+      action: "upsert",
+      booking: { date: start.date, start: start.time, end: end.time, staff: internalStaffName(externalId, externalName), customer: "Nailie", service: "Nailie booking", status: "CONFIRMED" },
+    });
+    imported += 1;
+  }
+  log("Nailie external bookings scanned", JSON.stringify({ date, found: records.length, imported }));
+}
+
 async function applyExactSlotTask(page, task) {
-  if (!["block", "update"].includes(task.action)) throw new Error(`Unsupported Nailie action: ${task.action}`);
+  if (!["block", "update", "cancel", "unblock"].includes(task.action)) throw new Error(`Unsupported Nailie action: ${task.action}`);
   const booking = task.booking || {};
   const mapping = staffMapping();
   const mapped = mapping[booking.staff] || Object.entries(mapping).find(([name]) => compactName(name) === compactName(booking.staff))?.[1] || [];
@@ -176,18 +224,20 @@ async function applyExactSlotTask(page, task) {
     const before = String(await icon.getAttribute("alt") || "").toLowerCase();
     if (!before) throw new Error(`Nailie slot icon missing at ${Math.floor(slot / 60)}:${String(slot % 60).padStart(2, "0")}`);
     prepared.push({ slot, before });
-    if (before === "x") continue;
-    if (before !== "o") throw new Error(`Unexpected Nailie slot state: ${before}`);
+    const expected = ["cancel", "unblock"].includes(task.action) ? "o" : "x";
+    if (before === expected) continue;
+    if (!["o", "x"].includes(before)) throw new Error(`Unexpected Nailie slot state: ${before}`);
     if (!dryRun) {
       await waitBeforeOperation();
       await cell.click();
-      await page.waitForFunction(({ rowKey, index }) => {
+      await page.waitForFunction(({ rowKey, index, expected }) => {
         const target = document.querySelector(`tr[data-row-key="${rowKey}"]`)?.querySelectorAll("td")?.[index]?.querySelector("img");
-        return String(target?.getAttribute("alt") || "").toLowerCase() === "x";
-      }, { rowKey: await row.getAttribute("data-row-key"), index: cellIndex }, { timeout: 15_000 });
+        return String(target?.getAttribute("alt") || "").toLowerCase() === expected;
+      }, { rowKey: await row.getAttribute("data-row-key"), index: cellIndex, expected }, { timeout: 15_000 });
     }
   }
-  log(dryRun ? "DRY_RUN exact Nailie slots prepared" : "Nailie exact slots blocked", JSON.stringify({ bookingId: booking.id, staff: externalName, date: booking.date, start: booking.start, end: booking.end, prepared }));
+  const verb = ["cancel", "unblock"].includes(task.action) ? "opened" : "blocked";
+  log(dryRun ? `DRY_RUN exact Nailie slots ${verb}` : `Nailie exact slots ${verb}`, JSON.stringify({ bookingId: booking.id, staff: externalName, date: booking.date, start: booking.start, end: booking.end, prepared }));
 }
 
 async function launchChrome() {
@@ -226,7 +276,7 @@ async function run() {
   await page.goto(url, { waitUntil: "domcontentloaded" });
   log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs}`);
 
-  let lastSignature = "";
+  let scanOffset = 0;
   for (;;) {
     try {
       if (/login|sign-in/i.test(page.url())) {
@@ -242,6 +292,9 @@ async function run() {
             if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
           }
         }
+        const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
+        await scanExternalBookings(page, scanDate);
+        scanOffset = (scanOffset + 1) % 31;
       }
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));

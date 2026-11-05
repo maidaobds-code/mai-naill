@@ -73,7 +73,20 @@ export async function POST(request) {
   try {
     const current = await readBookings();
     const outcome = body.kind === "ack" ? acknowledgeProviderSync(current, body) : ingestExternalBooking(current, body);
-    const value = await saveBookings(outcome.bookings);
+    const tasksByBooking = new Map();
+    for (const task of outcome.tasks || []) {
+      const key = String(task.bookingId || "");
+      if (!tasksByBooking.has(key)) tasksByBooking.set(key, []);
+      tasksByBooking.get(key).push(task);
+    }
+    const queued = outcome.bookings.map((booking) => {
+      const tasks = tasksByBooking.get(String(booking.id));
+      if (!tasks?.length) return booking;
+      const targets = new Set(tasks.map((task) => task.target));
+      const existing = (Array.isArray(booking.pendingSyncActions) ? booking.pendingSyncActions : []).filter((task) => !targets.has(task.target));
+      return { ...booking, pendingSyncActions: [...existing, ...tasks] };
+    });
+    const value = await saveBookings(queued);
     const notification = outcome.conflicts ? await notifyConflict(request, outcome.conflicts).catch((error) => ({ ok: false, reason: error.message })) : null;
     return Response.json({ ok: true, conflict: Boolean(outcome.conflicts), value, result: outcome.result, conflicts: outcome.conflicts || [], tasks: outcome.tasks || [], notification });
   } catch (error) {

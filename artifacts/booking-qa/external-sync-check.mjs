@@ -14,6 +14,13 @@ assert.equal(nailie.result.providerSync.hotpepper.status, "pending");
 assert.equal(nailie.tasks[0].target, "hotpepper");
 assert.equal(bookingSlotKey(nailie.result), "2026-11-03|10:00|11:00|staff-mai");
 
+const unchanged = ingestExternalBooking(nailie.bookings, {
+  provider: "nailie",
+  externalBookingId: "NL-100",
+  booking: { date: "2026-11-03", start: "10:00", end: "11:00", staffId: "staff-mai", staff: "Mai", customer: "Nailie customer" },
+});
+assert.deepEqual(unchanged.tasks, []);
+
 const duplicate = ingestExternalBooking(nailie.bookings, {
   provider: "nailie",
   externalBookingId: "NL-100",
@@ -51,12 +58,26 @@ const syncRouteSource = fs.readFileSync(new URL("../../app/api/booking-sync/rout
 assert.match(syncRouteSource, /managementEmails\(\)/);
 assert.match(syncRouteSource, /createBookingAssignmentToken\(booking\.id\)/);
 assert.match(syncRouteSource, /Chưa đóng lịch trên nền tảng nào/);
+assert.match(syncRouteSource, /pendingSyncActions/);
+
+const nailieWorkerSource = fs.readFileSync(new URL("../../automation/nailie-worker.mjs", import.meta.url), "utf8");
+const salonboardWorkerSource = fs.readFileSync(new URL("../../automation/salonboard-worker.mjs", import.meta.url), "utf8");
+const cancellationRouteSource = fs.readFileSync(new URL("../../app/api/booking-cancellation/route.js", import.meta.url), "utf8");
+assert.match(nailieWorkerSource, /"cancel", "unblock"/);
+assert.match(nailieWorkerSource, /Nailie external bookings scanned/);
+assert.match(salonboardWorkerSource, /reopenManagedSlot/);
+assert.match(salonboardWorkerSource, /SALON BOARD external bookings scanned/);
+assert.match(cancellationRouteSource, /pendingSyncActions/);
+assert.match(cancellationRouteSource, /action: "cancel"/);
 
 console.log("PASS Nailie booking becomes the Mainaill canonical record");
 console.log("PASS duplicate external events update instead of creating a loop");
+console.log("PASS unchanged external events do not create another sync loop");
 console.log("PASS overlapping external bookings require manual resolution");
 console.log("PASS provider acknowledgements produce per-platform synced status");
 console.log("PASS provider acknowledgement removes only its completed sync action");
 console.log("PASS cancellation is propagated to the other platform");
 console.log("PASS conflict Gmail contains separate reassignment links and does not close either platform");
+console.log("PASS workers support external ingestion and exact-slot reopening");
+console.log("PASS customer cancellation also queues managed-slot reopening");
 

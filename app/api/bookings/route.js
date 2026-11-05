@@ -135,11 +135,13 @@ export async function DELETE(request) {
     if (!target) return Response.json({ ok: false, message: "Lịch hẹn không còn tồn tại trên server." }, { status: 404 });
     const deletedAt = target.deletedAt || new Date().toISOString();
     const match = { date: target.date, start: target.start, end: target.end, staffId: target.staffId || "", staff: target.staff || "" };
-    const syncTasks = ["hotpepper", "nailie"].map((provider) => ({ target: provider, action: "cancel", bookingId: target.id, externalBookingId: target.providerSync?.[provider]?.externalBookingId || "", match }));
+    const source = String(target.source || "direct").toLowerCase();
+    const syncProviders = ["hotpepper", "nailie"].filter((provider) => source === "direct" || provider !== source);
+    const syncTasks = syncProviders.map((provider) => ({ target: provider, action: "cancel", bookingId: target.id, externalBookingId: target.providerSync?.[provider]?.externalBookingId || "", match }));
     const next = current.map((item) => {
       if (item.id !== id && !sameSlot(item, target)) return item;
       const providerSync = providerSyncState(item);
-      for (const provider of ["hotpepper", "nailie"]) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
+      for (const provider of syncProviders) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
       return { ...item, status: "CANCELLED", cancelledAt: item.cancelledAt || deletedAt, deletedAt: item.deletedAt || deletedAt, providerSync, syncStatus: overallSyncStatus(providerSync), pendingSyncActions: syncTasks };
     });
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {

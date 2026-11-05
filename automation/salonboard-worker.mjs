@@ -10,6 +10,7 @@ import fsSync from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { chromium } from "playwright";
 
 const url = process.env.SALONBOARD_SCHEDULE_URL || "https://salonboard.com/login/";
@@ -90,6 +91,58 @@ function compactName(value) {
   return String(value || "").replace(/\s+/g, "").toLowerCase();
 }
 
+function dateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function internalStaffName(externalName) {
+  const match = Object.entries(staffRules()).find(([name, rule]) => compactName(rule?.externalStaffName || rule?.externalStaffId || name) === compactName(externalName));
+  return match?.[0] || externalName;
+}
+
+async function ingestExternalBooking(event) {
+  const response = await fetch(`${mainaillUrl}/api/booking-sync`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" },
+    body: JSON.stringify(event),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ingest HTTP ${response.status}`);
+  return result;
+}
+
+async function scanExternalBookings(page, date) {
+  const compactDate = date.replaceAll("-", "");
+  await page.goto(`${scheduleUrl}?date=${compactDate}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForSelector('[id^="STAFF_"]', { timeout: 20_000 });
+  const records = await page.evaluate(() => {
+    const heads = [...document.querySelectorAll('[id^="STAFF_"]')];
+    const rows = [...document.querySelectorAll("li.jscScheduleMainTableLine")];
+    return heads.flatMap((head, index) => [...(rows[index]?.querySelectorAll(".scheduleReservation") || [])].map((item) => {
+      let range = [];
+      try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
+      return { externalStaff: (head.textContent || "").trim(), start: range[0] || "", end: range[1] || "", customer: (item.querySelector(".scheduleReserveName")?.textContent || "").replace(/\s*様\s*$/, "").trim() };
+    }));
+  });
+  let imported = 0;
+  for (const record of records) {
+    if (!record.externalStaff || !record.start || !record.end) continue;
+    const fingerprint = [date, record.externalStaff, record.start, record.end, record.customer].join("|");
+    const externalBookingId = createHash("sha256").update(fingerprint).digest("hex").slice(0, 32);
+    await ingestExternalBooking({
+      provider: "hotpepper",
+      externalBookingId,
+      action: "upsert",
+      booking: { date, start: record.start, end: record.end, staff: internalStaffName(record.externalStaff), customer: "SALON BOARD", service: "SALON BOARD booking", status: "CONFIRMED" },
+    });
+    imported += 1;
+  }
+  log("SALON BOARD external bookings scanned", JSON.stringify({ date, found: records.length, imported }));
+}
+
 async function fetchSyncTasks() {
   if (!syncSecret) throw new Error("BOOKING_SYNC_SECRET is required");
   const response = await fetch(`${mainaillUrl}/api/booking-sync?provider=hotpepper`, {
@@ -131,6 +184,13 @@ async function openScheduleForm(page, task) {
   if (staffIndex < 0) throw new Error(`SALON BOARD staff not found: ${externalName}`);
 
   const row = rows.nth(staffIndex);
+  const existingItem = row.locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${booking.id}` }).first();
+  if (await existingItem.count()) {
+    const savedRange = await existingItem.locator(".jscScheduleTimeZoneSetting").textContent();
+    const expectedRange = JSON.stringify([`${startHour}:${startMinute}`, `${endHour}:${endMinute}`]);
+    if (String(savedRange || "").replace(/\s+/g, "") !== expectedRange.replace(/\s+/g, "")) throw new Error(`SALON BOARD existing managed slot has a different range: ${savedRange}`);
+    return { date, staff: externalName, start: `${startHour}:${startMinute}`, end: `${endHour}:${endMinute}`, alreadySaved: true };
+  }
   const area = row.locator(".jscScheduleSetArea");
   const areaBox = await area.boundingBox();
   const firstTime = row.locator(".scheduleTime").first();
@@ -171,8 +231,13 @@ async function openScheduleForm(page, task) {
 }
 
 async function applySyncTask(page, task) {
+  if (["cancel", "unblock"].includes(task.action)) return reopenManagedSlot(page, task);
   if (!["block", "update"].includes(task.action)) throw new Error(`Unsupported SALON BOARD action: ${task.action}`);
   const prepared = await openScheduleForm(page, task);
+  if (prepared.alreadySaved) {
+    log("SALON BOARD exact slot already blocked", JSON.stringify({ bookingId: task.booking.id, ...prepared }));
+    return;
+  }
   if (dryRun) {
     log("DRY_RUN exact SALON BOARD slot prepared", JSON.stringify({ task, prepared }));
     return;
@@ -194,6 +259,44 @@ async function applySyncTask(page, task) {
   log("SALON BOARD exact slot blocked", JSON.stringify({ bookingId: task.booking.id, ...prepared }));
 }
 
+async function reopenManagedSlot(page, task) {
+  const booking = task.booking || {};
+  const rule = staffRules()[booking.staff] || Object.entries(staffRules()).find(([name]) => compactName(name) === compactName(booking.staff))?.[1];
+  const externalName = String(rule?.externalStaffName || rule?.externalStaffId || booking.staff || "");
+  const date = String(booking.date || "").replaceAll("-", "").replaceAll("/", "");
+  if (!/^\d{8}$/.test(date) || !externalName) throw new Error("Invalid SALON BOARD unblock task");
+  await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForSelector('[id^="STAFF_"]', { timeout: 20_000 });
+  const heads = page.locator('[id^="STAFF_"]');
+  const rows = page.locator("li.jscScheduleMainTableLine");
+  let staffIndex = -1;
+  for (let index = 0; index < await heads.count(); index += 1) {
+    if (compactName(await heads.nth(index).innerText()) === compactName(externalName)) { staffIndex = index; break; }
+  }
+  if (staffIndex < 0) throw new Error(`SALON BOARD staff not found: ${externalName}`);
+  const managedItem = rows.nth(staffIndex).locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${booking.id}` }).first();
+  if (!await managedItem.count()) {
+    log("SALON BOARD exact slot already open", JSON.stringify({ bookingId: booking.id, date: booking.date, staff: externalName }));
+    return;
+  }
+  if (dryRun) {
+    log("DRY_RUN SALON BOARD exact slot would open", JSON.stringify({ bookingId: booking.id, date: booking.date, staff: externalName }));
+    return;
+  }
+  await waitBeforeOperation();
+  await managedItem.click();
+  await page.locator(".mod_popup_02.sch.js_yotei .mod_btn_10").click();
+  await page.waitForURL(/\/KLP\/set\/scheduleChange\//, { timeout: 20_000 });
+  const formText = await page.locator("body").innerText();
+  if (!formText.includes(`Mainaill booking ${booking.id}`)) throw new Error("SALON BOARD managed-slot ownership verification failed");
+  await page.evaluate(() => { window.confirm = () => true; });
+  await page.locator("#delete").click();
+  await page.waitForURL(/\/KLP\/schedule\/salonSchedule\//, { timeout: 20_000 });
+  const remaining = page.locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${booking.id}` });
+  if (await remaining.count()) throw new Error("SALON BOARD managed slot still exists after delete");
+  log("SALON BOARD exact slot opened", JSON.stringify({ bookingId: booking.id, date: booking.date, staff: externalName }));
+}
+
 async function run() {
   await launchChrome();
   const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
@@ -207,6 +310,7 @@ async function run() {
   await navigate(page);
   log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs}`);
 
+  let scanOffset = 0;
   for (;;) {
     try {
       if (await isSessionExpired(page)) {
@@ -227,6 +331,9 @@ async function run() {
           if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
         }
       }
+      const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
+      await scanExternalBookings(page, scanDate);
+      scanOffset = (scanOffset + 1) % 31;
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
     }
