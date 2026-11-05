@@ -142,9 +142,9 @@ async function openScheduleForm(page, task) {
   await page.mouse.click(areaBox.x + ((startMinutes - firstMinutes) * timeBox.width / 60) + 3, areaBox.y + areaBox.height / 2);
   const timeChoice = page.locator(".jscScheduleTimePeriodModal [data-start-time]").filter({ hasText: `${startHour}:${startMinute}` });
   if (await timeChoice.isVisible().catch(() => false)) await timeChoice.click();
-  await page.waitForURL(/reserveRegist/, { timeout: 20_000 });
+  await page.waitForSelector("#fnc_schedule", { timeout: 20_000 });
   await page.locator("#fnc_schedule").click();
-  await page.waitForURL(/scheduleRegist/, { timeout: 20_000 });
+  await page.waitForSelector('[name="schEndHour"]', { timeout: 20_000 });
 
   const staffValue = await page.locator('[name="staffId"] option').evaluateAll((options, target) => {
     const compact = (value) => String(value || "").replace(/\s+/g, "").toLowerCase();
