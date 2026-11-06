@@ -319,6 +319,13 @@ async function run() {
   const context = browser.contexts()[0];
   if (!context) throw new Error("Chrome CDP không có browser context");
   const page = context.pages().find((item) => item.url().includes("salonboard.com")) || context.pages()[0] || await context.newPage();
+  page.on("dialog", async (dialog) => {
+    const message = dialog.message();
+    const isExpectedRegistration = /予定を登録します[。？?]/.test(message);
+    log("SALON BOARD dialog", `${dialog.type()}: ${message} action=${isExpectedRegistration ? "accept" : "dismiss"}`);
+    if (isExpectedRegistration) await dialog.accept();
+    else await dialog.dismiss();
+  });
   // Keep the persistent profile visible so the user can complete SALON BOARD
   // login manually. A blank/new tab must never be treated as the logged-in
   // page, and navigation errors should be retried instead of leaving Chrome
