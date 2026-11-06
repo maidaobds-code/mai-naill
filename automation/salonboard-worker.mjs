@@ -20,7 +20,9 @@ const scheduleUrl = "https://salonboard.com/KLP/schedule/salonSchedule/";
 const profileDir = process.env.SALONBOARD_PROFILE_DIR || path.resolve(".salonboard-profile");
 const debugPort = Number(process.env.SALONBOARD_DEBUG_PORT || 9229);
 const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000));
-const scanDays = Math.max(1, Number(process.env.SALONBOARD_SCAN_DAYS || 93));
+const daytimeScanDays = Math.max(1, Number(process.env.SALONBOARD_DAY_SCAN_DAYS || 31));
+const endOfDayScanDays = Math.max(daytimeScanDays, Number(process.env.SALONBOARD_END_OF_DAY_SCAN_DAYS || 93));
+const endOfDayHour = Math.min(23, Math.max(0, Number(process.env.SALONBOARD_END_OF_DAY_HOUR || 23)));
 const dryRun = String(process.env.SALONBOARD_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-worker.log");
 const observationFile = process.env.SALONBOARD_OBSERVATION_FILE || path.resolve("runtime", "salonboard-observed-bookings.json");
@@ -95,6 +97,11 @@ function dateKey(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function japanDateTime() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 
 function internalStaffName(externalName) {
@@ -391,9 +398,10 @@ async function run() {
   // page, and navigation errors should be retried instead of leaving Chrome
   // on about:blank.
   await navigate(page);
-  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} scanDays=${scanDays}`);
+  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} endOfDayScanDays=${endOfDayScanDays}`);
 
   let scanOffset = 0;
+  let lastFullSweepDate = "";
   for (;;) {
     try {
       if (await isSessionExpired(page)) {
@@ -414,10 +422,24 @@ async function run() {
           if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
         }
       }
-      const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
-      await scanExternalBookings(page, scanDate);
-      await scanExternalClosedPeriods(page, scanDate);
-      scanOffset = (scanOffset + 1) % scanDays;
+      const clock = japanDateTime();
+      const fullSweepDue = clock.hour >= endOfDayHour && lastFullSweepDate !== clock.date;
+      if (fullSweepDue) {
+        log("SALON BOARD end-of-day three-month sweep started", JSON.stringify({ date: clock.date, days: endOfDayScanDays }));
+        for (let offset = 0; offset < endOfDayScanDays; offset += 1) {
+          const scanDate = dateKey(new Date(Date.now() + offset * 86_400_000));
+          await scanExternalBookings(page, scanDate);
+          await scanExternalClosedPeriods(page, scanDate);
+        }
+        lastFullSweepDate = clock.date;
+        scanOffset = 0;
+        log("SALON BOARD end-of-day three-month sweep finished", JSON.stringify({ date: clock.date, days: endOfDayScanDays }));
+      } else {
+        const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
+        await scanExternalBookings(page, scanDate);
+        await scanExternalClosedPeriods(page, scanDate);
+        scanOffset = (scanOffset + 1) % daytimeScanDays;
+      }
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
     }
