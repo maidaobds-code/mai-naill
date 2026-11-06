@@ -23,6 +23,10 @@ function taskRecord(task, slot, staff = {}) {
   return { id, source: "manual_sync", manualOnly: true, deletedAt: new Date().toISOString(), status: "MANUAL_SYNC", date: slot.date, start: slot.start, end: slot.end, staffId: staff.id || "", staff: staff.name || "", pendingSyncActions: [identified] };
 }
 
+function overlaps(left, right) {
+  return left?.date === right?.date && String(left?.start || "") < String(right?.end || "") && String(left?.end || "") > String(right?.start || "");
+}
+
 export async function POST(request) {
   if (!isAdminRequest(request) && !isOwnerRequest(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
@@ -40,7 +44,10 @@ export async function POST(request) {
     const bookings = Array.isArray(rows?.[0]?.value) ? rows[0].value : [];
     const selected = scope === "salon" ? staff : staff.filter((member) => String(member.id) === String(body.staffId) || member.name === body.staff);
     if (scope === "staff" && !selected.length) return Response.json({ ok: false, message: "Staff not found" }, { status: 404 });
-    const records = selected.map((member) => taskRecord({ target: "hotpepper", action: operation === "close" ? "block" : "cancel", match: { ...slot, staffId: member.id, staff: member.name } }, slot, member));
+    const records = selected.flatMap((member) => {
+      const occupied = operation === "close" && bookings.some((booking) => !booking.deletedAt && booking.staffId && String(booking.staffId) === String(member.id) && overlaps(booking, slot));
+      return occupied ? [] : [taskRecord({ target: "hotpepper", action: operation === "close" ? "block" : "cancel", match: { ...slot, staffId: member.id, staff: member.name } }, slot, member)];
+    });
     if (scope === "salon") {
       const lockOwner = `manual:salon:${slot.date}:${slot.start}:${slot.end}`;
       records.push(taskRecord({ target: "nailie", action: operation === "close" ? "capacity_block" : "capacity_unblock", lockOwner, match: slot }, slot));

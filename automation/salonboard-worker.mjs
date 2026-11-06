@@ -202,6 +202,12 @@ async function openScheduleForm(page, task) {
     if (String(savedRange || "").replace(/\s+/g, "") !== expectedRange.replace(/\s+/g, "")) throw new Error(`SALON BOARD existing managed slot has a different range: ${savedRange}`);
     return { date, staff: externalName, start: `${startHour}:${startMinute}`, end: `${endHour}:${endMinute}`, alreadySaved: true };
   }
+  const managedOverlap = await row.locator(".scheduleToDoInner").evaluateAll((items, target) => items.map((item) => {
+    let range = [];
+    try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
+    return { text: String(item.textContent || "").trim().slice(0, 120), start: range[0] || "", end: range[1] || "" };
+  }).find((item) => item.text.includes("Mainaill booking") && item.start && item.end && item.start < target.end && item.end > target.start), { start: `${startHour}:${startMinute}`, end: `${endHour}:${endMinute}` });
+  if (managedOverlap) return { date, staff: externalName, start: `${startHour}:${startMinute}`, end: `${endHour}:${endMinute}`, alreadyBlocked: true, managedOverlap };
   const area = row.locator(".jscScheduleSetArea");
   const areaBox = await area.boundingBox();
   const firstTime = row.locator(".scheduleTime").first();
@@ -249,7 +255,7 @@ async function applySyncTask(page, task) {
     return applySyncTask(page, { ...task, action: "block", previousMatch: null });
   }
   const prepared = await openScheduleForm(page, task);
-  if (prepared.alreadySaved) {
+  if (prepared.alreadySaved || prepared.alreadyBlocked) {
     log("SALON BOARD exact slot already blocked", JSON.stringify({ bookingId: task.booking.id, ...prepared }));
     return;
   }
