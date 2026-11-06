@@ -22,7 +22,10 @@ export async function POST(request) {
   const match = { date: target.date, start: target.start, end: target.end, staffId: target.staffId || "", staff: target.staff || "" };
   let next = list.map((item) => {
     if (String(item.id) !== String(claim.bookingId)) return item;
-    return { ...item, status: "cancelled", cancelledBy: "customer", cancelledAt: new Date().toISOString() };
+    const cancelledAt = new Date().toISOString();
+    return claim.purpose === "assignment-cancel"
+      ? { ...item, status: "CANCELLED", assignmentStatus: "CANCELLED", deletedAt: cancelledAt, deletedByOwner: true, cancelledBy: "owner", cancelledAt }
+      : { ...item, status: "cancelled", cancelledBy: "customer", cancelledAt };
   });
   const [staff, settings, services] = await Promise.all([staffCatalog(), salonSettings(), serviceCatalog()]);
   const pendingSyncActions = [

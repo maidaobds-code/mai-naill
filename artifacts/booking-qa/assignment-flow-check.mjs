@@ -45,6 +45,7 @@ const createResult = await createResponse.json();
 assert.equal(createResult.ok, true);
 assert.equal(emails.length, 1);
 assert.deepEqual(emails[0].to.sort(), ['manager@example.com', 'owner@example.com']);
+assert.match(emails[0].html, /Hủy lịch.*không nhận lại thông báo/);
 const token = decodeURIComponent(emails[0].html.match(/assign-booking\?token=([^"&]+)/)[1]);
 
 const detailResponse = await assignmentRoute.GET(new Request(`https://salon.example.com/api/booking-assignment?token=${encodeURIComponent(token)}`));

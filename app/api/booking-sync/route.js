@@ -1,5 +1,5 @@
 import { acknowledgeProviderSync, ingestExternalBooking, syncTaskId } from "../../../lib/bookingSync.js";
-import { createBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
+import { createBookingAssignmentToken, createBookingCancellationToken } from "../../../lib/bookingAssignmentToken.js";
 import { managementEmails, sendEmail, salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
 import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
 
@@ -80,10 +80,12 @@ async function notifyPendingAssignment(request, booking) {
   const recipients = await managementEmails();
   const token = createBookingAssignmentToken(booking.id);
   const url = `${publicOrigin(request)}/assign-booking?token=${encodeURIComponent(token)}`;
+  const cancelToken = createBookingCancellationToken(booking.id, 48 * 60 * 60, "assignment-cancel");
+  const cancelUrl = `${publicOrigin(request)}/cancel-booking?token=${encodeURIComponent(cancelToken)}`;
   const account = booking.requestedNailieAccount || "Nailie";
   const subject = `Mai Beauty Salon · Nailie chờ phân công · ${booking.date} ${booking.start}`;
-  const text = `Tài khoản: ${account}\nNgày giờ: ${booking.date} ${booking.start}-${booking.end}\nDịch vụ: ${booking.service || "Nailie booking"}\nThời lượng: ${booking.durationMinutes || "—"} phút\nTrạng thái: Chờ phân công nhân viên\nPhân công: ${url}`;
-  const html = `<div style="font-family:Arial,sans-serif;color:#332936"><h2>Lịch Nailie chờ phân công</h2><p><strong>Tài khoản:</strong> ${escapeHtml(account)}</p><p><strong>Ngày giờ:</strong> ${escapeHtml(booking.date)} · ${escapeHtml(booking.start)}–${escapeHtml(booking.end)}</p><p><strong>Dịch vụ:</strong> ${escapeHtml(booking.service || "Nailie booking")}</p><p><strong>Trạng thái:</strong> Chờ phân công nhân viên</p><p><a href="${escapeHtml(url)}">Chọn nhân viên</a></p></div>`;
+  const text = `Tài khoản: ${account}\nNgày giờ: ${booking.date} ${booking.start}-${booking.end}\nDịch vụ: ${booking.service || "Nailie booking"}\nThời lượng: ${booking.durationMinutes || "—"} phút\nTrạng thái: Chờ phân công nhân viên\nPhân công: ${url}\nHủy lịch, không nhận lại thông báo: ${cancelUrl}`;
+  const html = `<div style="font-family:Arial,sans-serif;color:#332936"><h2>Lịch Nailie chờ phân công</h2><p><strong>Tài khoản:</strong> ${escapeHtml(account)}</p><p><strong>Ngày giờ:</strong> ${escapeHtml(booking.date)} · ${escapeHtml(booking.start)}–${escapeHtml(booking.end)}</p><p><strong>Dịch vụ:</strong> ${escapeHtml(booking.service || "Nailie booking")}</p><p><strong>Trạng thái:</strong> Chờ phân công nhân viên</p><p><a href="${escapeHtml(url)}" style="display:inline-block;padding:10px 16px;border-radius:8px;background:#6d28d9;color:#fff;text-decoration:none">Chọn nhân viên</a></p><p><a href="${escapeHtml(cancelUrl)}" style="display:inline-block;padding:10px 16px;border-radius:8px;background:#fee2e2;color:#991b1b;text-decoration:none">Hủy lịch – không nhận lại thông báo</a></p></div>`;
   return sendEmail({ to: recipients, subject, text, html });
 }
 

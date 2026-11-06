@@ -99,6 +99,8 @@ assert.match(syncRouteSource, /createBookingAssignmentToken\(booking\.id\)/);
 assert.match(syncRouteSource, /Chưa đóng lịch trên nền tảng nào/);
 assert.match(syncRouteSource, /pendingSyncActions/);
 assert.match(syncRouteSource, /!outcome\.ignoredOwnerDeletion/);
+assert.match(syncRouteSource, /createBookingCancellationToken/);
+assert.match(syncRouteSource, /assignment-cancel/);
 const bookingsRouteSource = fs.readFileSync(new URL("../../app/api/bookings/route.js", import.meta.url), "utf8");
 assert.match(bookingsRouteSource, /deletedByOwner: true/);
 assert.match(syncRouteSource, /Bot dừng tác vụ .* sau 4 lần lỗi/);
