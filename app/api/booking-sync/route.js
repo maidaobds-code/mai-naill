@@ -87,6 +87,16 @@ async function notifyPendingAssignment(request, booking) {
   return sendEmail({ to: recipients, subject, text, html });
 }
 
+async function notifyManualSyncRequired(booking, task, error) {
+  const recipients = await managementEmails();
+  const platform = task?.target === "nailie" ? "NAILIE" : "HOT PEPPER / SALON BOARD";
+  const operation = ["cancel", "unblock", "capacity_unblock"].includes(task?.action) ? "mở lịch" : "đóng/cập nhật lịch";
+  const subject = `Mai Beauty Salon · Bot dừng tác vụ ${platform} sau 4 lần lỗi`;
+  const text = `Bot đã hủy tác vụ tự động sau 4 lần không thành công.\nNền tảng: ${platform}\nThao tác: ${operation}\nNhân viên: ${booking?.staff || "Cả quán"}\nNgày giờ: ${booking?.date || "—"} ${booking?.start || "—"}-${booking?.end || "—"}\nLỗi cuối: ${error || "Không rõ lỗi"}\nVui lòng vào nền tảng để thao tác bằng tay.`;
+  const html = `<div style="font-family:Arial,sans-serif;color:#332936"><h2>Bot đã dừng tác vụ sau 4 lần lỗi</h2><p>Tác vụ đã được gỡ khỏi hàng đợi để không chạy lặp vô hạn. Vui lòng thao tác bằng tay.</p><p><strong>Nền tảng:</strong> ${escapeHtml(platform)}</p><p><strong>Thao tác:</strong> ${escapeHtml(operation)}</p><p><strong>Nhân viên:</strong> ${escapeHtml(booking?.staff || "Cả quán")}</p><p><strong>Ngày giờ:</strong> ${escapeHtml(booking?.date || "—")} · ${escapeHtml(booking?.start || "—")}–${escapeHtml(booking?.end || "—")}</p><p><strong>Lỗi cuối:</strong> ${escapeHtml(error || "Không rõ lỗi")}</p></div>`;
+  return sendEmail({ to: recipients, subject, text, html });
+}
+
 export async function POST(request) {
   if (!authorized(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
@@ -118,7 +128,8 @@ export async function POST(request) {
     const value = await saveBookings(queued);
     const notification = outcome.conflicts ? await notifyConflict(request, outcome.conflicts).catch((error) => ({ ok: false, reason: error.message })) : null;
     const assignmentNotification = (!existingExternal || existingExternal.assignmentStatus !== "PENDING_ASSIGNMENT") ? await notifyPendingAssignment(request, outcome.result).catch((error) => ({ ok: false, reason: error.message })) : null;
-    return Response.json({ ok: true, conflict: Boolean(outcome.conflicts), value, result: outcome.result, conflicts: outcome.conflicts || [], tasks: identifiedTasks, notification, assignmentNotification });
+    const manualNotification = outcome.retryExhausted ? await notifyManualSyncRequired(outcome.result, outcome.failedTask, body.error).catch((error) => ({ ok: false, reason: error.message })) : null;
+    return Response.json({ ok: true, conflict: Boolean(outcome.conflicts), value, result: outcome.result, conflicts: outcome.conflicts || [], tasks: identifiedTasks, notification, assignmentNotification, manualNotification, retryExhausted: Boolean(outcome.retryExhausted) });
   } catch (error) {
     return Response.json({ ok: false, message: error.message || "Booking synchronization failed" }, { status: 400 });
   }

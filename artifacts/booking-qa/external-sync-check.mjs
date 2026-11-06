@@ -60,7 +60,13 @@ const capacityQueue = [{ ...acknowledged.result, pendingSyncActions: [{ target: 
 const oneCapacityAck = acknowledgeProviderSync(capacityQueue, { provider: "nailie", bookingId: acknowledged.result.id, taskId: "old", status: "synced" });
 assert.deepEqual(oneCapacityAck.result.pendingSyncActions, [{ target: "nailie", action: "capacity_block", taskId: "new" }]);
 const retryAfterError = acknowledgeProviderSync(capacityQueue, { provider: "nailie", bookingId: acknowledged.result.id, taskId: "old", status: "error", error: "temporary selector failure" });
-assert.deepEqual(retryAfterError.result.pendingSyncActions, capacityQueue[0].pendingSyncActions);
+assert.equal(retryAfterError.result.pendingSyncActions[0].attempts, 1);
+const retry2 = acknowledgeProviderSync(retryAfterError.bookings, { provider: "nailie", bookingId: acknowledged.result.id, taskId: "old", status: "error", error: "temporary selector failure" });
+const retry3 = acknowledgeProviderSync(retry2.bookings, { provider: "nailie", bookingId: acknowledged.result.id, taskId: "old", status: "error", error: "temporary selector failure" });
+const retry4 = acknowledgeProviderSync(retry3.bookings, { provider: "nailie", bookingId: acknowledged.result.id, taskId: "old", status: "error", error: "temporary selector failure" });
+assert.equal(retry4.retryExhausted, true);
+assert.equal(retry4.result.providerSync.nailie.status, "manual_required");
+assert.deepEqual(retry4.result.pendingSyncActions, [{ target: "nailie", action: "capacity_block", taskId: "new" }]);
 
 const cancelled = ingestExternalBooking(acknowledged.bookings, { provider: "nailie", externalBookingId: "NL-100", action: "cancel" });
 assert.equal(cancelled.result.status, "CANCELLED");
@@ -83,6 +89,8 @@ assert.match(syncRouteSource, /managementEmails\(\)/);
 assert.match(syncRouteSource, /createBookingAssignmentToken\(booking\.id\)/);
 assert.match(syncRouteSource, /Chưa đóng lịch trên nền tảng nào/);
 assert.match(syncRouteSource, /pendingSyncActions/);
+assert.match(syncRouteSource, /Bot dừng tác vụ .* sau 4 lần lỗi/);
+assert.match(syncRouteSource, /notifyManualSyncRequired/);
 
 const nailieWorkerSource = fs.readFileSync(new URL("../../automation/nailie-worker.mjs", import.meta.url), "utf8");
 const salonboardWorkerSource = fs.readFileSync(new URL("../../automation/salonboard-worker.mjs", import.meta.url), "utf8");
@@ -106,7 +114,7 @@ console.log("PASS overlapping external bookings require manual resolution");
 console.log("PASS provider acknowledgements produce per-platform synced status");
 console.log("PASS provider acknowledgement removes only its completed sync action");
 console.log("PASS multiple Nailie capacity tasks are acknowledged independently");
-console.log("PASS failed sync tasks remain retryable and deleted HOT blocks are recovered");
+console.log("PASS failed sync tasks retry three times then stop and notify management");
 console.log("PASS cancellation is propagated to the other platform");
 console.log("PASS conflict Gmail contains separate reassignment links and does not close either platform");
 console.log("PASS workers support external ingestion and exact-slot reopening");
