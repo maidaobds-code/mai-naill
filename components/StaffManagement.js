@@ -35,13 +35,16 @@ function newStaff(nextId) {
 const copy = {
   zh: { eyebrow: "员工账户", desc: "添加或删除员工、设置日历颜色并管理外部应用账号。", addStaff: "+ 添加员工", newStaff: "新员工", secureNote: "登录信息在服务器端加密保存，不会以明文保存在浏览器。", name: "姓名", namePlaceholder: "员工姓名", role: "角色", calendarColor: "日历颜色", loginEmail: "登录邮箱", password: "账户密码", passwordPlaceholder: "创建密码", staff: "员工", color: "颜色", login: "登录", newPassword: "新密码", owner: "店主", staffRole: "员工", customer: "客户", reset: "修改密码", accountReady: "账户已准备", needsPassword: "需要密码", passwordReset: "密码已修改" },
   ko: { eyebrow: "직원 계정", desc: "직원을 추가·삭제하고 캘린더 색상과 외부 앱 계정을 관리합니다.", addStaff: "+ 직원 추가", newStaff: "새 직원", secureNote: "로그인 정보는 서버에서 암호화되어 브라우저에 평문으로 저장되지 않습니다.", name: "이름", namePlaceholder: "직원 이름", role: "역할", calendarColor: "캘린더 색상", loginEmail: "로그인 이메일", password: "계정 비밀번호", passwordPlaceholder: "비밀번호 생성", staff: "직원", color: "색상", login: "로그인", newPassword: "새 비밀번호", owner: "점주", staffRole: "직원", customer: "고객", reset: "비밀번호 변경", accountReady: "계정 준비 완료", needsPassword: "비밀번호 필요", passwordReset: "비밀번호 변경 완료" },
-  vi: { eyebrow: "TÀI KHOẢN NHÂN VIÊN", desc: "Thêm, xóa nhân viên và đặt màu lịch. Mapping Nailie / SALON BOARD được quản lý tập trung trong Cài đặt → Ứng dụng.", addStaff: "+ Thêm nhân viên", newStaff: "Nhân viên mới", secureNote: "Thông tin đăng nhập được lưu mã hóa phía máy chủ, không lưu dạng chữ thường trên trình duyệt.", name: "Tên", namePlaceholder: "Tên nhân viên", role: "Vai trò", calendarColor: "Màu lịch", loginEmail: "Email đăng nhập", password: "Mật khẩu tài khoản", passwordPlaceholder: "Tạo mật khẩu", staff: "Nhân viên", color: "Màu", login: "Đăng nhập", newPassword: "Mật khẩu mới", owner: "Chủ quán", staffRole: "Nhân viên", customer: "Khách hàng", reset: "Đổi mật khẩu", accountReady: "Tài khoản sẵn sàng", needsPassword: "Cần mật khẩu", passwordReset: "Đã đổi mật khẩu" },
+  vi: { eyebrow: "TÀI KHOẢN NHÂN VIÊN", desc: "Thêm, xóa nhân viên và đặt màu lịch. Mapping Nailie / SALON BOARD được quản lý tập trung trong Cài đặt → Ứng dụng.", addStaff: "+ Thêm nhân viên", newStaff: "Nhân viên mới", secureNote: "Thông tin đăng nhập được lưu mã hóa phía máy chủ, không lưu dạng chữ thường trên trình duyệt.", name: "Tên", namePlaceholder: "Tên nhân viên", role: "Vai trò", calendarColor: "Màu lịch", loginEmail: "Email đăng nhập", password: "Mật khẩu tài khoản", passwordPlaceholder: "Tạo mật khẩu", staff: "Nhân viên", color: "Màu", login: "Đăng nhập", newPassword: "Mật khẩu mới", owner: "Chủ quán", staffRole: "Nhân viên", customer: "Khách hàng", reset: "Đổi mật khẩu", rename: "Đổi tên", saveName: "Lưu tên", cancel: "Hủy", accountReady: "Tài khoản sẵn sàng", needsPassword: "Cần mật khẩu", passwordReset: "Đã đổi mật khẩu" },
   ja: { eyebrow: "スタッフアカウント", desc: "スタッフの追加・削除とカレンダー色を管理します。Nailie / SALON BOARD の紐付けは設定 → アプリで管理します。", addStaff: "+ スタッフ追加", newStaff: "新規スタッフ", secureNote: "ログイン情報はサーバー側で暗号化して保存し、ブラウザに平文では保存しません。", name: "名前", namePlaceholder: "スタッフ名", role: "役割", calendarColor: "カレンダー色", loginEmail: "ログインメール", password: "アカウントパスワード", passwordPlaceholder: "パスワード作成", staff: "スタッフ", color: "色", login: "ログイン", newPassword: "新しいパスワード", owner: "オーナー", staffRole: "スタッフ", customer: "顧客", reset: "パスワード変更", accountReady: "アカウント準備済み", needsPassword: "パスワード未設定", passwordReset: "パスワード変更済み" },
   en: { eyebrow: "STAFF ACCOUNTS", desc: "Add or remove staff and set calendar colors. Nailie / SALON BOARD mappings are managed in Settings → Applications.", addStaff: "+ Add staff", newStaff: "New staff", secureNote: "Login details are encrypted on the server and are not stored as plain text in the browser.", name: "Name", namePlaceholder: "Staff name", role: "Role", calendarColor: "Calendar color", loginEmail: "Login email", password: "Account password", passwordPlaceholder: "Create password", staff: "Staff", color: "Color", login: "Login", newPassword: "New password", owner: "Owner", staffRole: "Staff", customer: "Customer", reset: "Change password", accountReady: "Account ready", needsPassword: "Needs password", passwordReset: "Password changed" },
 };
 
 export default function StaffManagement({ label = "Staff", embedded = false, language = "vi" }) {
   const c = copy[language] || copy.vi;
+  const renameLabel = c.rename || (language === "ja" ? "名前を変更" : language === "zh" ? "改名" : language === "ko" ? "이름 변경" : "Rename");
+  const saveNameLabel = c.saveName || (language === "ja" ? "保存" : language === "zh" ? "保存" : language === "ko" ? "저장" : "Save");
+  const cancelLabel = c.cancel || (language === "ja" ? "キャンセル" : language === "zh" ? "取消" : language === "ko" ? "취소" : "Cancel");
   const tc = (key) => tx(language, "common", key);
   const { staff, setStaff, saveStaff, syncStatus, syncError } = useStaffStore();
   const { accounts, upsertStaffAccount, resetPassword, updateAccountRole, deleteAccount } = useAccountStore();
@@ -50,6 +53,8 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const [roleDraft, setRoleDraft] = useState({});
   const [accountMessage, setAccountMessage] = useState("");
   const [bookingDraft, setBookingDraft] = useState(null);
+  const [renameDraft, setRenameDraft] = useState(null);
+  const [staffTask, setStaffTask] = useState(null);
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
@@ -111,6 +116,46 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     }
   }
 
+  async function renameStaff(member) {
+    const name = String(renameDraft?.name || "").trim();
+    if (!name) return setAccountMessage("Vui lòng nhập tên nhân viên.");
+    if (name === member.name) return setRenameDraft(null);
+    const nextStaff = staff.map((item) => item.id === member.id
+      ? { ...item, name, displayName: item.displayName === member.name ? name : item.displayName }
+      : item);
+    try {
+      await upsertStaffAccount({ ...member, name }, "");
+      await saveStaff(nextStaff);
+      setRenameDraft(null);
+      setAccountMessage(`Đã đổi tên nhân viên thành ${name}.`);
+    } catch (error) {
+      setAccountMessage(`Không thể đổi tên nhân viên: ${error.message}`);
+    }
+  }
+
+  function openStaffTask(member) {
+    setStaffTask({ ...member, originalName: member.name, name: member.name, email: member.email || "", role: member.role || "staff", password: "" });
+    setAccountMessage("");
+  }
+
+  async function saveStaffTask() {
+    if (!staffTask) return;
+    const name = String(staffTask.name || "").trim();
+    const email = String(staffTask.email || "").trim();
+    if (!name || !email) return setAccountMessage("Vui lòng nhập tên và Gmail nhân viên.");
+    if (staffTask.password && staffTask.password.length < 6) return setAccountMessage("Mật khẩu phải có ít nhất 6 ký tự.");
+    const nextMember = { ...staffTask, name, email, role: staffTask.role || "staff", displayName: staffTask.displayName === staffTask.originalName ? name : staffTask.displayName };
+    const nextStaff = staff.map((item) => item.id === staffTask.id ? (({ password, originalName, ...member }) => member)(nextMember) : item);
+    try {
+      await upsertStaffAccount(nextMember, staffTask.password || "");
+      await saveStaff(nextStaff);
+      setStaffTask(null);
+      setAccountMessage(`Đã lưu thông tin nhân viên ${name}.`);
+    } catch (error) {
+      setAccountMessage(`Không thể lưu thông tin nhân viên: ${error.message}`);
+    }
+  }
+
   function editBookingDisplay(member) {
     setBookingDraft({ ...member, displayName: member.displayName || member.name, designationFee: Number(member.designationFee ?? 1100), bookingDescription: member.bookingDescription || "", bookingVisible: member.bookingVisible !== false, avatarUrl: member.avatarUrl || "", avatarFileName: member.avatarFileName || "" });
   }
@@ -168,6 +213,17 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
         <p className="storeNote">Trạng thái dữ liệu: {syncStatus === "server" ? "đã đồng bộ server" : "chỉ đang lưu trên máy này"}.</p>
       </section>
 
+      {staffTask && <section className="card staffBookingEditor">
+        <div className="sectionTitle"><div><p className="eyebrow">STAFF PROFILE</p><h2>Chỉnh sửa nhân viên</h2><p>Cập nhật tên, Gmail, chức vụ hoặc mật khẩu trong cùng một tác vụ.</p></div></div>
+        <div className="staffBookingForm">
+          <label>Tên nhân viên<input autoFocus value={staffTask.name} onChange={(event) => setStaffTask({ ...staffTask, name: event.target.value })} /></label>
+          <label>Gmail đăng nhập<input type="email" value={staffTask.email} onChange={(event) => setStaffTask({ ...staffTask, email: event.target.value })} /></label>
+          <label>Chức vụ<select value={staffTask.role} onChange={(event) => setStaffTask({ ...staffTask, role: event.target.value })}><option value="staff">Nhân viên</option><option value="manager">Quản lý</option><option value="owner">Chủ quán</option></select></label>
+          <label>Mật khẩu mới<input type="password" value={staffTask.password} onChange={(event) => setStaffTask({ ...staffTask, password: event.target.value })} placeholder="Để trống nếu không đổi" /></label>
+        </div>
+        <div className="staffBookingActions"><button className="ghost" type="button" onClick={() => setStaffTask(null)}>Hủy</button><button className="primary" type="button" onClick={saveStaffTask}>Lưu thông tin</button><button className="ghost dangerButton" type="button" onClick={async () => { await deleteStaff(staffTask.id); setStaffTask(null); }}>Xóa nhân viên</button></div>
+      </section>}
+
       {bookingDraft && <section className="card staffBookingEditor">
         <div className="sectionTitle"><div><p className="eyebrow">ONLINE BOOKING</p><h2>{bookingCopy.title} · {bookingDraft.name}</h2><p>Thay đổi tại đây sẽ đồng bộ sang bước chọn nhân viên của khách.</p></div></div>
         <div className="staffBookingForm">
@@ -183,19 +239,20 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
       <section className="card tableWrap">
         <table>
-          <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>{tc("action")}</th></tr></thead>
+          <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>Chức vụ</th><th>{tc("action")}</th></tr></thead>
           <tbody>{staff.map((member) => (
-            <tr key={member.id}>
+            <tr key={member.id} onClick={() => openStaffTask(member)} className="staffRowClickable">
 	              {(() => {
                 const emailMatches = accounts.filter((item) => item.email && member.email && item.email.trim().toLowerCase() === member.email.trim().toLowerCase());
                 const nameMatches = accounts.filter((item) => item.name === member.name || item.staffName === member.name);
                 const account = emailMatches.length === 1 ? emailMatches[0] : accounts.find((item) => item.id === `staff-${member.id}`) || (nameMatches.length === 1 ? nameMatches[0] : null);
                 const effectiveRole = account?.role || member.role || "staff";
 	                return <>
-              <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong><span>{effectiveRole}</span></div></div></td>
+              <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
-              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small>{account && <select className="staffRoleSelect" value={roleDraft[account.id] || effectiveRole} onChange={(event) => setRoleDraft((current) => ({ ...current, [account.id]: event.target.value }))}><option value="owner">{c.owner}</option><option value="manager">Quản lý</option><option value="staff">{c.staffRole}</option><option value="customer">{c.customer}</option></select>}</div></td>
-              <td><div className="staffAccountActions"><button className="ghost bookingDisplayButton" onClick={() => editBookingDisplay(member)}>{bookingCopy.edit} · ¥{Number(member.designationFee || 0).toLocaleString("ja-JP")}</button><input type="password" value={resetDraft[member.id] || ""} onChange={(event) => setResetDraft({ ...resetDraft, [member.id]: event.target.value })} placeholder={c.newPassword} /><button className="ghost" onClick={() => resetStaffPassword(member)}>{c.reset}</button>{account && <button className="ghost" onClick={() => saveStaffRole(account)}>Lưu vai trò</button>}<button className="ghost dangerButton" onClick={() => deleteStaff(member.id)}>{tc("delete")}</button></div></td>
+              <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small></div></td>
+              <td>{effectiveRole}</td>
+              <td><button className="ghost" onClick={(event) => { event.stopPropagation(); openStaffTask(member); }}>Mở thao tác</button></td>
 	                </>;
 	              })()}
             </tr>
