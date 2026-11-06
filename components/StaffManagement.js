@@ -156,6 +156,20 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     }
   }
 
+  async function moveStaff(memberId, direction) {
+    const index = staff.findIndex((member) => member.id === memberId);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= staff.length) return;
+    const next = [...staff];
+    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    try {
+      await saveStaff(next);
+      setAccountMessage("Đã lưu thứ tự nhân viên hiển thị trên lịch.");
+    } catch (error) {
+      setAccountMessage(`Không thể lưu thứ tự nhân viên: ${error.message}`);
+    }
+  }
+
   function editBookingDisplay(member) {
     setBookingDraft({ ...member, displayName: member.displayName || member.name, designationFee: Number(member.designationFee ?? 1100), bookingDescription: member.bookingDescription || "", bookingVisible: member.bookingVisible !== false, avatarUrl: member.avatarUrl || "", avatarFileName: member.avatarFileName || "" });
   }
@@ -252,7 +266,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
               <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small></div></td>
               <td>{effectiveRole}</td>
-              <td><button className="ghost" onClick={(event) => { event.stopPropagation(); openStaffTask(member); }}>Mở thao tác</button></td>
+              <td><div className="staffOrderActions"><button className="ghost" title="Đưa lên" aria-label={`Đưa ${member.name} lên`} disabled={staff.indexOf(member) === 0} onClick={(event) => { event.stopPropagation(); moveStaff(member.id, -1); }}>↑</button><button className="ghost" title="Đưa xuống" aria-label={`Đưa ${member.name} xuống`} disabled={staff.indexOf(member) === staff.length - 1} onClick={(event) => { event.stopPropagation(); moveStaff(member.id, 1); }}>↓</button><button className="ghost" onClick={(event) => { event.stopPropagation(); openStaffTask(member); }}>Mở thao tác</button></div></td>
 	                </>;
 	              })()}
             </tr>
