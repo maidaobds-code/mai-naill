@@ -87,8 +87,8 @@ function toMinutes(time) {
 }
 
 function japanClock() {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, seconds: Number(parts.hour) * 3600 + Number(parts.minute) * 60 + Number(parts.second) };
 }
 
 function bookingStyle(booking, rangeStart = timelineStart, rangeEnd = timelineEnd) {
@@ -192,9 +192,12 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const weekTotal = bookings.filter((booking) => weekDates.some((date) => sameBookingDate(booking, date))).length;
   const monthTotal = bookings.filter((booking) => visibleMonthDates.some((date) => sameBookingDate(booking, date))).length;
   const currentClock = japanClock();
-  const currentSlotMinutes = Math.floor(currentClock.minutes / 30) * 30;
-  const showCurrentTime = selectedDate === currentClock.date && currentClock.minutes >= startMinutes && currentClock.minutes <= endMinutes;
-  const currentTimeLeft = `${Math.max(0, Math.min(100, ((currentSlotMinutes - startMinutes) / Math.max(1, endMinutes - startMinutes)) * 100))}%`;
+  const startSeconds = startMinutes * 60;
+  const endSeconds = endMinutes * 60;
+  const currentTimelineSeconds = Math.floor(currentClock.seconds / 30) * 30;
+  const currentTimelineMinutes = currentTimelineSeconds / 60;
+  const showCurrentTime = selectedDate === currentClock.date && currentClock.seconds >= startSeconds && currentClock.seconds <= endSeconds;
+  const currentTimeLeft = `${Math.max(0, Math.min(100, ((currentTimelineMinutes - startMinutes) / Math.max(1, endMinutes - startMinutes)) * 100))}%`;
 
   useEffect(() => {
     const loadSettings = () => fetch("/api/settings?public=1", { cache: "no-store" }).then((response) => response.json()).then((result) => result.value && setSettings((current) => ({ ...current, ...result.value }))).catch(() => {});
@@ -495,7 +498,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           </div>
           {pendingDayBookings.length > 0 && <div className="syncNotice warning"><strong>Lịch Nailie chờ phân công ({pendingDayBookings.length})</strong>{pendingDayBookings.map((booking) => <button type="button" className="ghost" key={booking.id} onClick={() => { setSelected(booking); setModalOpen(true); }}><span>{booking.start}–{booking.end} · {booking.requestedNailieAccount || "Nailie"} · {booking.service || "Nailie booking"}</span><small>Chờ chủ salon chọn nhân viên</small></button>)}</div>}
           <div className="resourceTimeline" style={{ gridTemplateColumns: `var(--timeline-staff-width) calc(${Math.max(1, visibleIntervalSlots.length)} * var(--timeline-slot-width))` }}>
-            {showCurrentTime && <div className="currentTimeRail"><div className="currentTimeIndicator" style={{ left: currentTimeLeft }} aria-label={`Giờ hiện tại ${String(Math.floor(currentSlotMinutes / 60)).padStart(2, "0")}:${String(currentSlotMinutes % 60).padStart(2, "0")}`}><span>{String(Math.floor(currentSlotMinutes / 60)).padStart(2, "0")}:{String(currentSlotMinutes % 60).padStart(2, "0")}</span></div></div>}
+            {showCurrentTime && <div className="currentTimeRail"><div className="currentTimeIndicator" style={{ left: currentTimeLeft }} aria-label={`Giờ hiện tại ${String(Math.floor(currentTimelineSeconds / 3600)).padStart(2, "0")}:${String(Math.floor(currentTimelineSeconds / 60) % 60).padStart(2, "0")}`}><span>{String(Math.floor(currentTimelineSeconds / 3600)).padStart(2, "0")}:{String(Math.floor(currentTimelineSeconds / 60) % 60).padStart(2, "0")}</span></div></div>}
             <div className="resourceHeader">{c.staff}</div>
             <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>{visibleIntervalSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {calendarStaff.map((member) => {
