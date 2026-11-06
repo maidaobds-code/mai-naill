@@ -154,6 +154,30 @@ async function scanExternalBookings(page, date) {
   log("SALON BOARD external bookings scanned", JSON.stringify({ date, found: records.length, imported }));
 }
 
+async function scanExternalClosedPeriods(page, date) {
+  const records = await page.evaluate(() => {
+    const heads = [...document.querySelectorAll('[id^="STAFF_"]')];
+    const rows = [...document.querySelectorAll("li.jscScheduleMainTableLine")];
+    return heads.flatMap((head, index) => [...(rows[index]?.querySelectorAll(".scheduleToDoInner") || [])].flatMap((item) => {
+      const text = String(item.textContent || "");
+      if (/Mainaill booking\s+/i.test(text)) return [];
+      let range = [];
+      try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
+      const externalStaff = String(head.textContent || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+      return externalStaff && range[0] && range[1] ? [{ externalStaff, start: range[0], end: range[1] }] : [];
+    }));
+  });
+  const periods = records.map((record) => ({ staff: internalStaffName(record.externalStaff), start: record.start, end: record.end }));
+  const response = await fetch(`${mainaillUrl}/api/external-closed-periods`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" },
+    body: JSON.stringify({ source: "hotpepper", date, periods }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill closed-period ingest HTTP ${response.status}`);
+  log("SALON BOARD closed periods scanned", JSON.stringify({ date, found: records.length, imported: result.imported }));
+}
+
 async function fetchSyncTasks() {
   if (!syncSecret) throw new Error("BOOKING_SYNC_SECRET is required");
   const response = await fetch(`${mainaillUrl}/api/booking-sync?provider=hotpepper`, {
@@ -362,6 +386,7 @@ async function run() {
       }
       const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
       await scanExternalBookings(page, scanDate);
+      await scanExternalClosedPeriods(page, scanDate);
       scanOffset = (scanOffset + 1) % 31;
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
