@@ -255,8 +255,14 @@ async function openScheduleForm(page, task) {
   await page.locator('[name="staffId"]').selectOption(staffValue);
   await page.locator('[name="rsvHour"]').selectOption(startHour);
   await page.locator('[name="rsvMinute"]').selectOption(startMinute);
-  await page.locator('[name="schEndHour"]').selectOption(endHour);
-  await page.locator('[name="schEndMinute"]').selectOption(endMinute);
+  const selectTimeOption = async (selector, value, label) => {
+    await page.waitForFunction(({ selector: targetSelector, value: targetValue, label: targetLabel }) => [...document.querySelectorAll(`${targetSelector} option`)].some((option) => option.value === targetValue || option.textContent.trim() === targetLabel), { selector, value, label }, { timeout: 20_000 });
+    const option = page.locator(`${selector} option`).filter({ hasText: label }).first();
+    if (await option.count()) await page.locator(selector).selectOption({ label });
+    else await page.locator(selector).selectOption(value);
+  };
+  await selectTimeOption('[name="schEndHour"]', endHour, endHour);
+  await selectTimeOption('[name="schEndMinute"]', endMinute, endMinute);
   await page.locator('[name="schTitle"]').fill("Mainaill予約");
   await page.locator('[name="schMemo"]').fill(`Mainaill booking ${booking.id}`);
   const prepared = await page.evaluate(() => ({
