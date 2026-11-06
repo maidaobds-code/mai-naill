@@ -56,8 +56,10 @@ export async function GET(request) {
   if (!claim) return Response.json({ ok: false, message: "Liên kết không hợp lệ hoặc đã hết hạn." }, { status: 401 });
   try {
     const [allBookings, staff, settings, services] = await Promise.all([bookings(), availableStaff(), salonSettings(), serviceCatalog()]);
-    const booking = allBookings.find((item) => item.id === claim.bookingId && !item.deletedAt);
-    if (!booking) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn." }, { status: 404 });
+    const storedBooking = allBookings.find((item) => item.id === claim.bookingId);
+    if (!storedBooking) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn." }, { status: 404 });
+    if (storedBooking.deletedAt) return Response.json({ ok: false, deleted: true, message: "Lịch hẹn này đã bị xóa khỏi lịch chung. Email cũ không còn hiệu lực và sẽ không gửi lại." }, { status: 410 });
+    const booking = storedBooking;
     const rankedStaff = staff.map((member, index) => ({ id: member.id, name: member.name, role: member.role, color: member.color, hasEmail: Boolean(member.email), ...availability(member, booking, allBookings, settings, services), originalOrder: index })).sort((a, b) => Number(b.available) - Number(a.available) || a.originalOrder - b.originalOrder);
     return Response.json({ ok: true, booking: { id: booking.id, customer: booking.customer, date: booking.date, start: booking.start, end: booking.end, service: booking.service, staff: booking.staff, staffId: booking.staffId, assignmentStatus: booking.assignmentStatus }, staff: rankedStaff }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return Response.json({ ok: false, message: error.message || "Không thể đọc lịch hẹn." }, { status: 500 }); }

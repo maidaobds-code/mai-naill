@@ -194,7 +194,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const currentClock = japanClock();
   const startSeconds = startMinutes * 60;
   const endSeconds = endMinutes * 60;
-  const currentTimelineSeconds = Math.floor(currentClock.seconds / 30) * 30;
+  const currentTimelineSeconds = Math.floor(currentClock.seconds / 60) * 60;
   const currentTimelineMinutes = currentTimelineSeconds / 60;
   const showCurrentTime = selectedDate === currentClock.date && currentClock.seconds >= startSeconds && currentClock.seconds <= endSeconds;
   const currentTimeLeft = `${Math.max(0, Math.min(100, ((currentTimelineMinutes - startMinutes) / Math.max(1, endMinutes - startMinutes)) * 100))}%`;
@@ -207,7 +207,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   }, []);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setClockTick((value) => value + 1), 30_000);
+    const timer = window.setInterval(() => setClockTick((value) => value + 1), 60_000);
     return () => window.clearInterval(timer);
   }, []);
 
