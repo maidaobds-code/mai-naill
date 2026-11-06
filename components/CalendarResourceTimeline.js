@@ -159,7 +159,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       return match && [String(member?.id), String(member?.name).trim().toLowerCase()].includes(String(match[1]).trim().toLowerCase()) && match[2] === selectedDate && toMinutes(start) < toMinutes(match[4]) && toMinutes(end) > toMinutes(match[3]);
     });
   }
-  const selectedStaffId = selected.staffId || staff.find((member) => member.name === selected.staff)?.id || selected.staff;
+  const selectedStaffId = staff.find((member) => member.name === selected.staff || String(member.id) === String(selected.staffId))?.id || selected.staffId || selected.staff;
   const periodKey = `${selectedDate} ${selected.start}-${selected.end}`;
   const staffPeriodKey = `${selectedStaffId} ${periodKey}`;
   const isStaffClosed = (settings.staffClosedPeriods || []).includes(staffPeriodKey);
@@ -381,15 +381,21 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
   async function closeSchedule(scope) {
     const period = `${selectedDate} ${selected.start}-${selected.end}`;
+    const selectedMember = staff.find((member) => member.name === selected.staff || String(member.id) === String(selected.staffId));
+    const staffKey = selectedMember?.id || selected.staffId || selected.staff;
     const next = { ...settings };
     if (scope === "salon") next.closedPeriods = Array.from(new Set([...(settings.closedPeriods || []), period]));
-    else next.staffClosedPeriods = Array.from(new Set([...(settings.staffClosedPeriods || []), `${selected.staffId || staff.find((member) => member.name === selected.staff)?.id || selected.staff} ${period}`]));
+    else next.staffClosedPeriods = Array.from(new Set([...(settings.staffClosedPeriods || []), `${staffKey} ${period}`]));
     setSettings(next);
     window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
     try {
       const settingsResponse = await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(next) });
-      if (!settingsResponse.ok) throw new Error("Không thể lưu trạng thái đóng lịch.");
-      const syncResponse = await fetch("/api/manual-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operation: "close", scope, date: selectedDate, start: selected.start, end: selected.end, staffId: selected.staffId || staff.find((member) => member.name === selected.staff)?.id || "", staff: selected.staff || "" }) });
+      const settingsResult = await settingsResponse.json().catch(() => ({}));
+      if (!settingsResponse.ok || !settingsResult.ok) throw new Error(settingsResult.message || "Không thể lưu trạng thái đóng lịch.");
+      const savedPeriods = scope === "salon" ? settingsResult.value?.closedPeriods : settingsResult.value?.staffClosedPeriods;
+      const expectedPeriod = scope === "salon" ? period : `${staffKey} ${period}`;
+      if (!Array.isArray(savedPeriods) || !savedPeriods.includes(expectedPeriod)) throw new Error("Server chưa xác nhận trạng thái đóng lịch.");
+      const syncResponse = await fetch("/api/manual-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ operation: "close", scope, date: selectedDate, start: selected.start, end: selected.end, staffId: staffKey, staff: selected.staff || selectedMember?.name || "" }) });
       const syncResult = await syncResponse.json().catch(() => ({}));
       if (!syncResponse.ok || !syncResult.ok) throw new Error(syncResult.message || "Bot không thể nhận tác vụ đóng lịch.");
       setBookingError("");
