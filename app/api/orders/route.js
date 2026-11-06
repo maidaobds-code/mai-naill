@@ -51,11 +51,12 @@ export async function POST(request) {
   try {
     const currentRows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=eq.${ORDERS_KEY}&select=value&limit=1`);
     const currentOrders = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
+    const deletedIds = new Set(Array.isArray(body.deletedIds) ? body.deletedIds.map(String) : []);
     const currentIds = new Set(currentOrders.map((order) => order?.id).filter(Boolean));
     const incomingIds = new Set(body.orders.map((order) => order?.id).filter(Boolean));
     const mergedOrders = [
-      ...body.orders,
-      ...currentOrders.filter((order) => order?.id && !incomingIds.has(order.id)),
+      ...body.orders.filter((order) => order?.id && !deletedIds.has(String(order.id))),
+      ...currentOrders.filter((order) => order?.id && !incomingIds.has(order.id) && !deletedIds.has(String(order.id))),
     ].sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {
       method: "POST",
