@@ -20,6 +20,7 @@ const scheduleUrl = "https://salonboard.com/KLP/schedule/salonSchedule/";
 const profileDir = process.env.SALONBOARD_PROFILE_DIR || path.resolve(".salonboard-profile");
 const debugPort = Number(process.env.SALONBOARD_DEBUG_PORT || 9229);
 const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000));
+const scanDays = Math.max(1, Number(process.env.SALONBOARD_SCAN_DAYS || 93));
 const dryRun = String(process.env.SALONBOARD_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-worker.log");
 const observationFile = process.env.SALONBOARD_OBSERVATION_FILE || path.resolve("runtime", "salonboard-observed-bookings.json");
@@ -390,7 +391,7 @@ async function run() {
   // page, and navigation errors should be retried instead of leaving Chrome
   // on about:blank.
   await navigate(page);
-  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs}`);
+  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} scanDays=${scanDays}`);
 
   let scanOffset = 0;
   for (;;) {
@@ -416,7 +417,7 @@ async function run() {
       const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
       await scanExternalBookings(page, scanDate);
       await scanExternalClosedPeriods(page, scanDate);
-      scanOffset = (scanOffset + 1) % 31;
+      scanOffset = (scanOffset + 1) % scanDays;
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
     }
