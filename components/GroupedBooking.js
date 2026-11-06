@@ -89,8 +89,13 @@ export default function GroupedBooking({
     const match = String(period).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
     return match && member && String(match[1]) === String(member.id) && match[2] === draft.date;
   });
+  const bookingBelongsToStaff = (booking, member) => {
+    const bookingStaffId = String(booking?.staffId || "").trim();
+    const bookingStaffName = String(booking?.staff || "").trim().toLowerCase();
+    return (bookingStaffId && bookingStaffId === String(member?.id || "").trim()) || (!bookingStaffId && bookingStaffName === String(member?.name || "").trim().toLowerCase());
+  };
   const selectedEnd = draft.time ? `${String(Math.floor((toMinutes(draft.time) + duration) / 60)).padStart(2, "0")}:${String((toMinutes(draft.time) + duration) % 60).padStart(2, "0")}` : "";
-  const staffBusy = (member, time, end) => bookings.some((booking) => booking.date === draft.date && String(booking.staffId || booking.staff) === String(member.id || member.name) && !["cancelled", "completed"].includes(String(booking.status).toLowerCase()) && toMinutes(booking.start) < toMinutes(end) && toMinutes(booking.end) > toMinutes(time));
+  const staffBusy = (member, time, end) => bookings.some((booking) => booking.date === draft.date && bookingBelongsToStaff(booking, member) && !["cancelled", "completed"].includes(String(booking.status).toLowerCase()) && toMinutes(booking.start) < toMinutes(end) && toMinutes(booking.end) > toMinutes(time));
   const times = Array.from({ length: 48 }, (_, i) => {
     const m = openMinutes + i * 30;
     return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -101,7 +106,7 @@ export default function GroupedBooking({
       !closed(time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) &&
       !(draft.staff && isStaffClosed(selectedStaff, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`)) &&
       (draft.staff ? !staffBusy(selectedStaff, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) : eligibleStaff.some((member) => !isStaffClosed(member, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`) && !staffBusy(member, time, `${String(Math.floor((h * 60 + m + duration) / 60)).padStart(2, "0")}:${String((h * 60 + m + duration) % 60).padStart(2, "0")}`))) &&
-      !(draft.staff && bookings.some((booking) => booking.date === draft.date && String(booking.staffId || booking.staff) === String(selectedStaff?.id || draft.staff) && !["cancelled", "completed"].includes(String(booking.status).toLowerCase()) && toMinutes(booking.start) < h * 60 + m + duration && toMinutes(booking.end) > h * 60 + m)) &&
+      !(draft.staff && bookings.some((booking) => booking.date === draft.date && bookingBelongsToStaff(booking, selectedStaff) && !["cancelled", "completed"].includes(String(booking.status).toLowerCase()) && toMinutes(booking.start) < h * 60 + m + duration && toMinutes(booking.end) > h * 60 + m)) &&
       (draft.date !== japanToday() ||
         new Date(`${draft.date}T${time}:00+09:00`) > new Date())
     );
