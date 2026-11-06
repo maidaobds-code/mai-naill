@@ -17,6 +17,7 @@ const assert = require('node:assert/strict');
     await page.setViewportSize({ width, height: 850 });
     await page.goto('http://localhost:3012/assign-booking?token=test-token');
     await page.getByRole('heading', { name: 'Chọn nhân viên' }).waitFor();
+    await page.getByRole('button', { name: 'Xóa lịch khỏi lịch chung' }).waitFor();
     const sizes = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }));
     assert.ok(sizes.document <= sizes.viewport, JSON.stringify({ width, ...sizes }));
   }

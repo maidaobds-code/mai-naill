@@ -36,6 +36,20 @@ export default function BookingAssignment({ token }) {
     finally { setSaving(false); }
   }
 
+  async function deleteBooking() {
+    if (!window.confirm("Xóa lịch này khỏi lịch chung? Email phân công sẽ không được gửi lại.")) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch("/api/booking-assignment", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, action: "delete" }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || "Không thể xóa lịch hẹn.");
+      setData(null);
+      setMessage("Đã xóa lịch khỏi lịch chung. Hệ thống sẽ không gửi lại email phân công cho lịch này.");
+    } catch (error) { setMessage(error.message); }
+    finally { setSaving(false); }
+  }
+
   const selectedMember = data?.staff?.find((member) => String(member.id) === selected);
   return <main className="assignmentPage"><section className="assignmentCard">
     <div className="assignmentBrand"><span>M</span><div><strong>Mai Beauty Salon</strong><small>BOOKING ASSIGNMENT</small></div></div>
@@ -43,7 +57,7 @@ export default function BookingAssignment({ token }) {
     {!loading && !data && <p className="assignmentStatus error" role="alert">{message}</p>}
     {data && <><header><p className="eyebrow">LịCH HẸN CHỜ PHÂN CÔNG</p><h1>Chọn nhân viên</h1><p>Nhân viên được chọn sẽ nhận email và lịch sẽ cập nhật vào lịch chung.</p></header>
       <div className="assignmentSummary"><p><span>Khách hàng</span><strong>{data.booking.customer}</strong></p><p><span>Ngày giờ</span><strong>{data.booking.date} · {data.booking.start}–{data.booking.end}</strong></p><p><span>Dịch vụ</span><strong>{data.booking.service}</strong></p></div>
-      <form onSubmit={assign}><div className="assignmentStaffGrid"><label className={selected === "__NO_PREFERENCE__" ? "selected" : ""}><input type="radio" name="staff" value="__NO_PREFERENCE__" checked={selected === "__NO_PREFERENCE__"} onChange={(event) => setSelected(event.target.value)} /><span className="assignmentAvatar">○</span><span><strong>Không yêu cầu chỉ định</strong><small>Salon tự động chọn nhân viên đang trống phù hợp</small></span></label>{data.staff.map((member) => <label className={`${selected === String(member.id) ? "selected" : ""}${member.closed ? " assignmentStaffClosed" : ""}`.trim()} key={member.id}><input type="radio" name="staff" value={member.id} checked={selected === String(member.id)} onChange={(event) => setSelected(event.target.value)} disabled={member.busy} /><span className="assignmentAvatar" style={{ background: member.color || "#a93670" }}>{member.name?.[0]}</span><span><strong>{member.name} · {member.closed ? "Đang đóng lịch" : member.available ? "Trống" : "Đang bận"}</strong><small>{member.role || "Nailist"}{member.previousBooking ? ` · Lịch trước ${member.previousBooking.start}-${member.previousBooking.end}` : " · Trống từ đầu ngày"}{member.hasEmail ? " · Email OK" : " · Chưa có email"}</small></span></label>)}</div>{selectedMember?.closed && <div className="closedStaffActionMenu"><div><strong>Nhân viên đang đóng lịch</strong><span>{data.booking.start} - {data.booking.end}. Chủ quán có thể mở lịch sau khi đã thỏa thuận với nhân viên.</span></div><button className="ghost" type="button" disabled={saving} onClick={() => assign(null, true, true)}>Bỏ đóng lịch</button><button className="primary" type="button" disabled={saving} onClick={() => assign(null, true)}>Bỏ đóng lịch và thêm lịch hẹn</button></div>}<button className="primary" type="submit" disabled={!selected || saving || selectedMember?.closed}>{saving ? "Đang phân công…" : "Xác nhận nhân viên"}</button></form>
+      <form onSubmit={assign}><div className="assignmentStaffGrid"><label className={selected === "__NO_PREFERENCE__" ? "selected" : ""}><input type="radio" name="staff" value="__NO_PREFERENCE__" checked={selected === "__NO_PREFERENCE__"} onChange={(event) => setSelected(event.target.value)} /><span className="assignmentAvatar">○</span><span><strong>Không yêu cầu chỉ định</strong><small>Salon tự động chọn nhân viên đang trống phù hợp</small></span></label>{data.staff.map((member) => <label className={`${selected === String(member.id) ? "selected" : ""}${member.closed ? " assignmentStaffClosed" : ""}`.trim()} key={member.id}><input type="radio" name="staff" value={member.id} checked={selected === String(member.id)} onChange={(event) => setSelected(event.target.value)} disabled={member.busy} /><span className="assignmentAvatar" style={{ background: member.color || "#a93670" }}>{member.name?.[0]}</span><span><strong>{member.name} · {member.closed ? "Đang đóng lịch" : member.available ? "Trống" : "Đang bận"}</strong><small>{member.role || "Nailist"}{member.previousBooking ? ` · Lịch trước ${member.previousBooking.start}-${member.previousBooking.end}` : " · Trống từ đầu ngày"}{member.hasEmail ? " · Email OK" : " · Chưa có email"}</small></span></label>)}</div>{selectedMember?.closed && <div className="closedStaffActionMenu"><div><strong>Nhân viên đang đóng lịch</strong><span>{data.booking.start} - {data.booking.end}. Chủ quán có thể mở lịch sau khi đã thỏa thuận với nhân viên.</span></div><button className="ghost" type="button" disabled={saving} onClick={() => assign(null, true, true)}>Bỏ đóng lịch</button><button className="primary" type="button" disabled={saving} onClick={() => assign(null, true)}>Bỏ đóng lịch và thêm lịch hẹn</button></div>}<button className="primary" type="submit" disabled={!selected || saving || selectedMember?.closed}>{saving ? "Đang phân công…" : "Xác nhận nhân viên"}</button><button className="ghost dangerButton" type="button" disabled={saving} onClick={deleteBooking}>Xóa lịch khỏi lịch chung</button></form>
       {message && <p className="assignmentStatus" role="status">{message}</p>}
     </>}
   </section></main>;

@@ -66,11 +66,18 @@ export async function GET(request) {
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const claim = verifyBookingAssignmentToken(body.token);
-  if (!claim || !body.staffId) return Response.json({ ok: false, message: "Yêu cầu phân công không hợp lệ." }, { status: 401 });
+  if (!claim) return Response.json({ ok: false, message: "Yêu cầu phân công không hợp lệ." }, { status: 401 });
   try {
     const [allBookings, staff, settings, services] = await Promise.all([bookings(), availableStaff(), salonSettings(), serviceCatalog()]);
     const booking = allBookings.find((item) => item.id === claim.bookingId && !item.deletedAt);
     if (!booking) return Response.json({ ok: false, message: "Không tìm thấy lịch hẹn." }, { status: 404 });
+    if (body.action === "delete") {
+      const deleted = { ...booking, deletedAt: new Date().toISOString(), deletedByOwner: true, status: "CANCELLED", assignmentStatus: "CANCELLED", approvalStatus: "OWNER_CANCELLED", pendingSyncActions: [], updatedAt: new Date().toISOString() };
+      const next = allBookings.map((item) => item.id === deleted.id ? deleted : item);
+      await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: next, updated_at: new Date().toISOString() }]) });
+      return Response.json({ ok: true, deleted: true, booking: { id: deleted.id, deletedAt: deleted.deletedAt } });
+    }
+    if (!body.staffId) return Response.json({ ok: false, message: "Yêu cầu phân công không hợp lệ." }, { status: 401 });
     const requestedNoPreference = body.staffId === "__NO_PREFERENCE__";
     const member = requestedNoPreference ? staff.find((item) => availability(item, booking, allBookings, settings, services).available) : staff.find((item) => String(item.id) === String(body.staffId));
     if (!member) return Response.json({ ok: false, message: "Không tìm thấy nhân viên phù hợp và còn trống." }, { status: 404 });
