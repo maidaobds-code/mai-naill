@@ -148,15 +148,15 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       if (match && match[1] === selectedDate) ranges.push({ start: match[2], end: match[3], label: "Đóng cả quán", scope: "salon" });
     }
     for (const raw of settings.staffClosedPeriods || []) {
-      const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-      if (match && match[1] === String(member.id) && match[2] === selectedDate) ranges.push({ start: match[3], end: match[4], label: "Đóng nhân viên", scope: "staff" });
+      const match = String(raw).match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+      if (match && [String(member.id), String(member.name).trim().toLowerCase()].includes(String(match[1]).trim().toLowerCase()) && match[2] === selectedDate) ranges.push({ start: match[3], end: match[4], label: "Đóng nhân viên", scope: "staff" });
     }
     return ranges.map((range) => ({ ...range, left: `${Math.max(0, (toMinutes(range.start) - startMinutes) / Math.max(1, endMinutes - startMinutes) * 100)}%`, width: `${Math.max(0, Math.min(100, (toMinutes(range.end) - toMinutes(range.start)) / Math.max(1, endMinutes - startMinutes) * 100))}%` }));
   }
   function staffIsClosedForRange(member, start, end) {
     return (settings.staffClosedPeriods || []).some((raw) => {
-      const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-      return match && String(match[1]) === String(member?.id) && match[2] === selectedDate && toMinutes(start) < toMinutes(match[4]) && toMinutes(end) > toMinutes(match[3]);
+      const match = String(raw).match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+      return match && [String(member?.id), String(member?.name).trim().toLowerCase()].includes(String(match[1]).trim().toLowerCase()) && match[2] === selectedDate && toMinutes(start) < toMinutes(match[4]) && toMinutes(end) > toMinutes(match[3]);
     });
   }
   const selectedStaffId = selected.staffId || staff.find((member) => member.name === selected.staff)?.id || selected.staff;
@@ -165,8 +165,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const isStaffClosed = (settings.staffClosedPeriods || []).includes(staffPeriodKey);
   const isSalonClosed = (settings.closedPeriods || []).includes(periodKey);
   const selectedStaffClosedPeriods = (settings.staffClosedPeriods || []).filter((raw) => {
-    const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-    return match && String(match[1]) === String(selectedStaffId) && match[2] === selectedDate && toMinutes(selected.start) < toMinutes(match[4]) && toMinutes(selected.end) > toMinutes(match[3]);
+    const match = String(raw).match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+    const selectedMember = staff.find((member) => String(member.id) === String(selectedStaffId) || member.name === selected.staff);
+    return match && [String(selectedStaffId), String(selectedMember?.name || selected.staff).trim().toLowerCase()].includes(String(match[1]).trim().toLowerCase()) && match[2] === selectedDate && toMinutes(selected.start) < toMinutes(match[4]) && toMinutes(selected.end) > toMinutes(match[3]);
   });
   const selectedStaffIsClosed = selectedStaffClosedPeriods.length > 0;
   const pressRef = useRef(null);

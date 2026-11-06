@@ -82,12 +82,12 @@ export default function GroupedBooking({
     return match && match[1] === draft.date && toMinutes(time) < toMinutes(match[3]) && toMinutes(end) > toMinutes(match[2]);
   });
   const isStaffClosed = (member, time, end) => (settings.staffClosedPeriods || []).some((period) => {
-    const match = String(period).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-    return match && member && String(match[1]) === String(member.id) && match[2] === draft.date && toMinutes(time) < toMinutes(match[4]) && toMinutes(end) > toMinutes(match[3]);
+    const match = String(period).match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+    return match && member && [String(member.id), String(member.name).trim().toLowerCase()].includes(String(match[1]).trim().toLowerCase()) && match[2] === draft.date && toMinutes(time) < toMinutes(match[4]) && toMinutes(end) > toMinutes(match[3]);
   });
   const hasStaffClosureOnDate = (member) => (settings.staffClosedPeriods || []).some((period) => {
-    const match = String(period).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
-    return match && member && String(match[1]) === String(member.id) && match[2] === draft.date;
+    const match = String(period).match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+    return match && member && [String(member.id), String(member.name).trim().toLowerCase()].includes(String(match[1]).trim().toLowerCase()) && match[2] === draft.date;
   });
   const bookingBelongsToStaff = (booking, member) => {
     const bookingStaffId = String(booking?.staffId || "").trim();

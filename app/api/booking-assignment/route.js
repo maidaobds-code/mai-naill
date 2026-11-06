@@ -41,7 +41,7 @@ function availability(member, booking, allBookings, settings = {}, services = []
   const own = allBookings.filter((item) => item.id !== booking.id && !item.deletedAt && (String(item.staffId || "") === String(member.id) || item.staff === member.name));
   const busy = own.filter((item) => !["cancelled", "completed"].includes(String(item.status).toLowerCase()) && overlaps(item, booking));
   const before = own.filter((item) => item.date === booking.date && String(item.end || "") <= String(booking.start || "")).sort((a, b) => String(b.end).localeCompare(String(a.end)))[0];
-  const closedPeriods = (settings.staffClosedPeriods || []).filter((raw) => { const match = String(raw).match(/^([^\s]+)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/); return match && String(match[1]) === String(member.id) && match[2] === booking.date && toMinutes(booking.start) < toMinutes(match[4]) && toMinutes(booking.end) > toMinutes(match[3]); });
+  const closedPeriods = (settings.staffClosedPeriods || []).filter((raw) => { const match = String(raw).match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/); return match && [String(member.id), String(member.name).trim().toLowerCase()].includes(String(match[1]).trim().toLowerCase()) && match[2] === booking.date && toMinutes(booking.start) < toMinutes(match[4]) && toMinutes(booking.end) > toMinutes(match[3]); });
   const qualified = staffQualifiedForService(member, booking, services);
   return { available: qualified && !busy.length && !closedPeriods.length, qualified, busy: Boolean(busy.length), closed: Boolean(closedPeriods.length), closedPeriods, previousBooking: before ? { start: before.start, end: before.end, customer: before.customer } : null };
 }
