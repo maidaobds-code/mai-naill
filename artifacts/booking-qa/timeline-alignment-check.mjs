@@ -30,6 +30,8 @@ assert.match(cssSource, /\.slotHit\.closedSlotHit\{background:repeating-linear-g
 assert.match(timelineSource, /japanClock/);
 assert.match(timelineSource, /showCurrentTime/);
 assert.match(timelineSource, /currentTimeIndicator/);
+assert.match(timelineSource, /currentTimeRail/);
+assert.match(cssSource, /\.currentTimeRail\{position:absolute/);
 assert.match(cssSource, /\.currentTimeIndicator\{position:absolute/);
 console.log("PASS time header, booking and closed blocks share 28 intervals");
 console.log("PASS 11:30 booking starts exactly at grid column 5");
