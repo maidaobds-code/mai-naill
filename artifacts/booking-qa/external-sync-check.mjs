@@ -29,6 +29,8 @@ const ownerDeleted = ingestExternalBooking([{ ...nailie.result, deletedAt: "2026
 });
 assert.equal(ownerDeleted.ignoredOwnerDeletion, true);
 assert.equal(ownerDeleted.bookings[0].deletedByOwner, true);
+const legacyDeleted = ingestExternalBooking([{ ...nailie.result, deletedAt: "2026-11-06T00:00:00.000Z", deletedByOwner: false, status: "CANCELLED" }], { provider: "nailie", externalBookingId: "NL-100", booking: { date: "2026-11-03", start: "10:00", end: "11:00" } });
+assert.equal(legacyDeleted.ignoredOwnerDeletion, true);
 
 const duplicate = ingestExternalBooking(nailie.bookings, {
   provider: "nailie",
