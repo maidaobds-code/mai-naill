@@ -27,7 +27,12 @@ const cssSource = fs.readFileSync(new URL("../../app/globals.css", import.meta.u
 assert.match(timelineSource, /closedSlotHit/);
 assert.match(timelineSource, /memberClosedRanges\.some/);
 assert.match(cssSource, /\.slotHit\.closedSlotHit\{background:repeating-linear-gradient/);
+assert.match(timelineSource, /japanClock/);
+assert.match(timelineSource, /showCurrentTime/);
+assert.match(timelineSource, /currentTimeIndicator/);
+assert.match(cssSource, /\.currentTimeIndicator\{position:absolute/);
 console.log("PASS time header, booking and closed blocks share 28 intervals");
 console.log("PASS 11:30 booking starts exactly at grid column 5");
 console.log("PASS two-hour booking and closed blocks span exactly 4 columns");
 console.log("PASS every closed 30-minute slot receives a grey striped cell style");
+console.log("PASS current-time indicator is limited to today and updates automatically");

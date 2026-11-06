@@ -86,6 +86,11 @@ function toMinutes(time) {
   return hour * 60 + minute;
 }
 
+function japanClock() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+}
+
 function bookingStyle(booking, rangeStart = timelineStart, rangeEnd = timelineEnd) {
   const start = Math.max(rangeStart, toMinutes(booking.start));
   const end = Math.min(rangeEnd, toMinutes(booking.end));
@@ -132,6 +137,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
   const [bookingError, setBookingError] = useState("");
+  const [, setClockTick] = useState(0);
   const [settings, setSettings] = useState(getAppSettings);
   const { bookings, saveBookingRecord, removeBooking } = useBookingStore();
   const { staff: staffMembers } = useStaffStore();
@@ -185,11 +191,19 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const visibleMonthDates = monthDates(selectedDate);
   const weekTotal = bookings.filter((booking) => weekDates.some((date) => sameBookingDate(booking, date))).length;
   const monthTotal = bookings.filter((booking) => visibleMonthDates.some((date) => sameBookingDate(booking, date))).length;
+  const currentClock = japanClock();
+  const showCurrentTime = selectedDate === currentClock.date && currentClock.minutes >= startMinutes && currentClock.minutes <= endMinutes;
+  const currentTimeLeft = `${Math.max(0, Math.min(100, ((currentClock.minutes - startMinutes) / Math.max(1, endMinutes - startMinutes)) * 100))}%`;
 
   useEffect(() => {
     const loadSettings = () => fetch("/api/settings?public=1", { cache: "no-store" }).then((response) => response.json()).then((result) => result.value && setSettings((current) => ({ ...current, ...result.value }))).catch(() => {});
     loadSettings();
     const timer = window.setInterval(loadSettings, 10000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockTick((value) => value + 1), 30_000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -480,6 +494,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           </div>
           {pendingDayBookings.length > 0 && <div className="syncNotice warning"><strong>Lịch Nailie chờ phân công ({pendingDayBookings.length})</strong>{pendingDayBookings.map((booking) => <button type="button" className="ghost" key={booking.id} onClick={() => { setSelected(booking); setModalOpen(true); }}><span>{booking.start}–{booking.end} · {booking.requestedNailieAccount || "Nailie"} · {booking.service || "Nailie booking"}</span><small>Chờ chủ salon chọn nhân viên</small></button>)}</div>}
           <div className="resourceTimeline" style={{ gridTemplateColumns: `var(--timeline-staff-width) calc(${Math.max(1, visibleIntervalSlots.length)} * var(--timeline-slot-width))` }}>
+            {showCurrentTime && <div className="currentTimeIndicator" style={{ left: `calc(var(--timeline-staff-width) + ${currentTimeLeft} * (100% - var(--timeline-staff-width)))` }} aria-label={`Giờ hiện tại ${String(Math.floor(currentClock.minutes / 60)).padStart(2, "0")}:${String(currentClock.minutes % 60).padStart(2, "0")}`}><span>{String(Math.floor(currentClock.minutes / 60)).padStart(2, "0")}:{String(currentClock.minutes % 60).padStart(2, "0")}</span></div>}
             <div className="resourceHeader">{c.staff}</div>
             <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>{visibleIntervalSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {calendarStaff.map((member) => {
