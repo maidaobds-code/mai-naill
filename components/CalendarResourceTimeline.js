@@ -485,7 +485,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
                   <div className="resourceLane" style={{ backgroundSize: "var(--timeline-slot-width) 100%" }}>
-                    {!member.external && closedRangesFor(member).map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`} />)}
+                    {!member.external && closedRangesFor(member).map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`}><strong>🔒 ĐÓNG LỊCH</strong><span>{range.start}–{range.end}</span></button>)}
                     <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>
                       {visibleIntervalSlots.map((hour) => (
                         <button
