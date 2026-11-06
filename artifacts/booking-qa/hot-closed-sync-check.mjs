@@ -14,6 +14,7 @@ assert.match(worker, /SALONBOARD_END_OF_DAY_SCAN_DAYS \|\| 93/);
 assert.match(worker, /endOfDayScanDays/);
 assert.match(worker, /lastFullSweepDate/);
 assert.match(worker, /end-of-day three-month sweep started/);
+assert.match(worker, /21 \+ Math\.floor\(Math\.random\(\) \* 3\)/);
 assert.match(worker, /exactExternalIndexes/, "Mainaill unlock must find an exact HOT-created closure");
 assert.match(worker, /Multiple SALON BOARD closures match/, "Ambiguous HOT closures must never be deleted");
 assert.match(worker, /SALON BOARD external closure verification failed/, "The HOT form time must be verified before deletion");
