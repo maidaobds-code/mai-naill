@@ -55,6 +55,8 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   const [bookingDraft, setBookingDraft] = useState(null);
   const [renameDraft, setRenameDraft] = useState(null);
   const [staffTask, setStaffTask] = useState(null);
+  const [draggedStaffId, setDraggedStaffId] = useState(null);
+  const [dragOverStaffId, setDragOverStaffId] = useState(null);
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirmation, setShowPasswordConfirmation] = useState(false);
@@ -156,12 +158,16 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     }
   }
 
-  async function moveStaff(memberId, direction) {
-    const index = staff.findIndex((member) => member.id === memberId);
-    const targetIndex = index + direction;
-    if (index < 0 || targetIndex < 0 || targetIndex >= staff.length) return;
+  async function dropStaff(targetId) {
+    if (!draggedStaffId || draggedStaffId === targetId) return;
+    const fromIndex = staff.findIndex((member) => member.id === draggedStaffId);
+    const toIndex = staff.findIndex((member) => member.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) return;
     const next = [...staff];
-    [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setDraggedStaffId(null);
+    setDragOverStaffId(null);
     try {
       await saveStaff(next);
       setAccountMessage("Đã lưu thứ tự nhân viên hiển thị trên lịch.");
@@ -255,7 +261,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
         <table>
           <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>Chức vụ</th><th>{tc("action")}</th></tr></thead>
           <tbody>{staff.map((member) => (
-            <tr key={member.id} onClick={() => openStaffTask(member)} className="staffRowClickable">
+            <tr key={member.id} draggable onClick={() => openStaffTask(member)} onDragStart={(event) => { event.stopPropagation(); setDraggedStaffId(member.id); event.dataTransfer.effectAllowed = "move"; }} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDragOverStaffId(member.id); }} onDragLeave={() => setDragOverStaffId(null)} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); dropStaff(member.id); }} onDragEnd={() => { setDraggedStaffId(null); setDragOverStaffId(null); }} className={`staffRowClickable${dragOverStaffId === member.id ? " staffRowDragOver" : ""}`}>
 	              {(() => {
                 const emailMatches = accounts.filter((item) => item.email && member.email && item.email.trim().toLowerCase() === member.email.trim().toLowerCase());
                 const nameMatches = accounts.filter((item) => item.name === member.name || item.staffName === member.name);
@@ -266,7 +272,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
               <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small></div></td>
               <td>{effectiveRole}</td>
-              <td><div className="staffOrderActions"><button className="ghost" title="Đưa lên" aria-label={`Đưa ${member.name} lên`} disabled={staff.indexOf(member) === 0} onClick={(event) => { event.stopPropagation(); moveStaff(member.id, -1); }}>↑</button><button className="ghost" title="Đưa xuống" aria-label={`Đưa ${member.name} xuống`} disabled={staff.indexOf(member) === staff.length - 1} onClick={(event) => { event.stopPropagation(); moveStaff(member.id, 1); }}>↓</button><button className="ghost" onClick={(event) => { event.stopPropagation(); openStaffTask(member); }}>Mở thao tác</button></div></td>
+              <td><button className="ghost" onClick={(event) => { event.stopPropagation(); openStaffTask(member); }}>Mở thao tác</button></td>
 	                </>;
 	              })()}
             </tr>
