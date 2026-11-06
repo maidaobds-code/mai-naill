@@ -496,7 +496,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>
                       {visibleIntervalSlots.map((hour) => (
                         <button
-                          className={isPainted(hour, member.id) ? "slotHit painting" : "slotHit"}
+                          className={`${isPainted(hour, member.id) ? "slotHit painting" : "slotHit"}${memberClosedRanges.some((range) => toMinutes(hour) < toMinutes(range.end) && toMinutes(hour) + 30 > toMinutes(range.start)) ? " closedSlotHit" : ""}`}
                           key={`${member.id}-${hour}`}
                           data-hour={hour}
                           data-member={member.id}

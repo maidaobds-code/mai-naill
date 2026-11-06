@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 
 const openMinutes = 9 * 60;
 const closeMinutes = 23 * 60;
@@ -21,6 +22,12 @@ assert.equal(booking.left, 5 * slotWidth);
 assert.equal(booking.width, 4 * slotWidth);
 assert.equal(closed.left, 1 * slotWidth);
 assert.equal(closed.width, 4 * slotWidth);
+const timelineSource = fs.readFileSync(new URL("../../components/CalendarResourceTimeline.js", import.meta.url), "utf8");
+const cssSource = fs.readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
+assert.match(timelineSource, /closedSlotHit/);
+assert.match(timelineSource, /memberClosedRanges\.some/);
+assert.match(cssSource, /\.slotHit\.closedSlotHit\{background:repeating-linear-gradient/);
 console.log("PASS time header, booking and closed blocks share 28 intervals");
 console.log("PASS 11:30 booking starts exactly at grid column 5");
 console.log("PASS two-hour booking and closed blocks span exactly 4 columns");
+console.log("PASS every closed 30-minute slot receives a grey striped cell style");
