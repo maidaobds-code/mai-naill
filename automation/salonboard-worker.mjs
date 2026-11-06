@@ -319,27 +319,50 @@ async function reopenManagedSlot(page, task) {
     if (compactName(staffHeaderName(await heads.nth(index).innerText())) === compactName(externalName)) { staffIndex = index; break; }
   }
   if (staffIndex < 0) throw new Error(`SALON BOARD staff not found: ${externalName}`);
-  const managedItem = rows.nth(staffIndex).locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${booking.id}` }).first();
+  const row = rows.nth(staffIndex);
+  const managedItem = row.locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${booking.id}` }).first();
+  let itemToOpen = managedItem;
+  let externalClosure = false;
   if (!await managedItem.count()) {
-    log("SALON BOARD exact slot already open", JSON.stringify({ bookingId: booking.id, date: booking.date, staff: externalName }));
-    return;
+    const exactExternalIndexes = await row.locator(".scheduleToDoInner").evaluateAll((items, target) => items.flatMap((item, index) => {
+      const text = String(item.textContent || "");
+      if (/Mainaill booking\s+/i.test(text)) return [];
+      let range = [];
+      try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
+      return range[0] === target.start && range[1] === target.end ? [index] : [];
+    }), { start: String(booking.start || ""), end: String(booking.end || "") });
+    if (!exactExternalIndexes.length) {
+      log("SALON BOARD exact slot already open", JSON.stringify({ bookingId: booking.id, date: booking.date, staff: externalName }));
+      return;
+    }
+    if (exactExternalIndexes.length > 1) throw new Error(`Multiple SALON BOARD closures match ${booking.date} ${booking.start}-${booking.end}`);
+    itemToOpen = row.locator(".scheduleToDoInner").nth(exactExternalIndexes[0]);
+    externalClosure = true;
   }
   if (dryRun) {
     log("DRY_RUN SALON BOARD exact slot would open", JSON.stringify({ bookingId: booking.id, date: booking.date, staff: externalName }));
     return;
   }
   await waitBeforeOperation();
-  await managedItem.click();
+  await itemToOpen.click();
   await page.locator(".mod_popup_02.sch.js_yotei .mod_btn_10").click();
   await page.waitForURL(/\/KLP\/set\/scheduleChange\//, { timeout: 20_000 });
   const memoField = page.locator('[name="schMemo"]');
   const savedMemo = await memoField.count() ? await memoField.first().inputValue().catch(() => "") : "";
-  if (String(savedMemo).trim() !== `Mainaill booking ${booking.id}`) throw new Error(`SALON BOARD managed-slot ownership verification failed: ${savedMemo || "memo missing"}`);
+  if (externalClosure) {
+    const formRange = await page.evaluate(() => ({
+      start: `${document.querySelector('[name="rsvHour"]')?.value}:${document.querySelector('[name="rsvMinute"]')?.value}`,
+      end: `${document.querySelector('[name="schEndHour"]')?.value}:${document.querySelector('[name="schEndMinute"]')?.value}`,
+    }));
+    if (formRange.start !== booking.start || formRange.end !== booking.end || /Mainaill booking\s+/i.test(savedMemo)) throw new Error(`SALON BOARD external closure verification failed: ${JSON.stringify(formRange)}`);
+  } else if (String(savedMemo).trim() !== `Mainaill booking ${booking.id}`) {
+    throw new Error(`SALON BOARD managed-slot ownership verification failed: ${savedMemo || "memo missing"}`);
+  }
   await page.evaluate(() => { window.confirm = () => true; });
   await page.locator("#delete").click();
   await page.waitForURL(/\/KLP\/schedule\/salonSchedule\//, { timeout: 20_000 });
   const remaining = page.locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${booking.id}` });
-  if (await remaining.count()) throw new Error("SALON BOARD managed slot still exists after delete");
+  if (!externalClosure && await remaining.count()) throw new Error("SALON BOARD managed slot still exists after delete");
   log("SALON BOARD exact slot opened", JSON.stringify({ bookingId: booking.id, date: booking.date, staff: externalName }));
 }
 
