@@ -161,7 +161,7 @@ export async function DELETE(request) {
     const syncProviders = source === "hotpepper" ? [] : ["hotpepper"];
     let next = current.map((item) => {
       if (item.id !== id && !sameSlot(item, target)) return item;
-      return { ...item, status: "CANCELLED", cancelledAt: item.cancelledAt || deletedAt, deletedAt: item.deletedAt || deletedAt };
+      return { ...item, status: "CANCELLED", assignmentStatus: "CANCELLED", cancelledAt: item.cancelledAt || deletedAt, deletedAt: item.deletedAt || deletedAt, deletedByOwner: true };
     });
     const [staff, settings, services] = await Promise.all([staffCatalog(), salonSettings(), serviceCatalog()]);
     const syncTasks = [
@@ -172,7 +172,7 @@ export async function DELETE(request) {
       if (item.id !== id && !sameSlot(item, target)) return item;
       const providerSync = providerSyncState(item);
       for (const provider of new Set(syncTasks.map((task) => task.target))) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
-      return { ...item, status: "CANCELLED", cancelledAt: item.cancelledAt || deletedAt, deletedAt: item.deletedAt || deletedAt, providerSync, syncStatus: overallSyncStatus(providerSync), pendingSyncActions: syncTasks };
+      return { ...item, status: "CANCELLED", assignmentStatus: "CANCELLED", cancelledAt: item.cancelledAt || deletedAt, deletedAt: item.deletedAt || deletedAt, deletedByOwner: true, providerSync, syncStatus: overallSyncStatus(providerSync), pendingSyncActions: syncTasks };
     });
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {
       method: "POST",

@@ -127,7 +127,7 @@ export async function POST(request) {
     });
     const value = await saveBookings(queued);
     const notification = outcome.conflicts ? await notifyConflict(request, outcome.conflicts).catch((error) => ({ ok: false, reason: error.message })) : null;
-    const assignmentNotification = (!existingExternal || existingExternal.assignmentStatus !== "PENDING_ASSIGNMENT") ? await notifyPendingAssignment(request, outcome.result).catch((error) => ({ ok: false, reason: error.message })) : null;
+    const assignmentNotification = (!outcome.ignoredOwnerDeletion && (!existingExternal || existingExternal.assignmentStatus !== "PENDING_ASSIGNMENT")) ? await notifyPendingAssignment(request, outcome.result).catch((error) => ({ ok: false, reason: error.message })) : null;
     const manualNotification = outcome.retryExhausted ? await notifyManualSyncRequired(outcome.result, outcome.failedTask, body.error).catch((error) => ({ ok: false, reason: error.message })) : null;
     return Response.json({ ok: true, conflict: Boolean(outcome.conflicts), value, result: outcome.result, conflicts: outcome.conflicts || [], tasks: identifiedTasks, notification, assignmentNotification, manualNotification, retryExhausted: Boolean(outcome.retryExhausted) });
   } catch (error) {
