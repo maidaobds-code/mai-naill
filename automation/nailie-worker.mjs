@@ -32,6 +32,7 @@ const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 const quietStartHour = 2;
 const quietEndHour = 8;
 const observedFingerprints = new Map();
+let loginAlertSent = false;
 
 function japanHour() {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
@@ -40,6 +41,12 @@ function japanHour() {
 function isQuietHours() {
   const hour = japanHour();
   return hour >= quietStartHour && hour < quietEndHour;
+}
+
+async function alertAdmin(reason) {
+  if (loginAlertSent) return;
+  loginAlertSent = true;
+  await fetch(`${mainaillUrl}/api/bot-alert`, { method: "POST", headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" }, body: JSON.stringify({ bot: "Nailie", reason }) }).catch((error) => log("admin alert failed", error.message));
 }
 
 function log(message, details = "") {
@@ -365,13 +372,23 @@ async function launchChrome() {
   throw new Error(`Nailie Chrome không mở được remote debugging port ${debugPort}`);
 }
 
+async function navigateWithRetry(page) {
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try { await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 }); if (!/login|sign-in/i.test(page.url())) return true; } catch (error) { lastError = error; log("Nailie navigation failed", `${attempt}/2 ${error.message}`); }
+    await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
+  }
+  await alertAdmin(lastError?.message || "Trang đăng nhập vẫn hiển thị sau 2 lần thử");
+  return false;
+}
+
 async function run() {
   await launchChrome();
   const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
   const context = browser.contexts()[0];
   if (!context) throw new Error("Nailie Chrome CDP không có browser context");
   const page = context.pages().find((item) => item.url().includes("salon.nailie.jp")) || context.pages()[0] || await context.newPage();
-  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await navigateWithRetry(page);
   log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} quietHours=02:00-08:00 Asia/Tokyo`);
 
   let scanOffset = 0;
@@ -384,7 +401,9 @@ async function run() {
       }
       if (/login|sign-in/i.test(page.url())) {
         log("LOGIN_REQUIRED: sign in to Nailie in the visible browser");
+        await alertAdmin("Profile không tự đăng nhập được; trang login vẫn hiển thị sau 2 lần truy cập");
       } else {
+        loginAlertSent = false;
         const tasks = await fetchSyncTasks();
         for (const task of tasks) {
           try {

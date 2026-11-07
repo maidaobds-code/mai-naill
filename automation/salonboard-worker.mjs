@@ -32,6 +32,7 @@ const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 const quietStartHour = 2;
 const quietEndHour = 8;
 const observedFingerprints = new Map();
+let loginAlertSent = false;
 
 function log(message, details = "") {
   const line = `${new Date().toISOString()} ${message}${details ? ` ${details}` : ""}`;
@@ -111,6 +112,12 @@ function japanDateTime() {
 function isQuietHours() {
   const hour = japanDateTime().hour;
   return hour >= quietStartHour && hour < quietEndHour;
+}
+
+async function alertAdmin(reason) {
+  if (loginAlertSent) return;
+  loginAlertSent = true;
+  await fetch(`${mainaillUrl}/api/bot-alert`, { method: "POST", headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" }, body: JSON.stringify({ bot: "SALON BOARD", reason }) }).catch((error) => log("admin alert failed", error.message));
 }
 
 function internalStaffName(externalName) {
@@ -412,7 +419,8 @@ async function run() {
   // login manually. A blank/new tab must never be treated as the logged-in
   // page, and navigation errors should be retried instead of leaving Chrome
   // on about:blank.
-  await navigate(page);
+  const navigated = await navigate(page);
+  if (!navigated) await alertAdmin("Không mở được SALON BOARD sau 3 lần thử");
   log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} endOfDayScanDays=${endOfDayScanDays} quietHours=02:00-08:00 Asia/Tokyo`);
 
   let scanOffset = 0;
@@ -429,9 +437,11 @@ async function run() {
         await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));
       } else if (isLoginPage(page)) {
         log("LOGIN_REQUIRED: sign in to SALON BOARD in the visible browser");
+        await alertAdmin("Profile không tự đăng nhập được; SALON BOARD vẫn ở trang login");
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
       }
+      loginAlertSent = false;
       const tasks = await fetchSyncTasks();
       for (const task of tasks) {
         try {
@@ -482,13 +492,14 @@ async function navigate(page) {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
-      if (page.url() !== "about:blank") return;
+      if (page.url() !== "about:blank") return true;
     } catch (error) {
       log("navigation failed", `${attempt}/3 ${error.message}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
   }
-  throw new Error(`SALON BOARD không mở được: ${url}`);
+  log("SALON BOARD navigation exhausted", url);
+  return false;
 }
 
 run().catch((error) => {
