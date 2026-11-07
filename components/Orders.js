@@ -263,7 +263,7 @@ export default function Orders({ language = "vi" }) {
     if (window.confirm(actionCopy.cancelConfirm)) cancelOrder(selected.id);
   }
 
-  function removeSelected() {
+  async function removeSelected() {
     if (
       !selected ||
       selected.isPosSale ||
@@ -271,8 +271,13 @@ export default function Orders({ language = "vi" }) {
     )
       return;
     if (!window.confirm(actionCopy.removeConfirm)) return;
-    removeOrder(selected.id);
-    setSelectedId("");
+    try {
+      await removeOrder(selected.id);
+      setSelectedId("");
+      setToast(language === "en" ? "Order deleted from the shared server." : language === "ja" ? "注文を共有サーバーから削除しました。" : "Đã xóa đơn hàng trên server dùng chung.");
+    } catch (error) {
+      setToast(error.message || "Không thể xóa đơn hàng trên server.");
+    }
   }
 
   function printStoredReceipt(type) {

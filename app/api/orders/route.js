@@ -78,13 +78,13 @@ export async function DELETE(request) {
   try {
     const currentRows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=eq.${ORDERS_KEY}&select=value&limit=1`);
     const currentOrders = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
-    const nextOrders = currentOrders.filter((order) => order?.id !== id);
-    await supabaseRest("app_kv?on_conflict=owner_id,key", {
+    const nextOrders = currentOrders.filter((order) => String(order?.id || "") !== id);
+    const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {
       method: "POST",
       headers: { prefer: "resolution=merge-duplicates,return=representation" },
       body: JSON.stringify([{ owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: nextOrders, updated_at: new Date().toISOString() }]),
     });
-    return Response.json({ ok: true, value: nextOrders });
+    return Response.json({ ok: true, value: rows?.[0]?.value || nextOrders });
   } catch {
     return Response.json({ ok: false, message: "Không thể xóa đơn hàng." }, { status: 500 });
   }
