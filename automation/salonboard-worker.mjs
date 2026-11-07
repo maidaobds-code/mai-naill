@@ -29,6 +29,9 @@ const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-w
 const observationFile = process.env.SALONBOARD_OBSERVATION_FILE || path.resolve("runtime", "salonboard-observed-bookings.json");
 const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
+const quietStartHour = 2;
+const quietEndHour = 8;
+const observedFingerprints = new Map();
 
 function log(message, details = "") {
   const line = `${new Date().toISOString()} ${message}${details ? ` ${details}` : ""}`;
@@ -105,6 +108,11 @@ function japanDateTime() {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 
+function isQuietHours() {
+  const hour = japanDateTime().hour;
+  return hour >= quietStartHour && hour < quietEndHour;
+}
+
 function internalStaffName(externalName) {
   const headerName = staffHeaderName(externalName);
   const match = Object.entries(staffRules()).find(([name, rule]) => compactName(rule?.externalStaffName || rule?.externalStaffId || name) === compactName(headerName));
@@ -136,6 +144,12 @@ async function scanExternalBookings(page, date) {
       return { externalStaff, start: range[0] || "", end: range[1] || "", customer: (item.querySelector(".scheduleReserveName")?.textContent || "").replace(/\s*様\s*$/, "").trim() };
     }));
   });
+  const fingerprint = JSON.stringify(records.slice().sort((a, b) => `${a.externalStaff}|${a.start}|${a.end}|${a.customer}`.localeCompare(`${b.externalStaff}|${b.start}|${b.end}|${b.customer}`)));
+  if (observedFingerprints.get(`bookings:${date}`) === fingerprint) {
+    log("SALON BOARD schedule unchanged; skipping sync", date);
+    return;
+  }
+  observedFingerprints.set(`bookings:${date}`, fingerprint);
   let observations = {};
   try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
   const activeIds = [];
@@ -399,12 +413,17 @@ async function run() {
   // page, and navigation errors should be retried instead of leaving Chrome
   // on about:blank.
   await navigate(page);
-  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} endOfDayScanDays=${endOfDayScanDays}`);
+  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} endOfDayScanDays=${endOfDayScanDays} quietHours=02:00-08:00 Asia/Tokyo`);
 
   let scanOffset = 0;
   let lastFullSweepDate = "";
   for (;;) {
     try {
+      if (isQuietHours()) {
+        log("SALON BOARD quiet hours; browser and worker kept alive");
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
+        continue;
+      }
       if (await isSessionExpired(page)) {
         log("SESSION_EXPIRED: returning to SALON BOARD login");
         await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));

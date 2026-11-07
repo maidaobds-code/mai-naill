@@ -19,13 +19,18 @@ export async function GET(request) {
   const bookings = Array.isArray(bookingsResult.value) ? bookingsResult.value : [];
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const tomorrowKey = tomorrow.toISOString().slice(0, 10);
-  const due = bookings.filter((booking) => booking.email && (booking.date === tomorrowKey || booking.date === tomorrowKey.replaceAll("-", "/")) && !booking.reminderSentAt && !["CANCELLED", "Cancelled"].includes(booking.status));
+  const due = bookings.filter((booking) => booking.email && (booking.date === tomorrowKey || booking.date === tomorrowKey.replaceAll("-", "/")) && !booking.reminderSentAt && !["cancelled", "canceled", "completed"].includes(String(booking.status || "").toLowerCase()) && !booking.deletedAt);
   const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || "Mai Beauty Salon <onboarding@resend.dev>";
   const results = await Promise.all(due.map(async (booking) => {
     const language = booking.language || "vi";
     const text = language === "ja" ? `明日の予約のお知らせ：${booking.service || "予約"}、${booking.start || ""}〜${booking.end || ""}` : language === "en" ? `Reminder: your appointment is tomorrow at ${booking.start || ""}.` : `Nhắc lịch: bạn có lịch hẹn vào ngày mai lúc ${booking.start || ""}.`;
     const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [booking.email], subject: text, html: `<p>${escapeHtml(text)}</p><p>${escapeHtml(booking.service)} · ${escapeHtml(booking.start)}–${escapeHtml(booking.end)}</p>` }) });
-    return { id: booking.id, ok: response.ok };
+    return { id: booking.id, ok: response.ok, reminderSentAt: response.ok ? new Date().toISOString() : "" };
   }));
+  const sentIds = new Map(results.filter((item) => item.ok).map((item) => [String(item.id), item.reminderSentAt]));
+  if (sentIds.size) {
+    const nextBookings = bookings.map((booking) => sentIds.has(String(booking.id)) ? { ...booking, reminderSentAt: sentIds.get(String(booking.id)) } : booking);
+    await fetch(`${baseUrl}/api/bookings`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ bookings: nextBookings }) }).catch(() => {});
+  }
   return NextResponse.json({ ok: true, sent: results.filter((item) => item.ok).length, total: due.length, results });
 }

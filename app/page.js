@@ -14,6 +14,7 @@ import Checkout from "../components/Checkout";
 import Reports from "../components/Reports";
 import Settings from "../components/Settings";
 import GenericModule from "../components/GenericModule";
+import BotTasks from "../components/BotTasks";
 import StaffManagement from "../components/StaffManagement";
 import { AccountGate, CustomerProfile, LoginPage } from "../components/AccountAccess";
 import { permissionsFor, useAccountStore } from "../lib/accountStore";
@@ -57,6 +58,7 @@ export default function Home() {
   else if (activePage === "Reports") content = <Reports language={language} />;
   else if (activePage === "Settings") content = <Settings language={language} />;
   else if (activePage === "Staff") content = <StaffManagement label={t(language, "staff")} language={language} />;
+  else if (activePage === "Bot Tasks") content = <BotTasks />;
   else if (activePage !== "Dashboard") content = <GenericModule name={activePage} />;
 
   return (

@@ -29,6 +29,18 @@ const observationFile = process.env.NAILIE_OBSERVATION_FILE || path.resolve("run
 const debugPort = Number(process.env.NAILIE_DEBUG_PORT || 9230);
 const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
+const quietStartHour = 2;
+const quietEndHour = 8;
+const observedFingerprints = new Map();
+
+function japanHour() {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
+}
+
+function isQuietHours() {
+  const hour = japanHour();
+  return hour >= quietStartHour && hour < quietEndHour;
+}
 
 function log(message, details = "") {
   const line = `${new Date().toISOString()} ${message}${details ? ` ${details}` : ""}`;
@@ -236,6 +248,12 @@ async function scanExternalBookings(page, date) {
   const response = await responsePromise;
   const payload = await response.json();
   const records = Array.isArray(payload?.data?.data) ? payload.data.data : [];
+  const fingerprint = JSON.stringify(records.map((record) => ({ id: record.id, status: record.status, start: record.startTime, end: record.endTime, updated: record.updatedAt, orders: record.orders?.map((item) => [item?.staff?.id, item?.serviceName]) })).sort((a, b) => String(a.id).localeCompare(String(b.id))));
+  if (observedFingerprints.get(date) === fingerprint) {
+    log("Nailie schedule unchanged; skipping sync", date);
+    return;
+  }
+  observedFingerprints.set(date, fingerprint);
   let observations = {};
   try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
   const activeIds = [];
@@ -354,11 +372,16 @@ async function run() {
   if (!context) throw new Error("Nailie Chrome CDP không có browser context");
   const page = context.pages().find((item) => item.url().includes("salon.nailie.jp")) || context.pages()[0] || await context.newPage();
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs}`);
+  log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} quietHours=02:00-08:00 Asia/Tokyo`);
 
   let scanOffset = 0;
   for (;;) {
     try {
+      if (isQuietHours()) {
+        log("Nailie quiet hours; browser and worker kept alive");
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
+        continue;
+      }
       if (/login|sign-in/i.test(page.url())) {
         log("LOGIN_REQUIRED: sign in to Nailie in the visible browser");
       } else {

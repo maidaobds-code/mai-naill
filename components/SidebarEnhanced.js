@@ -16,6 +16,7 @@ const items = [
   ["customers", "●●", "Customers", "customers", "#c4b5fd"],
   ["staff", "◎", "Staff", "staff", "#06b6d4"],
   ["settings", "⚙", "Settings", "settings", "#a7f3d0"],
+  ["bot-tasks", "⚡", "Bot Tasks", "botTasks", "#c084fc"],
 ];
 
 export default function SidebarEnhanced({ active, setActive, language, setLanguage, allowedItems = items.map((item) => item[2]) }) {
