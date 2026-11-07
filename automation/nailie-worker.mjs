@@ -31,6 +31,7 @@ const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").r
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 const quietStartHour = 2;
 const quietEndHour = 8;
+const taskTimeoutMs = Math.max(30_000, Number(process.env.NAILIE_TASK_TIMEOUT_MS || 90_000));
 const observedFingerprints = new Map();
 let loginAlertSent = false;
 
@@ -41,6 +42,9 @@ function japanHour() {
 function isQuietHours() {
   const hour = japanHour();
   return hour >= quietStartHour && hour < quietEndHour;
+}
+function withTaskTimeout(promise, taskId) {
+  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Task timeout after ${taskTimeoutMs}ms: ${taskId}`)), taskTimeoutMs))]);
 }
 
 async function alertAdmin(reason) {
@@ -407,7 +411,7 @@ async function run() {
         const tasks = await fetchSyncTasks();
         for (const task of tasks) {
           try {
-            await applyExactSlotTask(page, task);
+            await withTaskTimeout(applyExactSlotTask(page, task), task.taskId || task.booking?.id || "unknown");
             if (!dryRun) await acknowledgeTask(task, "synced");
           } catch (error) {
             log("Nailie sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);

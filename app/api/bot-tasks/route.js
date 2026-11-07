@@ -23,7 +23,7 @@ export async function GET(request) {
 export async function POST(request) {
   if (!allowed(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
-  if (body.action !== "cancel") return Response.json({ ok: false, message: "Tác vụ không hợp lệ" }, { status: 400 });
+  if (!["cancel", "skip"].includes(body.action)) return Response.json({ ok: false, message: "Tác vụ không hợp lệ" }, { status: 400 });
   const taskId = String(body.taskId || "");
   if (!taskId) return Response.json({ ok: false, message: "Thiếu taskId" }, { status: 400 });
   const now = new Date().toISOString();
@@ -36,7 +36,8 @@ export async function POST(request) {
     const providerSync = { ...(booking.providerSync || {}) };
     providerSync[removed.target] = { ...(providerSync[removed.target] || {}), status: "manual_required", error: "Đã hủy bởi quản trị viên", lastSyncAt: now };
     const history = Array.isArray(booking.botTaskHistory) ? booking.botTaskHistory : [];
-    return { ...booking, pendingSyncActions: pending.filter((task) => String(task.taskId) !== taskId), providerSync, syncStatus: "manual_required", botTaskHistory: [...history, { ...removed, status: "cancelled", error: "Đã hủy bởi quản trị viên", updatedAt: now }].slice(-100), updatedAt: now };
+    const isSkip = body.action === "skip";
+    return { ...booking, pendingSyncActions: pending.filter((task) => String(task.taskId) !== taskId), providerSync, syncStatus: "manual_required", botTaskHistory: [...history, { ...removed, status: isSkip ? "skipped" : "cancelled", error: isSkip ? "Đã bỏ qua bởi quản trị viên" : "Đã hủy bởi quản trị viên", updatedAt: now }].slice(-100), updatedAt: now };
   });
   if (!found) return Response.json({ ok: false, message: "Task không còn trong hàng đợi" }, { status: 404 });
   await save(next); return Response.json({ ok: true });
