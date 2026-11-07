@@ -201,10 +201,24 @@ async function applyCapacityTask(page, task) {
   const start = Math.floor(minutes(booking.start) / 30) * 30;
   const end = Math.ceil(minutes(booking.end) / 30) * 30;
   if (!booking.date || start < 0 || end <= start) throw new Error("Invalid Nailie capacity task");
-  await page.goto(`https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${booking.date}&showBooking=true`, { waitUntil: "domcontentloaded", timeout: 45_000 });
-  await page.waitForSelector("tr.ant-table-row[data-row-key]", { timeout: 20_000 });
   const state = await managedSlotState();
   const owner = String(task.lockOwner || "capacity");
+  // Never open a slot merely because capacity is available. Only slots that
+  // this worker recorded as bot-owned locks may be reopened. This protects
+  // manual Nailie closures, which have no reliable marker distinguishable from
+  // a bot closure in the rendered grid.
+  if (task.action === "capacity_unblock") {
+    const ownedSlots = Object.entries(state).filter(([key, owners]) => {
+      const [date, , slot] = String(key).split("|");
+      return date === String(booking.date) && Number(slot) >= start && Number(slot) < end && Array.isArray(owners) && owners.includes(owner);
+    });
+    if (!ownedSlots.length) {
+      log("Nailie capacity unblock skipped; slot is not bot-owned", JSON.stringify({ date: booking.date, start: booking.start, end: booking.end, owner }));
+      return;
+    }
+  }
+  await page.goto(`https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${booking.date}&showBooking=true`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.waitForSelector("tr.ant-table-row[data-row-key]", { timeout: 20_000 });
   const rows = page.locator("tr.ant-table-row[data-row-key]");
   let changed = 0;
   for (let rowIndex = 0; rowIndex < await rows.count(); rowIndex += 1) {
