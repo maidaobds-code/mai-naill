@@ -4,6 +4,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const ORDERS_OWNER_ID = process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001";
 const ORDERS_KEY = "nail-japan-store-orders";
+const DELETED_ORDERS_KEY = "nail-japan-store-deleted-orders";
 
 async function supabaseRest(path, options = {}) {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) throw new Error("Supabase server configuration is missing");
@@ -38,8 +39,11 @@ async function notifyManagementForOrder(order) {
 
 export async function GET() {
   try {
-    const rows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=eq.${ORDERS_KEY}&select=value&limit=1`);
-    return Response.json({ ok: true, value: Array.isArray(rows?.[0]?.value) ? rows[0].value : [] }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    const rows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=in.(${ORDERS_KEY},${DELETED_ORDERS_KEY})&select=key,value`);
+    const orders = rows?.find((row) => row.key === ORDERS_KEY)?.value;
+    const deletedIds = new Set((rows?.find((row) => row.key === DELETED_ORDERS_KEY)?.value || []).map(String));
+    const value = (Array.isArray(orders) ? orders : []).filter((order) => !deletedIds.has(String(order?.id || "")));
+    return Response.json({ ok: true, value }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch {
     return Response.json({ ok: false, message: "Không thể đọc đơn hàng.", value: [] }, { status: 500 });
   }
@@ -49,23 +53,29 @@ export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   if (!Array.isArray(body.orders)) return Response.json({ ok: false, message: "Invalid orders" }, { status: 400 });
   try {
-    const currentRows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=eq.${ORDERS_KEY}&select=value&limit=1`);
-    const currentOrders = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
-    const deletedIds = new Set(Array.isArray(body.deletedIds) ? body.deletedIds.map(String) : []);
+    const currentRows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=in.(${ORDERS_KEY},${DELETED_ORDERS_KEY})&select=key,value`);
+    const serverDeletedIds = new Set((currentRows?.find((row) => row.key === DELETED_ORDERS_KEY)?.value || []).map(String));
+    (Array.isArray(body.deletedIds) ? body.deletedIds : []).forEach((id) => serverDeletedIds.add(String(id)));
+    const ordersRow = currentRows?.find((row) => row.key === ORDERS_KEY);
+    const currentOrders = Array.isArray(ordersRow?.value) ? ordersRow.value : [];
+    const storedOrders = Array.isArray(ordersRow?.value) ? ordersRow.value : currentOrders;
     const currentIds = new Set(currentOrders.map((order) => order?.id).filter(Boolean));
     const incomingIds = new Set(body.orders.map((order) => order?.id).filter(Boolean));
     const mergedOrders = [
-      ...body.orders.filter((order) => order?.id && !deletedIds.has(String(order.id))),
-      ...currentOrders.filter((order) => order?.id && !incomingIds.has(order.id) && !deletedIds.has(String(order.id))),
+      ...body.orders.filter((order) => order?.id && !serverDeletedIds.has(String(order.id))),
+      ...storedOrders.filter((order) => order?.id && !incomingIds.has(order.id) && !serverDeletedIds.has(String(order.id))),
     ].sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {
       method: "POST",
       headers: { prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify([{ owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: mergedOrders, updated_at: new Date().toISOString() }]),
+      body: JSON.stringify([
+        { owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: mergedOrders, updated_at: new Date().toISOString() },
+        { owner_id: ORDERS_OWNER_ID, key: DELETED_ORDERS_KEY, value: [...serverDeletedIds], updated_at: new Date().toISOString() },
+      ]),
     });
     const newOrders = body.orders.filter((order) => order?.id && !currentIds.has(order.id));
     const notifications = await Promise.all(newOrders.map((order) => notifyManagementForOrder(order).catch((error) => ({ ok: false, reason: error.message }))));
-    return Response.json({ ok: true, value: rows?.[0]?.value || mergedOrders, managementNotifications: notifications });
+    return Response.json({ ok: true, value: mergedOrders, managementNotifications: notifications });
   } catch {
     return Response.json({ ok: false, message: "Không thể lưu đơn hàng." }, { status: 500 });
   }
@@ -76,15 +86,22 @@ export async function DELETE(request) {
   const id = searchParams.get("id")?.trim();
   if (!id) return Response.json({ ok: false, message: "Order id is required" }, { status: 400 });
   try {
-    const currentRows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=eq.${ORDERS_KEY}&select=value&limit=1`);
-    const currentOrders = Array.isArray(currentRows?.[0]?.value) ? currentRows[0].value : [];
+    const currentRows = await supabaseRest(`app_kv?owner_id=eq.${ORDERS_OWNER_ID}&key=in.(${ORDERS_KEY},${DELETED_ORDERS_KEY})&select=key,value`);
+    const ordersRow = currentRows?.find((row) => row.key === ORDERS_KEY);
+    const deletedRow = currentRows?.find((row) => row.key === DELETED_ORDERS_KEY);
+    const currentOrders = Array.isArray(ordersRow?.value) ? ordersRow.value : [];
+    const deletedIds = new Set((Array.isArray(deletedRow?.value) ? deletedRow.value : []).map(String));
+    deletedIds.add(id);
     const nextOrders = currentOrders.filter((order) => String(order?.id || "") !== id);
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", {
       method: "POST",
       headers: { prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify([{ owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: nextOrders, updated_at: new Date().toISOString() }]),
+      body: JSON.stringify([
+        { owner_id: ORDERS_OWNER_ID, key: ORDERS_KEY, value: nextOrders, updated_at: new Date().toISOString() },
+        { owner_id: ORDERS_OWNER_ID, key: DELETED_ORDERS_KEY, value: [...deletedIds], updated_at: new Date().toISOString() },
+      ]),
     });
-    return Response.json({ ok: true, value: rows?.[0]?.value || nextOrders });
+    return Response.json({ ok: true, value: nextOrders });
   } catch {
     return Response.json({ ok: false, message: "Không thể xóa đơn hàng." }, { status: 500 });
   }
