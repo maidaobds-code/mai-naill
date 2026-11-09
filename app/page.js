@@ -27,8 +27,15 @@ function storedAppLanguage() {
   return window.localStorage.getItem(APP_LANGUAGE_KEY) || window.localStorage.getItem("nail-japan-store-language") || window.localStorage.getItem("nail-japan-login-language") || "vi";
 }
 
+function initialAppPage() {
+  if (typeof window === "undefined") return "Calendar";
+  const returnPage = new URLSearchParams(window.location.search).get("return");
+  if (returnPage === "bot-tasks" || window.sessionStorage.getItem("nail-japan-return-page") === "bot-tasks") return "Bot Tasks";
+  return "Calendar";
+}
+
 export default function Home() {
-  const [active, setActive] = useState("Calendar");
+  const [active, setActive] = useState(initialAppPage);
   const [language, setLanguage] = useState(storedAppLanguage);
   const [checkoutAppointmentId, setCheckoutAppointmentId] = useState("");
   const [profileOpen, setProfileOpen] = useState(false);
@@ -43,6 +50,16 @@ export default function Home() {
     window.localStorage.setItem("nail-japan-store-language", language);
     window.localStorage.setItem("nail-japan-login-language", language);
   }, [language]);
+
+  useEffect(() => {
+    if (!currentAccount || typeof window === "undefined") return;
+    const returnPage = new URLSearchParams(window.location.search).get("return");
+    if (returnPage === "bot-tasks" || window.sessionStorage.getItem("nail-japan-return-page") === "bot-tasks") {
+      window.sessionStorage.removeItem("nail-japan-return-page");
+      window.history.replaceState({}, "", window.location.pathname);
+      setActive("Bot Tasks");
+    }
+  }, [currentAccount]);
 
   if (!currentAccount) return <LoginPage />;
 
