@@ -479,7 +479,6 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
           <button className={view === "day" ? "ghost activeSoft" : "ghost"} onClick={() => setView("day")}>{c.day}</button>
           <button className={view === "week" ? "ghost activeSoft" : "ghost"} onClick={() => setView("week")}>{c.week}</button>
           <button className={view === "month" ? "ghost activeSoft" : "ghost"} onClick={() => setView("month")}>{c.month}</button>
-          <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>
           <button className="primary" disabled={!staff.length} title={!staff.length ? "Hãy tạo nhân viên thật trước" : ""} onClick={() => { setSelected(blankBooking(selectedDate, "10:00", staff[0])); setModalOpen(true); }}>{c.newBooking}</button>
         </div>
       </div>
