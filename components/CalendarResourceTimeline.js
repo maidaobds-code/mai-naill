@@ -194,7 +194,10 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const currentClock = japanClock();
   const startSeconds = startMinutes * 60;
   const endSeconds = endMinutes * 60;
-  const currentTimelineSeconds = Math.floor(currentClock.seconds / 60) * 60;
+  // The timeline is divided into 30-minute cells. Snap the live indicator up
+  // to the next cell so 15:26 is shown in the 15:30 slot, while an exact
+  // boundary such as 15:00 remains in the 15:00 slot.
+  const currentTimelineSeconds = Math.ceil(currentClock.seconds / (30 * 60)) * (30 * 60);
   const currentTimelineMinutes = currentTimelineSeconds / 60;
   const showCurrentTime = selectedDate === currentClock.date && currentClock.seconds >= startSeconds && currentClock.seconds <= endSeconds;
   const currentTimeLeft = `${Math.max(0, Math.min(100, ((currentTimelineMinutes - startMinutes) / Math.max(1, endMinutes - startMinutes)) * 100))}%`;
