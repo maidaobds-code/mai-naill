@@ -194,14 +194,14 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const currentClock = japanClock();
   const startSeconds = startMinutes * 60;
   const endSeconds = endMinutes * 60;
-  // The timeline is divided into 30-minute cells. Snap the live indicator up
-  // to the next cell so 15:26 is shown in the 15:30 slot, while an exact
-  // boundary such as 15:00 remains in the 15:00 slot.
-  const currentTimelineSeconds = Math.ceil(currentClock.seconds / (30 * 60)) * (30 * 60);
+  // Keep the live indicator at the actual minute. Each 30-minute cell is
+  // therefore divided conceptually into 30 one-minute positions: 15:26 stays
+  // inside 15:00–15:30, while 15:31 moves into 15:30–16:00.
+  const currentTimelineSeconds = Math.floor(currentClock.seconds / 60) * 60;
   const currentTimelineMinutes = currentTimelineSeconds / 60;
   const showCurrentTime = selectedDate === currentClock.date && currentClock.seconds >= startSeconds && currentClock.seconds <= endSeconds;
   const timelineFirstMinutes = visibleIntervalSlots.length ? toMinutes(visibleIntervalSlots[0]) : startMinutes;
-  const currentTimeSlotIndex = Math.max(0, Math.ceil((currentTimelineMinutes - timelineFirstMinutes) / 30));
+  const currentTimeSlotIndex = Math.max(0, (currentTimelineMinutes - timelineFirstMinutes) / 30);
   const currentTimeLeft = `calc(${currentTimeSlotIndex} * var(--timeline-slot-width))`;
 
   useEffect(() => {
