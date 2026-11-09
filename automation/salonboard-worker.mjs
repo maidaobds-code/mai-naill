@@ -20,6 +20,10 @@ const scheduleUrl = "https://salonboard.com/KLP/schedule/salonSchedule/";
 const profileDir = process.env.SALONBOARD_PROFILE_DIR || path.resolve(".salonboard-profile");
 const debugPort = Number(process.env.SALONBOARD_DEBUG_PORT || 9229);
 const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000));
+// SALON BOARD can expire an otherwise valid browser session after a period of
+// inactivity. Keep the same visible session active, including during quiet
+// hours, without opening a second browser or attempting to bypass login/CAPTCHA.
+const keepAliveMs = Math.max(60_000, Number(process.env.SALONBOARD_KEEPALIVE_MS || 10 * 60_000));
 const daytimeScanDays = Math.max(1, Number(process.env.SALONBOARD_DAY_SCAN_DAYS || 31));
 const endOfDayScanDays = Math.max(daytimeScanDays, Number(process.env.SALONBOARD_END_OF_DAY_SCAN_DAYS || 93));
 const configuredEndOfDayHour = Number(process.env.SALONBOARD_END_OF_DAY_HOUR);
@@ -34,6 +38,7 @@ const quietEndHour = 8;
 const taskTimeoutMs = Math.max(30_000, Number(process.env.SALONBOARD_TASK_TIMEOUT_MS || 90_000));
 const observedFingerprints = new Map();
 let loginAlertSent = false;
+let lastKeepAliveAt = 0;
 
 function log(message, details = "") {
   const line = `${new Date().toISOString()} ${message}${details ? ` ${details}` : ""}`;
@@ -431,8 +436,13 @@ async function run() {
   let lastFullSweepDate = "";
   for (;;) {
     try {
+      if (Date.now() - lastKeepAliveAt >= keepAliveMs && !isLoginPage(page)) {
+        log("SALON BOARD keep-alive", `${Math.round(keepAliveMs / 60_000)}min interval`);
+        await page.goto(scheduleUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
+        lastKeepAliveAt = Date.now();
+      }
       if (isQuietHours()) {
-        log("SALON BOARD quiet hours; browser and worker kept alive");
+        log("SALON BOARD quiet hours; browser and worker kept alive", `keepAliveMs=${keepAliveMs}`);
         await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
         continue;
       }

@@ -40,6 +40,21 @@ function sameSlot(left, right) {
   return Boolean(left?.date && leftStaff && left.date === right?.date && left.start === right?.start && left.end === right?.end && leftStaff === rightStaff);
 }
 
+function normalizedCustomer(value) {
+  return String(value || "").trim().toLocaleLowerCase().replace(/\s+/g, " ");
+}
+
+// A booking created from another source can arrive with a new ID even though
+// it is the same customer's appointment already stored for another staff
+// member. Treat that as an idempotent duplicate so it cannot trigger another
+// assignment email or another external sync task.
+function sameCustomerTime(left, right) {
+  const customer = normalizedCustomer(left?.customer);
+  return Boolean(customer && customer === normalizedCustomer(right?.customer)
+    && left?.date && left.date === right?.date
+    && left.start === right.start && left.end === right.end);
+}
+
 function normalizeId(booking) {
   return booking?.id === undefined || booking?.id === null ? booking : { ...booking, id: String(booking.id) };
 }
@@ -110,19 +125,28 @@ export async function POST(request) {
       const previous = current.find((value) => value.id === item.id);
       return previous?.deletedAt && !item?.restoreDeleted ? previous : item;
     });
-    const submittedTombstones = protectedBookings.filter((item) => item.deletedAt);
+    const duplicateIds = new Set();
+    for (const item of protectedBookings) {
+      if (item.deletedAt || currentIds.has(item.id)) continue;
+      const duplicate = current.find((existing) => !existing.deletedAt
+        && !["cancelled", "completed"].includes(String(existing.status).toLowerCase())
+        && sameCustomerTime(existing, item));
+      if (duplicate) duplicateIds.add(item.id);
+    }
+    const deduplicatedProtectedBookings = protectedBookings.filter((item) => !duplicateIds.has(item.id));
+    const submittedTombstones = deduplicatedProtectedBookings.filter((item) => item.deletedAt);
     const currentAfterRelatedDeletes = current.map((item) => {
       const matchingDeletion = submittedTombstones.find((deleted) => deleted.id === item.id || sameSlot(deleted, item));
       return matchingDeletion && !item.deletedAt ? { ...item, deletedAt: matchingDeletion.deletedAt } : item;
     });
-    const incoming = protectedBookings.filter((item) => item && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()));
+    const incoming = deduplicatedProtectedBookings.filter((item) => item && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()));
     const allForConflict = [...currentAfterRelatedDeletes.filter((item) => !item.deletedAt && !incomingIds.has(item.id)), ...incoming];
     for (const booking of incoming) {
       const conflict = allForConflict.find((item) => item.id !== booking.id && item.date === booking.date && item.staff && booking.staff && item.staff === booking.staff && overlaps(item, booking));
       if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
     }
-    const merged = compactBookings([...protectedBookings, ...currentAfterRelatedDeletes.filter((item) => item.id && !incomingIds.has(item.id))]);
-    const syncTasks = submitted.filter((booking) => !booking.deletedAt).flatMap((booking) => {
+    const merged = compactBookings([...deduplicatedProtectedBookings, ...currentAfterRelatedDeletes.filter((item) => item.id && !incomingIds.has(item.id))]);
+    const syncTasks = deduplicatedProtectedBookings.filter((booking) => !booking.deletedAt).flatMap((booking) => {
       const previous = current.find((item) => item.id === booking.id);
       const source = String(booking.source || "direct").toLowerCase();
       const newlyAssignedNailie = source === "nailie" && previous?.assignmentStatus === "PENDING_ASSIGNMENT" && booking.assignmentStatus === "ASSIGNED";
@@ -139,7 +163,7 @@ export async function POST(request) {
     for (const task of identifiedSyncTasks) tasksByBooking.get(String(task.bookingId))?.push(task);
     const mergedWithTasks = merged.map((booking) => tasksByBooking.has(String(booking.id)) ? { ...booking, pendingSyncActions: tasksByBooking.get(String(booking.id)) } : booking);
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: mergedWithTasks, updated_at: new Date().toISOString() }]) });
-    const newOnlineBookings = submitted.filter((booking) => booking.id && !booking.deletedAt && !currentIds.has(booking.id) && String(booking.source || "").toLowerCase() === "direct");
+    const newOnlineBookings = deduplicatedProtectedBookings.filter((booking) => booking.id && !booking.deletedAt && !currentIds.has(booking.id) && String(booking.source || "").toLowerCase() === "direct");
     const notifications = await Promise.all(newOnlineBookings.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
     return Response.json({ ok: true, value: rows?.[0]?.value || mergedWithTasks, assignmentNotifications: notifications, syncTasks: identifiedSyncTasks });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
