@@ -61,6 +61,24 @@ function escapeHtml(value) {
   return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
 }
 
+function normalizeCustomer(value) {
+  return String(value || "").trim().toLocaleLowerCase().replace(/\s+/g, " ");
+}
+
+function isFutureBooking(booking) {
+  const date = String(booking?.date || "").trim();
+  const start = String(booking?.start || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(start)) return false;
+  const timestamp = Date.parse(`${date}T${start}:00+09:00`);
+  return Number.isFinite(timestamp) && timestamp > Date.now();
+}
+
+function sameCustomerTime(left, right) {
+  const customer = normalizeCustomer(left?.customer);
+  return Boolean(customer && customer === normalizeCustomer(right?.customer)
+    && left?.date === right?.date && left?.start === right?.start && left?.end === right?.end);
+}
+
 async function notifyConflict(request, conflicts) {
   if (!Array.isArray(conflicts) || conflicts.length < 2) return null;
   const recipients = await managementEmails();
@@ -75,8 +93,14 @@ async function notifyConflict(request, conflicts) {
   return sendEmail({ to: recipients, subject, text, html });
 }
 
-async function notifyPendingAssignment(request, booking) {
+async function notifyPendingAssignment(request, booking, allBookings = []) {
   if (booking?.assignmentStatus !== "PENDING_ASSIGNMENT") return null;
+  if (!isFutureBooking(booking)) return { ok: true, skipped: true, reason: "Booking is not in the future" };
+  const duplicate = (Array.isArray(allBookings) ? allBookings : []).find((item) => String(item?.id) !== String(booking?.id)
+    && !item?.deletedAt
+    && !["cancelled", "completed"].includes(String(item?.status || "").toLowerCase())
+    && sameCustomerTime(item, booking));
+  if (duplicate) return { ok: true, skipped: true, reason: "Matching customer/date/time already exists" };
   const recipients = await managementEmails();
   const token = createBookingAssignmentToken(booking.id);
   const url = `${publicOrigin(request)}/assign-booking?token=${encodeURIComponent(token)}`;
@@ -129,7 +153,7 @@ export async function POST(request) {
     });
     const value = await saveBookings(queued);
     const notification = outcome.conflicts ? await notifyConflict(request, outcome.conflicts).catch((error) => ({ ok: false, reason: error.message })) : null;
-    const assignmentNotification = (!outcome.ignoredOwnerDeletion && (!existingExternal || existingExternal.assignmentStatus !== "PENDING_ASSIGNMENT")) ? await notifyPendingAssignment(request, outcome.result).catch((error) => ({ ok: false, reason: error.message })) : null;
+    const assignmentNotification = (!outcome.ignoredOwnerDeletion && (!existingExternal || existingExternal.assignmentStatus !== "PENDING_ASSIGNMENT")) ? await notifyPendingAssignment(request, outcome.result, value).catch((error) => ({ ok: false, reason: error.message })) : null;
     const manualNotification = outcome.retryExhausted ? await notifyManualSyncRequired(outcome.result, outcome.failedTask, body.error).catch((error) => ({ ok: false, reason: error.message })) : null;
     return Response.json({ ok: true, conflict: Boolean(outcome.conflicts), value, result: outcome.result, conflicts: outcome.conflicts || [], tasks: identifiedTasks, notification, assignmentNotification, manualNotification, retryExhausted: Boolean(outcome.retryExhausted) });
   } catch (error) {
