@@ -39,6 +39,10 @@ const taskTimeoutMs = Math.max(30_000, Number(process.env.SALONBOARD_TASK_TIMEOU
 const observedFingerprints = new Map();
 let loginAlertSent = false;
 let lastKeepAliveAt = 0;
+// Do not alert on a cold start when the operator has not logged in yet.
+// Alerts are only meaningful after this worker has successfully observed an
+// authenticated SALON BOARD page and that session later disappears.
+let sessionEstablished = false;
 
 function log(message, details = "") {
   const line = `${new Date().toISOString()} ${message}${details ? ` ${details}` : ""}`;
@@ -448,13 +452,17 @@ async function run() {
       }
       if (await isSessionExpired(page)) {
         log("SESSION_EXPIRED: returning to SALON BOARD login");
+        if (sessionEstablished) await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
+        sessionEstablished = false;
         await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));
       } else if (isLoginPage(page)) {
         log("LOGIN_REQUIRED: sign in to SALON BOARD in the visible browser");
-        await alertAdmin("Profile không tự đăng nhập được; SALON BOARD vẫn ở trang login");
+        if (sessionEstablished) await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
+        sessionEstablished = false;
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
       }
+      sessionEstablished = true;
       loginAlertSent = false;
       const tasks = await fetchSyncTasks();
       for (const task of tasks) {
