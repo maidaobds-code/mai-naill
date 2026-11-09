@@ -200,7 +200,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const currentTimelineSeconds = Math.ceil(currentClock.seconds / (30 * 60)) * (30 * 60);
   const currentTimelineMinutes = currentTimelineSeconds / 60;
   const showCurrentTime = selectedDate === currentClock.date && currentClock.seconds >= startSeconds && currentClock.seconds <= endSeconds;
-  const currentTimeLeft = `${Math.max(0, Math.min(100, ((currentTimelineMinutes - startMinutes) / Math.max(1, endMinutes - startMinutes)) * 100))}%`;
+  const timelineFirstMinutes = visibleIntervalSlots.length ? toMinutes(visibleIntervalSlots[0]) : startMinutes;
+  const currentTimeSlotIndex = Math.max(0, Math.ceil((currentTimelineMinutes - timelineFirstMinutes) / 30));
+  const currentTimeLeft = `calc(${currentTimeSlotIndex} * var(--timeline-slot-width))`;
 
   useEffect(() => {
     const loadSettings = () => fetch("/api/settings?public=1", { cache: "no-store" }).then((response) => response.json()).then((result) => result.value && setSettings((current) => ({ ...current, ...result.value }))).catch(() => {});
