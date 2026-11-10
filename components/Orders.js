@@ -5,6 +5,7 @@ import { orders as seedOrders } from "../lib/ecommerce/data";
 import { tx } from "../lib/i18nClean";
 import { sendCustomerMessageEmail, sendOrderEmail, useStoreOrders } from "../lib/orderStore";
 import { getStoredPosSales } from "./Checkout";
+import { getPrinterSettings } from "../lib/starPrinter";
 
 function money(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
@@ -483,7 +484,7 @@ export default function Orders({ language = "vi" }) {
                 >
                   <div className="printPaper">
                     <div className="printStore">
-                      {(currentStoreSettings.logoUrl || selected.storeSnapshot?.logoUrl) && <img className="printLogo" src={currentStoreSettings.logoUrl || selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
+                      {(getPrinterSettings().printerLogoUrl || currentStoreSettings.logoUrl || selected.storeSnapshot?.logoUrl) && <img className="printLogo" src={getPrinterSettings().printerLogoUrl || currentStoreSettings.logoUrl || selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
                       <strong>
                         {selected.storeSnapshot?.salonName ||
                           "Mai Beauty Salon"}
@@ -557,7 +558,7 @@ export default function Orders({ language = "vi" }) {
                 >
                   <div className="printPaper">
                     <div className="printStore">
-                      {(currentStoreSettings.logoUrl || selected.storeSnapshot?.logoUrl) && <img className="printLogo" src={currentStoreSettings.logoUrl || selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
+                      {(getPrinterSettings().printerLogoUrl || currentStoreSettings.logoUrl || selected.storeSnapshot?.logoUrl) && <img className="printLogo" src={getPrinterSettings().printerLogoUrl || currentStoreSettings.logoUrl || selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
                       <strong>
                         {selected.storeSnapshot?.salonName ||
                           "Mai Beauty Salon"}

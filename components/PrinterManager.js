@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { discoverStarUsb, getPrinterSettings, openWebPrnt, printStarReceipt, savePrinterSettings, supportsStarUsb } from "../lib/starPrinter";
+import { useEffect, useState } from "react";
+import { discoverStarUsb, getPrinterSettings, loadPrinterSettings, openWebPrnt, printStarReceipt, savePrinterSettings, supportsStarUsb, syncPrinterSettings } from "../lib/starPrinter";
 
 const text = {
   zh: { printer: "打印机", title: "连接收据打印机", usb: "通过USB连接mPOP", webprnt: "打开Star webPRNT", system: "使用系统打印机", connected: "已连接", unsupported: "此浏览器不支持WebUSB，请使用Chrome/Edge或Star webPRNT。", close: "关闭" },
@@ -18,6 +18,8 @@ export default function PrinterManager({ language = "vi" }) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
+  useEffect(() => { loadPrinterSettings().then(setSettings).catch(() => {}); }, []);
   async function connectUsb() {
     setBusy(true); setMessage("");
     try { setSettings(await discoverStarUsb()); setMessage(c.connected); }
@@ -30,8 +32,22 @@ export default function PrinterManager({ language = "vi" }) {
     catch (error) { setMessage(error?.message || "プリンターに接続できません"); }
     finally { setTesting(false); }
   }
+  async function uploadPrinterLogo(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setLogoBusy(true); setMessage("");
+    try {
+      const body = new FormData(); body.append("file", file); body.append("kind", "printer-logo");
+      const upload = await fetch("/api/image-upload", { method: "POST", body });
+      const result = await upload.json().catch(() => ({}));
+      if (!upload.ok || !result.url) throw new Error(result.message || "Không thể tải logo máy in lên Supabase.");
+      const next = await syncPrinterSettings({ ...settings, printerLogoUrl: result.url });
+      setSettings(next); setMessage("Đã lưu logo riêng cho hóa đơn / 領収書");
+    } catch (error) { setMessage(error.message || "Không thể lưu logo máy in."); }
+    finally { setLogoBusy(false); }
+  }
   return <>
     <button type="button" className="ghost printerButton" onClick={() => setOpen(true)}>▣ {c.printer}</button>
-    {open && <div className="printerOverlay"><section className="card printerModal"><div className="sectionTitle"><div><p className="eyebrow">STAR mPOP</p><h2>{c.title}</h2></div><button className="ghost" onClick={() => setOpen(false)}>{c.close}</button></div><div className="printerChoices"><button className="primary" disabled={busy || !supportsStarUsb()} onClick={connectUsb}>{busy ? "..." : c.usb}</button><button className="ghost" onClick={() => { savePrinterSettings({ mode: "webprnt", identifier: "", model: "mPOP" }); setSettings(getPrinterSettings()); openWebPrnt(); }}>{c.webprnt}</button><button className="ghost" onClick={() => { const next = { mode: "system", identifier: "", model: "" }; savePrinterSettings(next); setSettings(next); setMessage(c.connected); }}>{c.system}</button><button className="ghost" disabled={testing || settings.mode !== "star-usb"} onClick={testPrint}>{testing ? "..." : "In thử / テスト印刷"}</button></div><div className="printerStatus"><strong>{settings.mode === "star-usb" ? `${c.connected}: ${settings.model}` : settings.mode === "webprnt" ? "Star webPRNT" : c.system}</strong><span>{settings.mode === "star-usb" ? "● Đã kết nối / 接続済み" : "○ Chưa kết nối trực tiếp / 未接続"}</span>{message && <span>{message}</span>}{!supportsStarUsb() && <small>{c.unsupported}</small>}</div></section></div>}
+    {open && <div className="printerOverlay"><section className="card printerModal"><div className="sectionTitle"><div><p className="eyebrow">STAR mPOP</p><h2>{c.title}</h2></div><button className="ghost" onClick={() => setOpen(false)}>{c.close}</button></div><div className="printerChoices"><button className="primary" disabled={busy || !supportsStarUsb()} onClick={connectUsb}>{busy ? "..." : c.usb}</button><button className="ghost" onClick={() => { savePrinterSettings({ ...settings, mode: "webprnt", identifier: "", model: "mPOP" }); setSettings(getPrinterSettings()); openWebPrnt(); }}>{c.webprnt}</button><button className="ghost" onClick={() => { const next = { ...settings, mode: "system", identifier: "", model: "" }; savePrinterSettings(next); setSettings(next); setMessage(c.connected); }}>{c.system}</button><button className="ghost" disabled={testing || settings.mode !== "star-usb"} onClick={testPrint}>{testing ? "..." : "In thử / テスト印刷"}</button></div><div className="printerLogoSetup"><label>Logo riêng cho hóa đơn / 領収書<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" disabled={logoBusy} onChange={uploadPrinterLogo} /></label>{settings.printerLogoUrl && <img className="printLogo printerLogoPreview" src={settings.printerLogoUrl} alt="Printer logo" />}</div><div className="printerStatus"><strong>{settings.mode === "star-usb" ? `${c.connected}: ${settings.model}` : settings.mode === "webprnt" ? "Star webPRNT" : c.system}</strong><span>{settings.mode === "star-usb" ? "● Đã kết nối / 接続済み" : "○ Chưa kết nối trực tiếp / 未接続"}</span>{message && <span>{message}</span>}{!supportsStarUsb() && <small>{c.unsupported}</small>}</div></section></div>}
   </>;
 }

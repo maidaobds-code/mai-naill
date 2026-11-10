@@ -310,7 +310,7 @@ export default function PaymentHistory({ language = "vi" }) {
             <div className={`printDocument ${printMode === "receipt" ? "active" : ""} paymentHistoryPrintDocument`}>
               <div className="printPaper">
                 <div className="printStore">
-                  {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
+                  {(getPrinterSettings().printerLogoUrl || selected.storeSnapshot?.logoUrl) && <img className="printLogo" src={getPrinterSettings().printerLogoUrl || selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
                   <strong>
                     {selected.storeSnapshot?.salonName || "Mai Beauty Salon"}
                   </strong>
@@ -358,7 +358,7 @@ export default function PaymentHistory({ language = "vi" }) {
             <div className={`printDocument ${printMode === "ryoshusho" ? "active" : ""} paymentHistoryPrintDocument printRyoshusho`}>
               <div className="printPaper">
                 <div className="printStore">
-                  {selected.storeSnapshot?.logoUrl && <img className="printLogo" src={selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
+                  {(getPrinterSettings().printerLogoUrl || selected.storeSnapshot?.logoUrl) && <img className="printLogo" src={getPrinterSettings().printerLogoUrl || selected.storeSnapshot.logoUrl} alt={selected.storeSnapshot?.salonName || "Mai Beauty Salon"} />}
                   <strong>{selected.storeSnapshot?.salonName || "Mai Beauty Salon"}</strong>
                   <span>{selected.storeSnapshot?.address || ""}</span>
                   <span>{selected.storeSnapshot?.phone || ""}</span>
