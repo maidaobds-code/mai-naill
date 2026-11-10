@@ -116,7 +116,11 @@ async function notifyManagementForAssignment(request, booking) {
 export async function GET() {
   try {
     const rows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
-    const value = compactBookings(rows?.[0]?.value);
+    const rawValue = Array.isArray(rows?.[0]?.value) ? rows[0].value : [];
+    const value = compactBookings(rawValue);
+    if (value.length !== rawValue.length) {
+      await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value, updated_at: new Date().toISOString() }]) });
+    }
     return Response.json({ ok: true, value }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch { return Response.json({ ok: false, value: [], message: "Không thể đọc lịch hẹn." }, { status: 500 }); }
 }
