@@ -5,6 +5,7 @@ import { useAccountStore } from "../lib/accountStore";
 import { useStaffStore } from "../lib/staffStore";
 import { normalizeExternalAccounts } from "../lib/staffStore";
 import { tx } from "../lib/i18nClean";
+import { translateWithMemory } from "../lib/translationMemory";
 
 const staffColors = [["Lavender", "#a78bfa"], ["Lilac", "#c084fc"], ["Bubblegum", "#f9a8d4"], ["Hồng neon", "#f472b6"], ["Peach", "#fdba74"], ["Coral", "#fb7185"], ["Lemon", "#fde047"], ["Butter", "#fef08a"], ["Mint", "#86efac"], ["Emerald", "#34d399"], ["Aqua", "#5eead4"], ["Sky", "#7dd3fc"], ["Blue", "#60a5fa"], ["Periwinkle", "#818cf8"], ["Cobalt", "#4f46e5"], ["Teal", "#0d9488"], ["Lime", "#a3e635"], ["Tangerine", "#fb923c"], ["Magenta", "#e879f9"], ["Plum", "#a855f7"]];
 
@@ -146,7 +147,9 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     const email = String(staffTask.email || "").trim();
     if (!name || !email) return setAccountMessage("Vui lòng nhập tên và Gmail nhân viên.");
     if (staffTask.password && staffTask.password.length < 6) return setAccountMessage("Mật khẩu phải có ít nhất 6 ký tự.");
-    const nextMember = { ...staffTask, name, email, role: staffTask.role || "staff", designationFee: Math.max(0, Number(staffTask.designationFee || 0)), bookingDescription: String(staffTask.bookingDescription || "").trim(), displayName: staffTask.displayName === staffTask.originalName ? name : staffTask.displayName };
+    const description = String(staffTask.bookingDescription || "").trim();
+    const translatedDescription = description ? await translateWithMemory(description) : {};
+    const nextMember = { ...staffTask, name, email, role: staffTask.role || "staff", designationFee: Math.max(0, Number(staffTask.designationFee || 0)), bookingDescription: description, bookingDescriptionVi: translatedDescription.VI || description, bookingDescriptionJa: translatedDescription.JA || description, bookingDescriptionEn: translatedDescription.EN || description, bookingDescriptionZh: translatedDescription.ZH || description, bookingDescriptionKo: translatedDescription.KO || description, displayName: staffTask.displayName === staffTask.originalName ? name : staffTask.displayName };
     const nextStaff = staff.map((item) => item.id === staffTask.id ? (({ password, originalName, ...member }) => member)(nextMember) : item);
     try {
       await upsertStaffAccount(nextMember, staffTask.password || "");

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getInventoryRows } from "../lib/ecommerce/data";
 import { emptyProduct, useProductCatalog } from "../lib/catalogStore";
 import { tx } from "../lib/i18nClean";
+import { translateWithMemory } from "../lib/translationMemory";
 
 function yen(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
@@ -41,9 +42,7 @@ export default function ProductInventory({ label = "Sản phẩm & Kho", languag
 
   async function translateText(text) {
     if (!text?.trim()) return {};
-    const response = await fetch("/api/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, targets: ["VI", "JA", "EN", "ZH", "KO"] }) });
-    const result = await response.json().catch(() => ({}));
-    return result.ok ? result.translations : {};
+    return translateWithMemory(text);
   }
 
   async function saveProduct() {

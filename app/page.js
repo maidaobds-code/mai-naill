@@ -53,6 +53,25 @@ export default function Home() {
 
   useEffect(() => {
     if (!currentAccount || typeof window === "undefined") return;
+    const dayKey = `nail-japan-translation-check-${new Date().toISOString().slice(0, 10)}`;
+    if (window.localStorage.getItem(dayKey)) return;
+    const read = (key) => { try { return JSON.parse(window.localStorage.getItem(key) || "null"); } catch { return null; } };
+    const items = [];
+    const add = (text) => { if (String(text || "").trim()) items.push({ text: String(text).trim(), targets: ["VI", "JA", "EN", "ZH", "KO"] }); };
+    const addList = (list, fields) => (Array.isArray(list) ? list : []).forEach((item) => fields.forEach((field) => add(item?.[field])));
+    addList(read("nail-japan-products"), ["name", "description", "shortDescription"]);
+    addList(read("nail-japan-services"), ["name", "description"]);
+    addList(read("nail-japan-staff"), ["name", "bookingDescription"]);
+    const settings = read("nail-japan-settings") || {};
+    ["salonName", "description", "about"].forEach((field) => add(settings[field]));
+    if (!items.length) return;
+    fetch("/api/translation-memory", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: [...new Map(items.map((item) => [item.text.toLocaleLowerCase(), item])).values()] }) })
+      .then(() => window.localStorage.setItem(dayKey, "1"))
+      .catch(() => {});
+  }, [currentAccount]);
+
+  useEffect(() => {
+    if (!currentAccount || typeof window === "undefined") return;
     const returnPage = new URLSearchParams(window.location.search).get("return");
     if (returnPage === "bot-tasks" || window.sessionStorage.getItem("nail-japan-return-page") === "bot-tasks") {
       window.sessionStorage.removeItem("nail-japan-return-page");

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { emptyService, useServiceCatalog, useBookingOptionCatalog } from "../lib/catalogStore";
 import { bookingGroups, fallbackBookingGroup, bookingGroupLabel } from "../lib/bookingMenu";
 import { tx } from "../lib/i18nClean";
+import { translateWithMemory } from "../lib/translationMemory";
 import { useStaffStore } from "../lib/staffStore";
 import { useAccountStore } from "../lib/accountStore";
 
@@ -59,9 +60,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
 
   async function translateText(text) {
     if (!text?.trim()) return {};
-    const response = await fetch("/api/translate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, targets: ["VI", "JA", "EN", "ZH", "KO"] }) });
-    const result = await response.json().catch(() => ({}));
-    return result.ok ? result.translations : {};
+    return translateWithMemory(text);
   }
 
   async function translateExistingServices() {
