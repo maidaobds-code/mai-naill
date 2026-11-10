@@ -1087,6 +1087,20 @@ section.nailPosPanel .nailPaymentRow {
     visibility: hidden !important;
   }
 
+  .printDocument:not(.active) {
+    display: none !important;
+  }
+
+  main:has(.printDocument.active) {
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  main:has(.printDocument.active) > *:not(:has(.printDocument.active)) {
+    display: none !important;
+  }
+
   .printDocument.active,
   .printDocument.active * {
     visibility: visible !important;
@@ -1094,7 +1108,9 @@ section.nailPosPanel .nailPaymentRow {
 
   .printDocument.active {
     display: block !important;
-    position: static;
+    position: absolute;
+    left: 0;
+    top: 0;
     width: 58mm;
     max-width: 58mm;
     height: auto !important;
@@ -1106,6 +1122,8 @@ section.nailPosPanel .nailPaymentRow {
     page-break-after: avoid;
     break-before: avoid;
     break-after: avoid;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .printPaper {
