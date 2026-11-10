@@ -136,7 +136,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
   }
 
   function openStaffTask(member) {
-    setStaffTask({ ...member, originalName: member.name, name: member.name, email: member.email || "", role: member.role || "staff", password: "" });
+    setStaffTask({ ...member, originalName: member.name, name: member.name, email: member.email || "", role: member.role || "staff", password: "", designationFee: Number(member.designationFee ?? 1100), bookingDescription: member.bookingDescription || "" });
     setAccountMessage("");
   }
 
@@ -146,7 +146,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     const email = String(staffTask.email || "").trim();
     if (!name || !email) return setAccountMessage("Vui lòng nhập tên và Gmail nhân viên.");
     if (staffTask.password && staffTask.password.length < 6) return setAccountMessage("Mật khẩu phải có ít nhất 6 ký tự.");
-    const nextMember = { ...staffTask, name, email, role: staffTask.role || "staff", displayName: staffTask.displayName === staffTask.originalName ? name : staffTask.displayName };
+    const nextMember = { ...staffTask, name, email, role: staffTask.role || "staff", designationFee: Math.max(0, Number(staffTask.designationFee || 0)), bookingDescription: String(staffTask.bookingDescription || "").trim(), displayName: staffTask.displayName === staffTask.originalName ? name : staffTask.displayName };
     const nextStaff = staff.map((item) => item.id === staffTask.id ? (({ password, originalName, ...member }) => member)(nextMember) : item);
     try {
       await upsertStaffAccount(nextMember, staffTask.password || "");
@@ -240,6 +240,8 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <label>Gmail đăng nhập<input type="email" value={staffTask.email} onChange={(event) => setStaffTask({ ...staffTask, email: event.target.value })} /></label>
           <label>Chức vụ<select value={staffTask.role} onChange={(event) => setStaffTask({ ...staffTask, role: event.target.value })}><option value="staff">Nhân viên</option><option value="manager">Quản lý</option><option value="owner">Chủ quán</option></select></label>
           <label>Mật khẩu mới<input type="password" value={staffTask.password} onChange={(event) => setStaffTask({ ...staffTask, password: event.target.value })} placeholder="Để trống nếu không đổi" /></label>
+          <label>Phí khi chỉ định nhân viên (JPY)<input type="number" min="0" step="100" value={staffTask.designationFee} onChange={(event) => setStaffTask({ ...staffTask, designationFee: Math.max(0, Number(event.target.value || 0)) })} /></label>
+          <label>Mô tả khi chỉ định nhân viên<textarea rows="3" value={staffTask.bookingDescription} onChange={(event) => setStaffTask({ ...staffTask, bookingDescription: event.target.value })} placeholder="Ví dụ: Chuyên nail art, vui lòng đặt trước…" /></label>
           <label className="staffTaskColorField">Màu lịch<div className="staffColorPicker">{staffColors.map(([colorName, color]) => <button type="button" key={color} title={colorName} aria-label={`Chọn màu ${colorName}`} className={staffTask.color === color ? "staffColorChoice active" : "staffColorChoice"} style={{ background: color }} onClick={() => setStaffTask({ ...staffTask, color })}><span>{colorName}</span></button>)}</div></label>
         </div>
         <div className="staffBookingActions"><button className="ghost" type="button" onClick={() => setStaffTask(null)}>Hủy</button><button className="primary" type="button" onClick={saveStaffTask}>Lưu thông tin</button><button className="ghost dangerButton" type="button" onClick={async () => { await deleteStaff(staffTask.id); setStaffTask(null); }}>Xóa nhân viên</button></div>
