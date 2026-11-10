@@ -73,7 +73,10 @@ export async function POST(request) {
         { owner_id: ORDERS_OWNER_ID, key: DELETED_ORDERS_KEY, value: [...serverDeletedIds], updated_at: new Date().toISOString() },
       ]),
     });
-    const newOrders = body.orders.filter((order) => order?.id && !currentIds.has(order.id));
+    // A stale browser can POST an old local list after another device deleted
+    // an order. Deleted IDs are authoritative tombstones: never re-notify or
+    // recreate those orders from stale payloads.
+    const newOrders = body.orders.filter((order) => order?.id && !currentIds.has(order.id) && !serverDeletedIds.has(String(order.id)));
     const notifications = await Promise.all(newOrders.map((order) => notifyManagementForOrder(order).catch((error) => ({ ok: false, reason: error.message }))));
     return Response.json({ ok: true, value: mergedOrders, managementNotifications: notifications });
   } catch {
