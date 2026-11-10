@@ -35,8 +35,6 @@ const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").r
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 const loginUsername = String(process.env.SALONBOARD_USERNAME || "").trim();
 const loginPassword = String(process.env.SALONBOARD_PASSWORD || "");
-const quietStartHour = 2;
-const quietEndHour = 8;
 const taskTimeoutMs = Math.max(30_000, Number(process.env.SALONBOARD_TASK_TIMEOUT_MS || 90_000));
 const observedFingerprints = new Map();
 let loginAlertSent = false;
@@ -121,10 +119,6 @@ function japanDateTime() {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 
-function isQuietHours() {
-  const hour = japanDateTime().hour;
-  return hour >= quietStartHour && hour < quietEndHour;
-}
 function withTaskTimeout(promise, taskId) {
   return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Task timeout after ${taskTimeoutMs}ms: ${taskId}`)), taskTimeoutMs))]);
 }
@@ -454,7 +448,7 @@ async function run() {
   // on about:blank.
   const navigated = await navigate(page);
   if (!navigated) await alertAdmin("Không mở được SALON BOARD sau 3 lần thử");
-  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} endOfDayScanDays=${endOfDayScanDays} quietHours=02:00-08:00 Asia/Tokyo`);
+  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} endOfDayScanDays=${endOfDayScanDays} continuous=true`);
 
   let scanOffset = 0;
   let lastFullSweepDate = "";
@@ -480,11 +474,6 @@ async function run() {
           await new Promise((resolve) => setTimeout(resolve, pollMs));
           continue;
         }
-      }
-      if (isQuietHours()) {
-        log("SALON BOARD quiet hours; browser and worker kept alive", `keepAliveMs=${keepAliveMs}`);
-        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
-        continue;
       }
       sessionEstablished = true;
       loginAlertSent = false;
