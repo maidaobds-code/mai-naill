@@ -1079,7 +1079,7 @@ section.nailPosPanel .nailPaymentRow {
   }
 
   @page {
-    size: 58mm auto;
+    size: 58mm 140mm;
     margin: 0;
   }
 
