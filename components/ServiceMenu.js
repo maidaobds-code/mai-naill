@@ -50,6 +50,11 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     setDraft((current) => ({ ...current, staff: current.staff.includes(name) ? current.staff.filter((item) => item !== name) : [...current.staff, name] }));
   }
 
+  function allStaffSelected(service) {
+    const selected = Array.isArray(service?.staff) ? service.staff : [];
+    return selected.length === 0 || (staff.length > 0 && staff.every((member) => selected.includes(member.name)));
+  }
+
   function uploadLocalImage(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -114,7 +119,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
         </div>
 
         {draft.imageUrl && <div className="imagePreview"><img src={draft.imageUrl} alt={draft.name || "Nail sample"} /><span>{draft.imageFileName || c.selectedImage}</span></div>}
-        <div className="staffPicker">{staff.map((member) => <button type="button" key={member.id} className={draft.staff.includes(member.name) ? "ghost activeSoft" : "ghost"} onClick={() => toggleStaff(member.name)}>{member.name}</button>)}</div>
+        <div className="staffPicker"><button type="button" className={allStaffSelected(draft) ? "ghost activeSoft" : "ghost"} onClick={() => setDraft((current) => ({ ...current, staff: [] }))}>Tất cả nhân viên</button>{staff.map((member) => <button type="button" key={member.id} className={draft.staff.includes(member.name) ? "ghost activeSoft" : "ghost"} onClick={() => toggleStaff(member.name)}>{member.name}</button>)}</div>
         <div className="serviceEditorModalActions"><button className="ghost dangerButton" type="button" disabled={!draft.id} onClick={() => { if (draft.category === "addons") setBookingOptions((current) => current.filter((item) => item.id !== draft.id)); else setServices((current) => current.filter((item) => item.id !== draft.id)); setEditorOpen(false); setDraft({ ...emptyService }); }}>Xóa</button><button className="primary" type="button" onClick={async () => { await saveService(); setEditorOpen(false); }}>Lưu</button></div>
       </section>
 
@@ -133,7 +138,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
               <td><span className="serviceGroupBadge">{bookingGroupLabel(service.category, language)}</span></td>
               <td>JPY {service.price.toLocaleString("ja-JP")}</td>
               <td>{service.duration} {c.minutes}</td>
-              <td>{service.staff.join(", ")}</td>
+              <td>{allStaffSelected(service) ? "Tất cả nhân viên" : service.staff.join(", ")}</td>
               <td>Chạm hoặc double-click để sửa</td>
             </tr>
           ))}{(!groupFilter || groupFilter === "addons") && bookingOptions.filter((option) => !query || option.name.toLowerCase().includes(query.toLowerCase())).map((option) => <tr key={option.id} onDoubleClick={() => { setDraft({ ...emptyService, ...option, category: "addons" }); setEditorOpen(true); }} onTouchEnd={() => { setDraft({ ...emptyService, ...option, category: "addons" }); setEditorOpen(true); }}><td><div className="serviceCell"><span className="serviceThumb">＋</span><div><strong>{option.name}</strong><br /><small>Dịch vụ bổ sung</small></div></div></td><td><span className="serviceGroupBadge">{bookingGroupLabel("addons", language)}</span></td><td>JPY {Number(option.price).toLocaleString("ja-JP")}</td><td>{option.duration} {c.minutes}</td><td>—</td><td>Chạm hoặc double-click để sửa</td></tr>)}</tbody>
