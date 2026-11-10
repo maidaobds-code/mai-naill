@@ -1079,7 +1079,7 @@ section.nailPosPanel .nailPaymentRow {
   }
 
   @page {
-    size: 58mm 140mm;
+    size: 58mm auto;
     margin: 0;
   }
 
@@ -1129,6 +1129,7 @@ section.nailPosPanel .nailPaymentRow {
   .printPaper {
     width: 58mm;
     max-width: 58mm;
+    height: fit-content !important;
     margin: 0;
     box-shadow: none;
     page-break-inside: avoid;
