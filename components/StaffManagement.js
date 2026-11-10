@@ -262,7 +262,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
 
       <section className="card tableWrap">
         <table>
-          <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>Chức vụ</th><th>{tc("action")}</th></tr></thead>
+          <thead><tr><th>{c.staff}</th><th>{c.color}</th><th>{c.login}</th><th>Phí chỉ định</th><th>Chức vụ</th><th>{tc("action")}</th></tr></thead>
           <tbody>{staff.map((member) => (
             <tr key={member.id} draggable onClick={() => openStaffTask(member)} onDragStart={(event) => { event.stopPropagation(); setDraggedStaffId(member.id); event.dataTransfer.effectAllowed = "move"; }} onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDragOverStaffId(member.id); }} onDragLeave={() => setDragOverStaffId(null)} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); dropStaff(member.id); }} onDragEnd={() => { setDraggedStaffId(null); setDragOverStaffId(null); }} className={`staffRowClickable${dragOverStaffId === member.id ? " staffRowDragOver" : ""}`}>
 	              {(() => {
@@ -274,6 +274,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
               <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
               <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small></div></td>
+              <td>¥{Number(member.designationFee ?? 0).toLocaleString("ja-JP")}</td>
               <td>{effectiveRole}</td>
               <td><button className="ghost" onClick={(event) => { event.stopPropagation(); openStaffTask(member); }}>Mở thao tác</button></td>
 	                </>;
