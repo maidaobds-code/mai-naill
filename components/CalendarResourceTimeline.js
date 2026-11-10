@@ -101,6 +101,25 @@ function bookingStyle(booking, rangeStart = timelineStart, rangeEnd = timelineEn
   };
 }
 
+function overlapLayout(bookings) {
+  const ordered = [...bookings].sort((a, b) => toMinutes(a.start) - toMinutes(b.start) || toMinutes(a.end) - toMinutes(b.end));
+  const laneEnds = [];
+  const layout = new Map();
+  ordered.forEach((booking) => {
+    const start = toMinutes(booking.start);
+    const end = toMinutes(booking.end);
+    let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
+    if (lane < 0) { lane = laneEnds.length; laneEnds.push(end); } else laneEnds[lane] = end;
+    layout.set(booking.id, { lane, lanes: 1 });
+  });
+  layout.forEach((value, id) => {
+    const booking = bookings.find((item) => item.id === id);
+    const overlaps = bookings.filter((item) => toMinutes(item.start) < toMinutes(booking.end) && toMinutes(item.end) > toMinutes(booking.start));
+    value.lanes = Math.max(1, ...overlaps.map((item) => (layout.get(item.id)?.lane ?? 0) + 1));
+  });
+  return layout;
+}
+
 function blankBooking(date, hour, member = EMPTY_STAFF) {
   const day = Number(String(date).slice(-2));
   return {
@@ -507,6 +526,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
             <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>{visibleIntervalSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
             {calendarStaff.map((member) => {
               const memberBookings = selectedDayBookings.filter((booking) => member.external ? comparableStaffName(booking.staff) === comparableStaffName(member.name) : comparableStaffName(booking.staff) === comparableStaffName(member.name) || String(booking.staffId || "") === String(member.id));
+              const bookingLayout = overlapLayout(memberBookings);
               const memberClosedRanges = closedRangesFor(member);
               return (
                 <div className="resourceRow" key={member.id}>
@@ -539,7 +559,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                         <button
                           className={selected.id === booking.id ? "timelineBooking selectedBar" : "timelineBooking"}
                           key={booking.id}
-                          style={{ ...bookingStyle(booking, startMinutes, endMinutes), borderColor: member.color, background: `${member.color}2b` }}
+                          style={{ ...bookingStyle(booking, startMinutes, endMinutes), ...(bookingLayout.get(booking.id)?.lanes > 1 ? { top: `${10 + bookingLayout.get(booking.id).lane * 28}px`, height: "26px", width: `calc(${100 / bookingLayout.get(booking.id).lanes}% - 4px)`, transform: `translateX(${bookingLayout.get(booking.id).lane * 100}%)` } : {}), borderColor: member.color, background: `${member.color}2b` }}
                           onMouseDown={() => openBookingAfterHold(booking)}
                           onMouseUp={cancelHold}
                           onMouseLeave={cancelHold}

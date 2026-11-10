@@ -33,6 +33,8 @@ const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-w
 const observationFile = process.env.SALONBOARD_OBSERVATION_FILE || path.resolve("runtime", "salonboard-observed-bookings.json");
 const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
+const loginUsername = String(process.env.SALONBOARD_USERNAME || "").trim();
+const loginPassword = String(process.env.SALONBOARD_PASSWORD || "");
 const quietStartHour = 2;
 const quietEndHour = 8;
 const taskTimeoutMs = Math.max(30_000, Number(process.env.SALONBOARD_TASK_TIMEOUT_MS || 90_000));
@@ -131,6 +133,24 @@ async function alertAdmin(reason) {
   if (loginAlertSent) return;
   loginAlertSent = true;
   await fetch(`${mainaillUrl}/api/bot-alert`, { method: "POST", headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" }, body: JSON.stringify({ bot: "SALON BOARD", reason }) }).catch((error) => log("admin alert failed", error.message));
+}
+
+async function tryAutoLogin(page) {
+  if (!loginUsername || !loginPassword || !isLoginPage(page)) return false;
+  const user = page.locator('input[name="loginId"], input[name="username"], input[type="email"], input[type="text"]').first();
+  const password = page.locator('input[name="password"], input[type="password"]').first();
+  if (!await user.count() || !await password.count()) return false;
+  await user.fill(loginUsername);
+  await password.fill(loginPassword);
+  const submit = page.locator('button[type="submit"], input[type="submit"], button:has-text("ログイン"), button:has-text("Login")').first();
+  if (!await submit.count()) return false;
+  const submitBox = await submit.boundingBox();
+  if (!submitBox) return false;
+  await page.mouse.click(submitBox.x + submitBox.width / 2, submitBox.y + submitBox.height / 2);
+  await page.waitForLoadState("domcontentloaded", { timeout: 20_000 }).catch(() => {});
+  const loggedIn = !isLoginPage(page) && !(await isSessionExpired(page));
+  log(loggedIn ? "SALON BOARD auto-login succeeded" : "SALON BOARD auto-login needs visible verification");
+  return loggedIn;
 }
 
 function internalStaffName(externalName) {
@@ -445,21 +465,25 @@ async function run() {
         await page.goto(scheduleUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
         lastKeepAliveAt = Date.now();
       }
-      if (isQuietHours()) {
-        log("SALON BOARD quiet hours; browser and worker kept alive", `keepAliveMs=${keepAliveMs}`);
-        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
-        continue;
-      }
       if (await isSessionExpired(page)) {
         log("SESSION_EXPIRED: returning to SALON BOARD login");
         if (sessionEstablished) await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
         sessionEstablished = false;
         await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));
+        await tryAutoLogin(page).catch((error) => log("SALON BOARD auto-login failed", error.message));
       } else if (isLoginPage(page)) {
-        log("LOGIN_REQUIRED: sign in to SALON BOARD in the visible browser");
-        if (sessionEstablished) await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
-        sessionEstablished = false;
-        await new Promise((resolve) => setTimeout(resolve, pollMs));
+        const autoLoggedIn = await tryAutoLogin(page);
+        if (!autoLoggedIn) {
+          log("LOGIN_REQUIRED: sign in to SALON BOARD in the visible browser");
+          if (sessionEstablished) await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
+          sessionEstablished = false;
+          await new Promise((resolve) => setTimeout(resolve, pollMs));
+          continue;
+        }
+      }
+      if (isQuietHours()) {
+        log("SALON BOARD quiet hours; browser and worker kept alive", `keepAliveMs=${keepAliveMs}`);
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
         continue;
       }
       sessionEstablished = true;
