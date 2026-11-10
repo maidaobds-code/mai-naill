@@ -715,7 +715,7 @@ export default function Settings({ language = "vi" }) {
               <p className="mutedText">{printerCopy.desc}</p>
             </div>
             <div className="printerSettingsAction">
-              <PrinterManager language={language} />
+              <PrinterManager language={language} showLogoUpload />
             </div>
             <p className="printerSupportNote">{printerCopy.support}</p>
           </section>
