@@ -85,7 +85,18 @@ function compactBookings(list) {
     // also repairs old rows where numeric and string IDs were stored together.
     if (!previous || booking.deletedAt || !previous.deletedAt) byId.set(booking.id, previous?.deletedAt && !booking.deletedAt ? previous : booking);
   }
-  return [...byId.values()];
+  const byFingerprint = new Map();
+  for (const booking of byId.values()) {
+    const source = String(booking.source || "direct").toLowerCase();
+    const external = String(booking.externalBookingId || "").trim();
+    const staff = String(booking.staffId || booking.staff || "").trim().toLowerCase();
+    const fingerprint = external
+      ? `${source}|external|${external}`
+      : `${source}|slot|${booking.date || ""}|${booking.start || ""}|${booking.end || ""}|${staff}|${String(booking.customer || "").trim().toLowerCase()}|${String(booking.service || "").trim().toLowerCase()}`;
+    const previous = byFingerprint.get(fingerprint);
+    if (!previous || booking.deletedAt || !previous.deletedAt) byFingerprint.set(fingerprint, previous?.deletedAt && !booking.deletedAt ? previous : booking);
+  }
+  return [...byFingerprint.values()];
 }
 
 async function notifyManagementForAssignment(request, booking) {
