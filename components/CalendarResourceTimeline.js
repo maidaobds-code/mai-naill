@@ -527,6 +527,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
             {calendarStaff.map((member) => {
               const memberBookings = selectedDayBookings.filter((booking) => member.external ? comparableStaffName(booking.staff) === comparableStaffName(member.name) : comparableStaffName(booking.staff) === comparableStaffName(member.name) || String(booking.staffId || "") === String(member.id));
               const bookingLayout = overlapLayout(memberBookings);
+              const bookingLaneCount = Math.max(1, ...[...bookingLayout.values()].map((item) => item.lanes));
               const memberClosedRanges = closedRangesFor(member);
               return (
                 <div className="resourceRow" key={member.id}>
@@ -534,7 +535,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     <div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
-                  <div className="resourceLane" style={{ backgroundSize: "var(--timeline-slot-width) 100%" }}>
+                  <div className="resourceLane" style={{ backgroundSize: "var(--timeline-slot-width) 100%", height: bookingLaneCount > 1 ? `${Math.max(76, 10 + bookingLaneCount * 28 + 26)}px` : undefined }}>
                     {!member.external && memberClosedRanges.map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`} />)}
                     <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>
                       {visibleIntervalSlots.map((hour) => (
@@ -559,7 +560,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                         <button
                           className={selected.id === booking.id ? "timelineBooking selectedBar" : "timelineBooking"}
                           key={booking.id}
-                          style={{ ...bookingStyle(booking, startMinutes, endMinutes), ...(bookingLayout.get(booking.id)?.lanes > 1 ? { top: `${10 + bookingLayout.get(booking.id).lane * 28}px`, height: "26px", width: `calc(${100 / bookingLayout.get(booking.id).lanes}% - 4px)`, transform: `translateX(${bookingLayout.get(booking.id).lane * 100}%)` } : {}), borderColor: member.color, background: `${member.color}2b` }}
+                          style={{ ...bookingStyle(booking, startMinutes, endMinutes), ...(bookingLayout.get(booking.id)?.lanes > 1 ? { top: `${10 + bookingLayout.get(booking.id).lane * 28}px`, height: "26px" } : {}), borderColor: member.color, background: `${member.color}2b` }}
                           onMouseDown={() => openBookingAfterHold(booking)}
                           onMouseUp={cancelHold}
                           onMouseLeave={cancelHold}
