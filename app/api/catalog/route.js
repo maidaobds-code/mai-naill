@@ -1,4 +1,4 @@
-import { isAdminRequest, isStaffRequest } from "../../../lib/serverAuth";
+import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -49,7 +49,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  if (!isAdminRequest(request) && !isStaffRequest(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+  if (!isAdminRequest(request) && !isOwnerRequest(request) && !isStaffRequest(request)) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   if (!SERVICE_ROLE_KEY) return Response.json({ ok: false, message: "Missing SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY" }, { status: 503 });
 
   const body = await request.json().catch(() => ({}));
