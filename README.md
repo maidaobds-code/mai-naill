@@ -63,3 +63,6 @@ npm run package:windows
 File đầu ra nằm tại `dist/Mainaill-Bot-Setup-<version>.exe`. Sau khi cài, cấu
 hình, log và profile trình duyệt được lưu trong thư mục dữ liệu ứng dụng của
 Windows, tách khỏi thư mục cài đặt. DRY RUN được bật mặc định cho cả hai worker.
+Ứng dụng mặc định đăng ký khởi động cùng Windows và tự chạy cả Nailie lẫn
+SALON BOARD sau khi máy bật hoặc khởi động lại. Có thể tắt chế độ này trong
+Bot Manager bằng tùy chọn **Tự mở ứng dụng và chạy cả hai bot**.

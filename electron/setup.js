@@ -1,4 +1,4 @@
-const fields = ["mainaillUrl", "bookingSyncSecret", "pollMinSeconds", "pollMaxSeconds", "nailieDryRun", "salonboardDryRun", "startWorkersOnLaunch", "startWithWindows"];
+const fields = ["mainaillUrl", "bookingSyncSecret", "pollMinSeconds", "pollMaxSeconds", "nailieDryRun", "salonboardDryRun", "autoStartBot"];
 
 function renderWorkers(state) {
   for (const name of ["salonboard", "nailie"]) {

@@ -12,8 +12,9 @@ const DEFAULT_CONFIG = {
   salonboardDryRun: true,
   nailieStaffMapping: {},
   salonboardStaffRules: {},
-  startWorkersOnLaunch: false,
-  startWithWindows: false,
+  autoStartBot: true,
+  startWorkersOnLaunch: true,
+  startWithWindows: true,
 };
 
 let mainWindow;
@@ -33,17 +34,27 @@ function ensureDataFolders() {
 
 function readConfig() {
   ensureDataFolders();
-  try { return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(configPath(), "utf8")) }; }
+  try {
+    const stored = JSON.parse(fs.readFileSync(configPath(), "utf8"));
+    const autoStartBot = Object.hasOwn(stored, "autoStartBot") ? Boolean(stored.autoStartBot) : true;
+    return { ...DEFAULT_CONFIG, ...stored, autoStartBot, startWorkersOnLaunch: autoStartBot, startWithWindows: autoStartBot };
+  }
   catch { return { ...DEFAULT_CONFIG }; }
+}
+
+function applyStartupSettings(config) {
+  app.setLoginItemSettings({ openAtLogin: Boolean(config.autoStartBot), path: process.execPath });
 }
 
 function saveConfig(value) {
   ensureDataFolders();
   let existing = {};
   try { existing = JSON.parse(fs.readFileSync(configPath(), "utf8")); } catch {}
-  const config = { ...DEFAULT_CONFIG, ...existing, ...(value || {}) };
+  const requested = value || {};
+  const autoStartBot = Object.hasOwn(requested, "autoStartBot") ? Boolean(requested.autoStartBot) : Object.hasOwn(existing, "autoStartBot") ? Boolean(existing.autoStartBot) : true;
+  const config = { ...DEFAULT_CONFIG, ...existing, ...requested, autoStartBot, startWorkersOnLaunch: autoStartBot, startWithWindows: autoStartBot };
   fs.writeFileSync(configPath(), JSON.stringify(config, null, 2), "utf8");
-  app.setLoginItemSettings({ openAtLogin: Boolean(config.startWithWindows), path: process.execPath });
+  applyStartupSettings(config);
   return config;
 }
 
@@ -160,7 +171,8 @@ app.whenReady().then(() => {
   ensureDataFolders();
   createWindow();
   const config = readConfig();
-  if (config.startWorkersOnLaunch) {
+  applyStartupSettings(config);
+  if (config.autoStartBot) {
     startWorker("salonboard").catch((error) => mainWindow?.webContents.send("mapping:error", error.message));
     startWorker("nailie").catch((error) => mainWindow?.webContents.send("mapping:error", error.message));
   }
