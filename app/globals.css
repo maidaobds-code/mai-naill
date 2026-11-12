@@ -1501,6 +1501,18 @@ section.nailPosPanel .nailPaymentAppName {
   padding: 96px 22px 48px;
 }
 
+.storeSoftShell.bookingBackground {
+  isolation: isolate;
+}
+
+.storeSoftShell.bookingBackground::before {
+  inset: 0;
+  height: auto;
+  background:
+    linear-gradient(rgba(255, 250, 253, 0.14), rgba(255, 250, 253, 0.14)),
+    url("/images/booking-sakura-background.png") center / cover no-repeat;
+}
+
 .storeGlassToolbar {
   position: sticky;
   top: 16px;

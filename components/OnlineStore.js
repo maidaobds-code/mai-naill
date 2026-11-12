@@ -695,7 +695,7 @@ export default function OnlineStore({
   }
 
   return (
-    <div className="storeSoftShell">
+    <div className={mode === "booking" ? "storeSoftShell bookingBackground" : "storeSoftShell"}>
       <header className="storeGlassToolbar">
         <a
           className="storeToolbarBrand"
