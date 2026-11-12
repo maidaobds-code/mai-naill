@@ -2,6 +2,7 @@ import { acknowledgeProviderSync, ingestExternalBooking, syncTaskId } from "../.
 import { createBookingAssignmentToken, createBookingCancellationToken } from "../../../lib/bookingAssignmentToken.js";
 import { managementEmails, sendEmail, salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
 import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
+import { removeExpiredCapacityTasks } from "../../../lib/syncTaskExpiry.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -37,7 +38,9 @@ export async function GET(request) {
   const provider = new URL(request.url).searchParams.get("provider");
   if (!["hotpepper", "nailie"].includes(provider)) return Response.json({ ok: false, message: "Invalid provider" }, { status: 400 });
   try {
-    const bookings = await readBookings();
+    const storedBookings = await readBookings();
+    const pruned = removeExpiredCapacityTasks(storedBookings);
+    const bookings = pruned.changed ? await saveBookings(pruned.value) : storedBookings;
     const tasks = bookings.flatMap((booking) => {
       const pending = (Array.isArray(booking.pendingSyncActions) ? booking.pendingSyncActions : []).filter((action) => action.target === provider);
       if (!pending.length && provider === "hotpepper" && booking.deletedAt && booking.providerSync?.hotpepper?.status === "error" && booking.date && booking.start && booking.end && (booking.staffId || booking.staff)) {

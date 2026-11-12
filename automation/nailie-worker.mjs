@@ -12,6 +12,7 @@ import process from "node:process";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { awaitTaskCompletion } from "./task-guard.mjs";
+import { isExpiredCapacityTask } from "../lib/syncTaskExpiry.js";
 
 function dateKey(date = new Date()) {
   const year = date.getFullYear();
@@ -422,6 +423,11 @@ async function run() {
         const tasks = await fetchSyncTasks();
         for (const task of tasks) {
           try {
+            if (isExpiredCapacityTask(task, task.booking)) {
+              log("Nailie capacity task skipped; slot has already ended", JSON.stringify({ taskId: task.taskId, date: task.match?.date || task.booking?.date, end: task.match?.end || task.booking?.end }));
+              if (!dryRun) await acknowledgeTask(task, "synced");
+              continue;
+            }
             await awaitTaskCompletion(applyExactSlotTask(page, task), {
               taskId: task.taskId || task.booking?.id || "unknown",
               slowAfterMs: taskTimeoutMs,
