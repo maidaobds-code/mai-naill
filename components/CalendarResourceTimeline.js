@@ -529,7 +529,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
               return (
                 <div className="resourceRow" key={member.id}>
                   <div className="resourceStaff">
-                    <div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>
+                    {member.avatarUrl ? <img className="avatar small resourceStaffAvatar" src={member.avatarUrl} alt={`Ảnh đại diện ${member.name}`} /> : <div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>}
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
                   <div className="resourceLane" style={{ backgroundSize: "var(--timeline-slot-width) 100%", height: bookingLaneCount > 1 ? `${Math.max(76, 10 + bookingLaneCount * 28 + 26)}px` : undefined }}>
