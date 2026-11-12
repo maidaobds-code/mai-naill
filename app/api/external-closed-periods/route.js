@@ -1,14 +1,10 @@
 import { salonSettings, staffCatalog } from "../../../lib/serverEmail.js";
+import { isAutomationRequest } from "../../../lib/automationAuth.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const OWNER_ID = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001").trim().replace(/^['\"]|['\"]$/g, "");
 const SETTINGS_KEY = "nail-japan-settings";
-
-function authorized(request) {
-  const secret = process.env.BOOKING_SYNC_SECRET || process.env.CRON_SECRET;
-  return Boolean(secret && request.headers.get("authorization") === `Bearer ${secret}`);
-}
 
 function validDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
@@ -37,7 +33,7 @@ async function saveSettings(value) {
 }
 
 export async function POST(request) {
-  if (!authorized(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
+  if (!isAutomationRequest(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
   const date = String(body.date || "");
   if (!validDate(date) || !Array.isArray(body.periods)) return Response.json({ ok: false, message: "Invalid closed-period scan" }, { status: 400 });

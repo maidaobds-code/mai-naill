@@ -1,12 +1,9 @@
 import { NextResponse } from "next/server";
+import { escapeHtml } from "../../../../lib/webText.js";
 
 function authorized(request) {
   const secret = process.env.CRON_SECRET;
   return !secret || request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
-function escapeHtml(value) {
-  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;" }[character]));
 }
 
 export async function GET(request) {

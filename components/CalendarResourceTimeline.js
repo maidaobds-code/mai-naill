@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { tx } from "../lib/i18nClean";
 import { platforms, staff as seedStaff } from "../lib/salonData";
+import { escapeHtml } from "../lib/webText";
 import { useStaffStore } from "../lib/staffStore";
 import { useAccountStore } from "../lib/accountStore";
 import { useBookingStore } from "../lib/bookingStore";
@@ -139,10 +140,6 @@ function blankBooking(date, hour, member = EMPTY_STAFF) {
     source: "direct",
     draft: true,
   };
-}
-
-function escapeHtml(value) {
-  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
 }
 
 export default function CalendarResourceTimeline({ label = "Calendar", language = "vi", onCheckout }) {

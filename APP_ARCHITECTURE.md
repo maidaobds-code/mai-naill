@@ -13,7 +13,6 @@ app/
 components/               UI theo module nghiệp vụ
   AccountAccess           Login, owner/customer session
   StaffManagement         Nhân viên và role tài khoản
-  AccountManagement        Quản lý tài khoản
   CalendarResourceTimeline Lịch và phân công
   ServiceMenu              Menu dịch vụ
   ProductInventory         Sản phẩm và kho

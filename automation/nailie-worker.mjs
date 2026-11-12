@@ -13,13 +13,7 @@ import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { awaitTaskCompletion } from "./task-guard.mjs";
 import { isExpiredCapacityTask } from "../lib/syncTaskExpiry.js";
-
-function dateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+import { dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
 
 const url = process.env.NAILIE_SCHEDULE_URL || `https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${dateKey()}&showBooking=true`;
 const profileDir = process.env.NAILIE_PROFILE_DIR || path.resolve(".nailie-profile");
@@ -59,14 +53,8 @@ function log(message, details = "") {
     .catch(() => {});
 }
 
-function operationDelay() {
-  return 1000 + Math.floor(Math.random() * 2001);
-}
-
 async function waitBeforeOperation() {
-  const delay = operationDelay();
-  log("waiting before operation", `${delay}ms`);
-  await new Promise((resolve) => setTimeout(resolve, delay));
+  await waitWithOperationDelay(log);
 }
 
 function parseJsonEnv(name, fallback) {

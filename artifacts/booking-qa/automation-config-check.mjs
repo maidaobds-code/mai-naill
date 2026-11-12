@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { sameSalonboardStaffName, salonboardStaffHeaderName } from "../../lib/salonboardNames.mjs";
 
 const route = fs.readFileSync("app/api/automation-config/route.js", "utf8");
+const automationAuth = fs.readFileSync("lib/automationAuth.js", "utf8");
 const desktop = fs.readFileSync("electron/setup.js", "utf8");
 const worker = fs.readFileSync("automation/salonboard-worker.mjs", "utf8");
 const settings = fs.readFileSync("components/Settings.js", "utf8");
@@ -10,7 +11,8 @@ const staffStore = fs.readFileSync("lib/staffStore.js", "utf8");
 const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktopMain = fs.readFileSync("electron/main.cjs", "utf8");
 
-assert.match(route, /BOOKING_SYNC_SECRET/);
+assert.match(route, /isAutomationRequest/);
+assert.match(automationAuth, /BOOKING_SYNC_SECRET/);
 assert.match(route, /workerMapping/);
 assert.match(route, /salonboardLoginId/);
 assert.match(route, /nailieLoginId/);

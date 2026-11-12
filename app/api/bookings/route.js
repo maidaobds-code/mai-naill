@@ -4,6 +4,7 @@ import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
 import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth.js";
 import { salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
 import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
+import { escapeHtml, publicOrigin } from "../../../lib/webText.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -19,17 +20,8 @@ async function supabaseRest(path, options = {}) {
   return data;
 }
 
-function escapeHtml(value) {
-  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
-}
-
 function isPendingAssignment(booking) {
   return booking?.assignmentStatus === "PENDING_ASSIGNMENT" || (!booking?.staffId && ["", "Chưa phân công", "指名なし", "No preference"].includes(String(booking?.staff || "")));
-}
-
-function publicOrigin(request) {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
-  return configured.replace(/\/$/, "") || new URL(request.url).origin;
 }
 
 function minutes(value) { const [hour, minute] = String(value || "").split(":").map(Number); return hour * 60 + minute; }

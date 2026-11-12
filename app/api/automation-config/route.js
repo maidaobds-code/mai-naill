@@ -1,9 +1,5 @@
 import { salonSettings, staffCatalog } from "../../../lib/serverEmail.js";
-
-function authorized(request) {
-  const secret = process.env.BOOKING_SYNC_SECRET || process.env.CRON_SECRET;
-  return Boolean(secret && request.headers.get("authorization") === `Bearer ${secret}`);
-}
+import { isAutomationRequest } from "../../../lib/automationAuth.js";
 
 function firstMapping(member, platform) {
   const raw = member?.external?.[platform];
@@ -12,7 +8,7 @@ function firstMapping(member, platform) {
 }
 
 export async function GET(request) {
-  if (!authorized(request)) return Response.json({ ok: false, message: "Unauthorized automation client" }, { status: 401 });
+  if (!isAutomationRequest(request)) return Response.json({ ok: false, message: "Unauthorized automation client" }, { status: 401 });
   try {
     const [staff, settings] = await Promise.all([staffCatalog(), salonSettings()]);
     const mappings = staff.map((member) => {

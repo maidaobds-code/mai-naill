@@ -1,4 +1,5 @@
 import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
+import { escapeHtml } from "../../../lib/webText.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -22,10 +23,6 @@ async function supabaseRest(path, options = {}) {
   const data = text ? JSON.parse(text) : null;
   if (!response.ok) throw new Error(JSON.stringify(data));
   return data;
-}
-
-function escapeHtml(value) {
-  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
 }
 
 async function notifyManagementForOrder(order) {

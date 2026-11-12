@@ -4,6 +4,7 @@ import { appointmentConfirmationEmail } from "../../../lib/appointmentEmail.js";
 import { overallSyncStatus, providerSyncState, syncTaskId } from "../../../lib/bookingSync.js";
 import { staff as seedStaff } from "../../../lib/salonData.js";
 import { nailieCapacityTask, staffQualifiedForService } from "../../../lib/salonCapacity.js";
+import { escapeHtml } from "../../../lib/webText.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -44,10 +45,6 @@ function availability(member, booking, allBookings, settings = {}, services = []
   const closedPeriods = (settings.staffClosedPeriods || []).filter((raw) => { const match = String(raw).match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/); return match && [String(member.id), String(member.name).trim().toLowerCase()].includes(String(match[1]).trim().toLowerCase()) && match[2] === booking.date && toMinutes(booking.start) < toMinutes(match[4]) && toMinutes(booking.end) > toMinutes(match[3]); });
   const qualified = staffQualifiedForService(member, booking, services);
   return { available: qualified && !busy.length && !closedPeriods.length, qualified, busy: Boolean(busy.length), closed: Boolean(closedPeriods.length), closedPeriods, previousBooking: before ? { start: before.start, end: before.end, customer: before.customer } : null };
-}
-
-function escapeHtml(value) {
-  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
 }
 
 export async function GET(request) {

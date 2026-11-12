@@ -3,16 +3,13 @@ import { createBookingAssignmentToken, createBookingCancellationToken } from "..
 import { managementEmails, sendEmail, salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
 import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
 import { removeExpiredCapacityTasks } from "../../../lib/syncTaskExpiry.js";
+import { isAutomationRequest } from "../../../lib/automationAuth.js";
+import { escapeHtml, publicOrigin } from "../../../lib/webText.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const OWNER_ID = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001").trim().replace(/^['\"]|['\"]$/g, "");
 const BOOKINGS_KEY = "nail-japan-bookings";
-
-function authorized(request) {
-  const secret = process.env.BOOKING_SYNC_SECRET || process.env.CRON_SECRET;
-  return Boolean(secret && request.headers.get("authorization") === `Bearer ${secret}`);
-}
 
 async function supabaseRest(path, options = {}) {
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) throw new Error("Supabase server configuration is missing");
@@ -34,7 +31,7 @@ async function saveBookings(value) {
 }
 
 export async function GET(request) {
-  if (!authorized(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
+  if (!isAutomationRequest(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
   const provider = new URL(request.url).searchParams.get("provider");
   if (!["hotpepper", "nailie"].includes(provider)) return Response.json({ ok: false, message: "Invalid provider" }, { status: 400 });
   try {
@@ -53,15 +50,6 @@ export async function GET(request) {
   } catch (error) {
     return Response.json({ ok: false, message: error.message || "Cannot read sync tasks" }, { status: 500 });
   }
-}
-
-function publicOrigin(request) {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
-  return configured.replace(/\/$/, "") || new URL(request.url).origin;
-}
-
-function escapeHtml(value) {
-  return String(value || "").replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[character]));
 }
 
 function normalizeCustomer(value) {
@@ -127,7 +115,7 @@ async function notifyManualSyncRequired(booking, task, error) {
 }
 
 export async function POST(request) {
-  if (!authorized(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
+  if (!isAutomationRequest(request)) return Response.json({ ok: false, message: "Unauthorized sync worker" }, { status: 401 });
   const body = await request.json().catch(() => ({}));
   try {
     const current = await readBookings();

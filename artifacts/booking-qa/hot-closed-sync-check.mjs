@@ -3,6 +3,7 @@ import fs from "node:fs";
 
 const worker = fs.readFileSync("automation/salonboard-worker.mjs", "utf8");
 const route = fs.readFileSync("app/api/external-closed-periods/route.js", "utf8");
+const automationAuth = fs.readFileSync("lib/automationAuth.js", "utf8");
 
 assert.match(worker, /async function scanExternalClosedPeriods/);
 assert.match(worker, /querySelectorAll\("\.scheduleToDoInner"\)/);
@@ -20,7 +21,8 @@ assert.match(worker, /Multiple SALON BOARD closures match/, "Ambiguous HOT closu
 assert.match(worker, /SALON BOARD external closure verification failed/, "The HOT form time must be verified before deletion");
 assert.match(worker, /selectTimeOption/, "The HOT form must wait for dynamically loaded end-time options");
 assert.match(worker, /schEndHour[\s\S]*?option/, "The HOT end-time options must be checked before selecting");
-assert.match(route, /request\.headers\.get\("authorization"\)/);
+assert.match(route, /isAutomationRequest/);
+assert.match(automationAuth, /request\.headers\.get\("authorization"\)/);
 assert.match(route, /hotpepperClosedPeriods/);
 assert.match(route, /previousForDate\.has\(value\)/, "A reopened HOT period must be removed from web settings");
 assert.match(route, /staffClosedPeriods: nextClosed/);

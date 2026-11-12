@@ -13,6 +13,8 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { chromium } from "playwright";
 import { compactSalonboardName as compactName, salonboardStaffHeaderName as staffHeaderName } from "../lib/salonboardNames.mjs";
+import { awaitTaskCompletion } from "./task-guard.mjs";
+import { dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
 
 const url = process.env.SALONBOARD_SCHEDULE_URL || "https://salonboard.com/login/";
 const loginUrl = "https://salonboard.com/login/";
@@ -50,14 +52,8 @@ function log(message, details = "") {
   fs.mkdir(path.dirname(logFile), { recursive: true }).then(() => fs.appendFile(logFile, `${line}\n`)).catch(() => {});
 }
 
-function operationDelay() {
-  return 1000 + Math.floor(Math.random() * 2001);
-}
-
 async function waitBeforeOperation() {
-  const delay = operationDelay();
-  log("waiting before operation", `${delay}ms`);
-  await new Promise((resolve) => setTimeout(resolve, delay));
+  await waitWithOperationDelay(log);
 }
 
 function staffRules() {
@@ -107,20 +103,9 @@ async function blockStaffSchedule(page, item) {
   throw new Error(`Blocking is not enabled for ${item.staffName}; verify shift selectors first`);
 }
 
-function dateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function japanDateTime() {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
   return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
-}
-
-function withTaskTimeout(promise, taskId) {
-  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Task timeout after ${taskTimeoutMs}ms: ${taskId}`)), taskTimeoutMs))]);
 }
 
 async function alertAdmin(reason) {
@@ -480,7 +465,11 @@ async function run() {
       const tasks = await fetchSyncTasks();
       for (const task of tasks) {
         try {
-          await withTaskTimeout(applySyncTask(page, task), task.taskId || task.booking?.id || "unknown");
+          await awaitTaskCompletion(applySyncTask(page, task), {
+            taskId: task.taskId || task.booking?.id || "unknown",
+            slowAfterMs: taskTimeoutMs,
+            onSlow: (message) => log("SALON BOARD sync task is slow; waiting for completion", message),
+          });
           if (!dryRun) await acknowledgeTask(task, "synced");
         } catch (error) {
           log("SALON BOARD sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);

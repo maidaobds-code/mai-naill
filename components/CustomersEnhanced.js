@@ -7,20 +7,13 @@ import { tx } from "../lib/i18nClean";
 import { customers as seedCustomers } from "../lib/salonData";
 import { getKv, saveKv, supabaseReady } from "../lib/supabaseBrowser";
 import { useAccountStore } from "../lib/accountStore";
+import { escapeHtml } from "../lib/webText";
 
 const CAMPAIGN_KEY = "nail-japan-campaigns";
 const DELETED_CUSTOMERS_KEY = "nail-japan-deleted-customers";
 
 function yen(value) {
   return `JPY ${Number(value || 0).toLocaleString("ja-JP")}`;
-}
-
-function escapeHtml(value) {
-  return String(value || "").replace(
-    /[&<>\"]/g,
-    (character) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character],
-  );
 }
 
 function campaignEmailHtml(
