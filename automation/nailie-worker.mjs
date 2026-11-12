@@ -11,6 +11,7 @@ import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import { awaitTaskCompletion } from "./task-guard.mjs";
 
 function dateKey(date = new Date()) {
   const year = date.getFullYear();
@@ -43,10 +44,6 @@ function isQuietHours() {
   const hour = japanHour();
   return hour >= quietStartHour && hour < quietEndHour;
 }
-function withTaskTimeout(promise, taskId) {
-  return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`Task timeout after ${taskTimeoutMs}ms: ${taskId}`)), taskTimeoutMs))]);
-}
-
 async function alertAdmin(reason) {
   if (loginAlertSent) return;
   loginAlertSent = true;
@@ -425,7 +422,11 @@ async function run() {
         const tasks = await fetchSyncTasks();
         for (const task of tasks) {
           try {
-            await withTaskTimeout(applyExactSlotTask(page, task), task.taskId || task.booking?.id || "unknown");
+            await awaitTaskCompletion(applyExactSlotTask(page, task), {
+              taskId: task.taskId || task.booking?.id || "unknown",
+              slowAfterMs: taskTimeoutMs,
+              onSlow: (message) => log("Nailie sync task is slow; waiting for completion", message),
+            });
             if (!dryRun) await acknowledgeTask(task, "synced");
           } catch (error) {
             log("Nailie sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);

@@ -50,12 +50,11 @@ const conflict = ingestExternalBooking(hotExisting.bookings, {
   externalBookingId: "HP-200",
   booking: { date: "2026-11-03", start: "10:30", end: "11:30", staffId: "staff-mai", staff: "Mai" },
 });
-assert.equal(conflict.result.syncStatus, "manual_required");
+assert.equal(conflict.result.syncStatus, "partial");
 assert.equal(conflict.tasks.length, 0);
 assert.equal(conflict.bookings.length, 2);
-assert.equal(conflict.conflicts.length, 2);
-assert.equal(conflict.conflicts.every((booking) => booking.assignmentStatus === "PENDING_CONFLICT"), true);
-assert.equal(conflict.conflicts.every((booking) => booking.conflictGroupId === conflict.result.conflictGroupId), true);
+assert.equal(conflict.conflicts, undefined);
+assert.equal(conflict.bookings.some((booking) => booking.assignmentStatus === "PENDING_CONFLICT"), false);
 
 const acknowledged = acknowledgeProviderSync(nailie.bookings, { provider: "hotpepper", bookingId: nailie.result.id, status: "synced", externalBookingId: "HP-BLOCK-100" });
 assert.equal(acknowledged.result.syncStatus, "synced");
@@ -124,7 +123,7 @@ assert.match(calendarSource, /calendarStaff\.map/);
 console.log("PASS Nailie booking becomes an unassigned Mainaill hold");
 console.log("PASS duplicate external events update instead of creating a loop");
 console.log("PASS unchanged external events do not create another sync loop");
-console.log("PASS overlapping external bookings require manual resolution");
+console.log("PASS overlapping external bookings stay visible without forced conflict reassignment");
 console.log("PASS provider acknowledgements produce per-platform synced status");
 console.log("PASS provider acknowledgement removes only its completed sync action");
 console.log("PASS multiple Nailie capacity tasks are acknowledged independently");

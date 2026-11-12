@@ -8,8 +8,8 @@ process.env.ADMIN_PASS = "test-password";
 process.env.ADMIN_SESSION_SECRET = "test-session-secret";
 
 let stored = [
-  { id: 1, date: "2026-10-26", start: "10:00", end: "11:00", customer: "Old numeric ID", staff: "Mai", status: "CONFIRMED" },
   { id: "legacy-copy-1", date: "2026-10-26", start: "10:00", end: "11:00", customer: "Old numeric ID", staff: "Mai", status: "CONFIRMED" },
+  { id: 1, date: "2026-10-26", start: "10:00", end: "11:00", customer: "Old numeric ID", staff: "Mai", status: "CONFIRMED" },
 ];
 
 globalThis.fetch = async (url, options = {}) => {
@@ -32,7 +32,7 @@ const request = (bookings) => new Request("https://salon.example.com/api/booking
 
 // Account A loads the old numeric booking ID.
 const firstRead = await (await route.GET()).json();
-assert.equal(firstRead.value.length, 2);
+assert.equal(firstRead.value.length, 1);
 assert.equal(firstRead.value[0].id, "1");
 
 // Account A deletes it through the dedicated authenticated server endpoint.
@@ -50,7 +50,7 @@ const deleteResult = await (await route.DELETE(new Request("https://salon.exampl
   body: JSON.stringify({ id: "1" }),
 }))).json();
 assert.equal(deleteResult.ok, true);
-assert.equal(deleteResult.value.length, 2);
+assert.equal(deleteResult.value.length, 1);
 assert.equal(deleteResult.value.every((item) => Boolean(item.deletedAt)), true);
 assert.deepEqual(deleteResult.syncTasks.map((task) => task.target).sort(), ["hotpepper", "nailie"]);
 assert.equal(deleteResult.syncTasks.find((task) => task.target === "hotpepper").action, "cancel");
@@ -61,7 +61,7 @@ assert.equal(deleteResult.value.every((item) => item.pendingSyncActions?.length 
 
 // Account B reloads and must receive only the tombstone (hidden by the UI).
 const secondRead = await (await route.GET()).json();
-assert.equal(secondRead.value.length, 2);
+assert.equal(secondRead.value.length, 1);
 assert.equal(secondRead.value.filter((item) => !item.deletedAt).length, 0);
 
 // A stale account tries to write the old live copy. The server must not revive it.
