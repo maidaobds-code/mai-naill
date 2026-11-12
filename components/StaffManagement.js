@@ -141,6 +141,25 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     setAccountMessage("");
   }
 
+  function uploadStaffAvatar(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      return setAccountMessage("Vui lòng chọn ảnh JPG, PNG hoặc WebP.");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return setAccountMessage("Ảnh đại diện không được lớn hơn 5 MB.");
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setStaffTask((current) => current ? { ...current, avatarUrl: reader.result, avatarFileName: file.name } : current);
+      setAccountMessage("");
+    };
+    reader.onerror = () => setAccountMessage("Không thể đọc ảnh đã chọn.");
+    reader.readAsDataURL(file);
+  }
+
   async function saveStaffTask() {
     if (!staffTask) return;
     const name = String(staffTask.name || "").trim();
@@ -246,6 +265,17 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <label>Phí khi chỉ định nhân viên (JPY)<input type="number" min="0" step="100" value={staffTask.designationFee} onChange={(event) => setStaffTask({ ...staffTask, designationFee: Math.max(0, Number(event.target.value || 0)) })} /></label>
           <label>Mô tả khi chỉ định nhân viên<textarea rows="3" value={staffTask.bookingDescription} onChange={(event) => setStaffTask({ ...staffTask, bookingDescription: event.target.value })} placeholder="Ví dụ: Chuyên nail art, vui lòng đặt trước…" /></label>
           <label className="staffTaskColorField">Màu lịch<div className="staffColorPicker">{staffColors.map(([colorName, color]) => <button type="button" key={color} title={colorName} aria-label={`Chọn màu ${colorName}`} className={staffTask.color === color ? "staffColorChoice active" : "staffColorChoice"} style={{ background: color }} onClick={() => setStaffTask({ ...staffTask, color })}><span>{colorName}</span></button>)}</div></label>
+          <div className="staffTaskAvatarField fullField">
+            <span>Ảnh đại diện</span>
+            <div className="staffTaskAvatarEditor">
+              {staffTask.avatarUrl ? <img src={staffTask.avatarUrl} alt={`Ảnh đại diện ${staffTask.name}`} /> : <div className="staffTaskAvatarFallback" style={{ background: staffTask.color }}>{staffTask.name?.[0] || "?"}</div>}
+              <div>
+                <label className="ghost staffAvatarUpload">{staffTask.avatarUrl ? "Thay ảnh" : "Thêm ảnh"}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadStaffAvatar} /></label>
+                {staffTask.avatarUrl && <button className="ghost" type="button" onClick={() => setStaffTask({ ...staffTask, avatarUrl: "", avatarFileName: "" })}>Xóa ảnh</button>}
+              </div>
+              <small>JPG, PNG hoặc WebP · tối đa 5 MB</small>
+            </div>
+          </div>
         </div>
         <div className="staffBookingActions"><button className="ghost" type="button" onClick={() => setStaffTask(null)}>Hủy</button><button className="primary" type="button" onClick={saveStaffTask}>Lưu thông tin</button><button className="ghost dangerButton" type="button" onClick={async () => { await deleteStaff(staffTask.id); setStaffTask(null); }}>Xóa nhân viên</button></div>
       </section>}
@@ -274,7 +304,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
                 const account = emailMatches.length === 1 ? emailMatches[0] : accounts.find((item) => item.id === `staff-${member.id}`) || (nameMatches.length === 1 ? nameMatches[0] : null);
                 const effectiveRole = account?.role || member.role || "staff";
 	                return <>
-              <td><div className="staffNameCell"><div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div><div><strong>{member.name}</strong></div></div></td>
+              <td><div className="staffNameCell">{member.avatarUrl ? <img className="staffTableAvatar" src={member.avatarUrl} alt="" /> : <div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>}<div><strong>{member.name}</strong></div></div></td>
               <td><span className="colorSwatch" style={{ background: member.color }} title={staffColors.find((item) => item[1] === member.color)?.[0] || member.color} /></td>
               <td><div className="staffLoginCell"><span className="pill active">{member.credentialStatus}</span><small>{account?.email || member.email || "-"}</small></div></td>
               <td>¥{Number(member.designationFee ?? 0).toLocaleString("ja-JP")}</td>
