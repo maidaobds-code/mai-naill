@@ -1501,11 +1501,11 @@ section.nailPosPanel .nailPaymentAppName {
   padding: 96px 22px 48px;
 }
 
-.storeSoftShell.bookingBackground {
+.storeSoftShell.sakuraBackground {
   isolation: isolate;
 }
 
-.storeSoftShell.bookingBackground::before {
+.storeSoftShell.sakuraBackground::before {
   inset: 0;
   height: auto;
   background:

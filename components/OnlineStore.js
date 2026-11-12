@@ -695,7 +695,7 @@ export default function OnlineStore({
   }
 
   return (
-    <div className={mode === "booking" ? "storeSoftShell bookingBackground" : "storeSoftShell"}>
+    <div className="storeSoftShell sakuraBackground">
       <header className="storeGlassToolbar">
         <a
           className="storeToolbarBrand"
