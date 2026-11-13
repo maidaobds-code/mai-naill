@@ -51,3 +51,25 @@ một ngày cụ thể bằng `NAILIE_SCHEDULE_URL`, ví dụ:
 ```powershell
 $env:NAILIE_SCHEDULE_URL='https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=2026-11-03&showBooking=true'
 ```
+
+## Khôi phục đăng nhập HOT PEPPER (Bot 0.1.7)
+
+Trong Bot Manager, nhập ID và mật khẩu trong **Tự đăng nhập lại HOT PEPPER**,
+lưu cấu hình rồi dừng/khởi động lại worker SALON BOARD. Mật khẩu được mã hóa
+bằng Electron safeStorage của Windows, không được đưa trở lại giao diện.
+Để trống mật khẩu khi lưu sẽ giữ nguyên mật khẩu cũ; dùng tùy chọn xóa để bỏ nó.
+Bot thử tối đa hai lần mỗi lần mất phiên; CAPTCHA/xác minh cần đăng nhập thủ công.
+Khi đăng nhập thành công, số lần thử được đặt lại cho sự cố tiếp theo.
+
+Worker không xử lý task hoặc quét lịch trong lúc đã phát hiện hết phiên.
+Cảnh báo được gửi ngay khi phát hiện hết phiên hoặc sau hai phút chờ đăng nhập
+ở lần khởi động. Gửi thất bại được thử lại, cách nhau tối thiểu một phút;
+chỉ đánh dấu đã báo khi API và dịch vụ email cùng xác nhận thành công.
+
+Server cần BOOKING_SYNC_SECRET (hoặc CRON_SECRET), RESEND_API_KEY, địa chỉ gửi
+RESEND_FROM/EMAIL_FROM và ít nhất một email admin trong BOT_ALERT_EMAIL,
+ADMIN_EMAIL hoặc ADMIN_USER. Thay đổi API cần được triển khai cùng bản Bot.
+Không đưa mật khẩu/khóa bí mật vào log hay Git.
+
+Kiểm thử: `node artifacts/booking-qa/bot-alert-check.mjs` và
+`node artifacts/booking-qa/bot-recovery-check.mjs`.

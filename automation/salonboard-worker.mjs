@@ -40,10 +40,11 @@ const loginPassword = String(process.env.SALONBOARD_PASSWORD || "");
 const taskTimeoutMs = Math.max(30_000, Number(process.env.SALONBOARD_TASK_TIMEOUT_MS || 90_000));
 const observedFingerprints = new Map();
 let loginAlertSent = false;
+let lastAlertAttemptAt = 0;
+let loginRequiredSince = null;
+let autoLoginAttempts = 0;
 let lastKeepAliveAt = 0;
-// Do not alert on a cold start when the operator has not logged in yet.
-// Alerts are only meaningful after this worker has successfully observed an
-// authenticated SALON BOARD page and that session later disappears.
+// Give manual login two minutes at startup, then report unattended login failures.
 let sessionEstablished = false;
 
 function log(message, details = "") {
@@ -109,13 +110,22 @@ function japanDateTime() {
 }
 
 async function alertAdmin(reason) {
-  if (loginAlertSent) return;
-  loginAlertSent = true;
-  await fetch(`${mainaillUrl}/api/bot-alert`, { method: "POST", headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" }, body: JSON.stringify({ bot: "SALON BOARD", reason }) }).catch((error) => log("admin alert failed", error.message));
+  if (loginAlertSent || (lastAlertAttemptAt && Date.now() - lastAlertAttemptAt < 60_000)) return;
+  lastAlertAttemptAt = Date.now();
+  try {
+    const response = await fetch(`${mainaillUrl}/api/bot-alert`, { method: "POST", headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" }, body: JSON.stringify({ bot: "SALON BOARD", reason }), signal: AbortSignal.timeout(20_000) });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok !== true || result.result?.ok !== true) throw new Error(result.reason || result.message || result.result?.reason || `Alert HTTP ${response.status}`);
+    loginAlertSent = true;
+    log("admin alert accepted by email provider");
+  } catch (error) {
+    log("admin alert failed; will retry", error.message);
+  }
 }
 
 async function tryAutoLogin(page) {
-  if (!loginUsername || !loginPassword || !isLoginPage(page)) return false;
+  if (!loginUsername || !loginPassword || !isLoginPage(page) || autoLoginAttempts >= 2) return false;
+  if (await page.locator('iframe[src*="captcha"], input[name*="captcha"], input[autocomplete="one-time-code"]').count()) return false;
   const user = page.locator('input[name="loginId"], input[name="username"], input[type="email"], input[type="text"]').first();
   const password = page.locator('input[name="password"], input[type="password"]').first();
   if (!await user.count() || !await password.count()) return false;
@@ -125,8 +135,9 @@ async function tryAutoLogin(page) {
   if (!await submit.count()) return false;
   const submitBox = await submit.boundingBox();
   if (!submitBox) return false;
+  autoLoginAttempts += 1;
   await page.mouse.click(submitBox.x + submitBox.width / 2, submitBox.y + submitBox.height / 2);
-  await page.waitForLoadState("domcontentloaded", { timeout: 20_000 }).catch(() => {});
+  await page.waitForURL((target) => !/login|ログイン/i.test(target.href), { timeout: 20_000 }).catch(() => {});
   const loggedIn = !isLoginPage(page) && !(await isSessionExpired(page));
   log(loggedIn ? "SALON BOARD auto-login succeeded" : "SALON BOARD auto-login needs visible verification");
   return loggedIn;
@@ -446,22 +457,29 @@ async function run() {
       }
       if (await isSessionExpired(page)) {
         log("SESSION_EXPIRED: returning to SALON BOARD login");
-        if (sessionEstablished) await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
+        await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
         sessionEstablished = false;
         await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));
-        await tryAutoLogin(page).catch((error) => log("SALON BOARD auto-login failed", error.message));
+        // Re-check authentication on the next iteration before fetching tasks.
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+        continue;
       } else if (isLoginPage(page)) {
         const autoLoggedIn = await tryAutoLogin(page);
         if (!autoLoggedIn) {
           log("LOGIN_REQUIRED: sign in to SALON BOARD in the visible browser");
-          if (sessionEstablished) await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
-          sessionEstablished = false;
+          loginRequiredSince ??= Date.now();
+          if (sessionEstablished || Date.now() - loginRequiredSince >= 120_000) {
+            await alertAdmin("SALON BOARD đang ở trang đăng nhập; bot không thể đồng bộ, hãy đăng nhập lại");
+          }
           await new Promise((resolve) => setTimeout(resolve, pollMs));
           continue;
         }
       }
       sessionEstablished = true;
       loginAlertSent = false;
+      lastAlertAttemptAt = 0;
+      loginRequiredSince = null;
+      autoLoginAttempts = 0;
       const tasks = await fetchSyncTasks();
       for (const task of tasks) {
         try {

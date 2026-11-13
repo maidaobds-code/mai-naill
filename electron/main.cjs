@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, shell, safeStorage } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
@@ -6,6 +6,8 @@ const { spawn } = require("node:child_process");
 const DEFAULT_CONFIG = {
   mainaillUrl: "https://mainaill.com",
   bookingSyncSecret: "",
+  salonboardUsername: "",
+  salonboardPasswordEncrypted: "",
   pollMinSeconds: 45,
   pollMaxSeconds: 90,
   nailieDryRun: true,
@@ -50,7 +52,14 @@ function saveConfig(value) {
   ensureDataFolders();
   let existing = {};
   try { existing = JSON.parse(fs.readFileSync(configPath(), "utf8")); } catch {}
-  const requested = value || {};
+  const requested = { ...(value || {}) };
+  if (typeof requested.salonboardPassword === "string" && requested.salonboardPassword.length) {
+    if (!safeStorage.isEncryptionAvailable()) throw new Error("Windows chưa sẵn sàng mã hóa mật khẩu.");
+    requested.salonboardPasswordEncrypted = safeStorage.encryptString(requested.salonboardPassword).toString("base64");
+  }
+  delete requested.salonboardPassword;
+  if (requested.clearSalonboardPassword) requested.salonboardPasswordEncrypted = "";
+  delete requested.clearSalonboardPassword;
   const autoStartBot = Object.hasOwn(requested, "autoStartBot") ? Boolean(requested.autoStartBot) : Object.hasOwn(existing, "autoStartBot") ? Boolean(existing.autoStartBot) : true;
   const config = { ...DEFAULT_CONFIG, ...existing, ...requested, autoStartBot, startWorkersOnLaunch: autoStartBot, startWithWindows: autoStartBot };
   fs.writeFileSync(configPath(), JSON.stringify(config, null, 2), "utf8");
@@ -94,6 +103,8 @@ function workerEnvironment(name, config) {
   };
   return {
     ...common,
+    SALONBOARD_USERNAME: config.salonboardUsername || process.env.SALONBOARD_USERNAME || "",
+    SALONBOARD_PASSWORD: config.salonboardPasswordEncrypted ? safeStorage.decryptString(Buffer.from(config.salonboardPasswordEncrypted, "base64")) : process.env.SALONBOARD_PASSWORD || "",
     SALONBOARD_PROFILE_DIR: path.join(dataRoot(), "profiles", "salonboard-v2"),
     SALONBOARD_LOG: path.join(dataRoot(), "logs", "salonboard-worker.log"),
     SALONBOARD_OBSERVATION_FILE: path.join(dataRoot(), "salonboard-observed-bookings.json"),
@@ -157,10 +168,14 @@ function createWindow() {
   mainWindow.on("closed", () => { mainWindow = null; });
 }
 
-ipcMain.handle("config:get", () => readConfig());
+function publicConfig(config) {
+  const { salonboardPasswordEncrypted, salonboardPassword, ...visible } = config;
+  return { ...visible, hasSalonboardPassword: Boolean(salonboardPasswordEncrypted) };
+}
+ipcMain.handle("config:get", () => publicConfig(readConfig()));
 ipcMain.handle("app:version", () => app.getVersion());
-ipcMain.handle("config:save", (_event, value) => saveConfig(value));
-ipcMain.handle("mapping:refresh", () => fetchAutomationConfig());
+ipcMain.handle("config:save", (_event, value) => publicConfig(saveConfig(value)));
+ipcMain.handle("mapping:refresh", async () => { const result = await fetchAutomationConfig(); return { ...result, config: publicConfig(result.config) }; });
 ipcMain.handle("workers:get", () => Object.fromEntries(["nailie", "salonboard"].map((name) => [name, { running: Boolean(workers.get(name)), pid: workers.get(name)?.pid || null }])));
 ipcMain.handle("workers:start", async (_event, name) => { await startWorker(name); return true; });
 ipcMain.handle("workers:stop", (_event, name) => { stopWorker(name); return true; });

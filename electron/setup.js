@@ -1,4 +1,4 @@
-const fields = ["mainaillUrl", "bookingSyncSecret", "pollMinSeconds", "pollMaxSeconds", "nailieDryRun", "salonboardDryRun", "autoStartBot"];
+const fields = ["mainaillUrl", "bookingSyncSecret", "pollMinSeconds", "pollMaxSeconds", "nailieDryRun", "salonboardDryRun", "autoStartBot", "salonboardUsername"];
 
 function renderWorkers(state) {
   for (const name of ["salonboard", "nailie"]) {
@@ -18,6 +18,7 @@ async function load() {
     if (element.type === "checkbox") element.checked = Boolean(config[id]);
     else element.value = config[id] ?? "";
   }
+  document.getElementById("salonboardPasswordStatus").textContent = config.hasSalonboardPassword ? "Đã lưu mật khẩu được mã hóa. Để trống để giữ nguyên." : "Chưa lưu mật khẩu tự đăng nhập.";
   renderMapping(config.mappingSnapshot);
   renderWorkers(await window.mainaillBot.getWorkers());
   if (config.bookingSyncSecret) refreshMapping();
@@ -54,8 +55,13 @@ document.getElementById("configForm").addEventListener("submit", async (event) =
       const element = document.getElementById(id);
       value[id] = element.type === "checkbox" ? element.checked : element.type === "number" ? Number(element.value) : element.value.trim();
     }
-    await window.mainaillBot.saveConfig(value);
-    message.textContent = "Đã lưu cấu hình.";
+    value.salonboardPassword = document.getElementById("salonboardPassword").value;
+    value.clearSalonboardPassword = document.getElementById("clearSalonboardPassword").checked;
+    const saved = await window.mainaillBot.saveConfig(value);
+    document.getElementById("salonboardPassword").value = "";
+    document.getElementById("clearSalonboardPassword").checked = false;
+    document.getElementById("salonboardPasswordStatus").textContent = saved.hasSalonboardPassword ? "Đã lưu mật khẩu được mã hóa." : "Chưa lưu mật khẩu tự đăng nhập.";
+    message.textContent = "Đã lưu cấu hình. Dừng rồi khởi động lại bot HOT để áp dụng thông tin đăng nhập.";
     await refreshMapping();
   } catch (error) { message.textContent = `Lỗi: ${error.message}`; }
 });
