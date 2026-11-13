@@ -55,7 +55,7 @@ let pauses = 0;
 let scans = 0;
 const expired = vm.createContext({
   isSessionExpired: async () => true,
-  alertAdmin: async () => {}, log: () => {},
+  alertAdmin: async () => {}, tryAutoLogin: async () => false, log: () => {},
   page: { goto: async () => { navigations++; } },
   loginUrl: 'https://example.test/login', pollMs: 60_000,
   setTimeout: (resolve) => { pauses++; resolve(); },

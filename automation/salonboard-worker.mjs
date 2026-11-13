@@ -461,16 +461,12 @@ async function run() {
   let lastFullSweepDate = "";
   for (;;) {
     try {
-      if (Date.now() - lastKeepAliveAt >= keepAliveMs && !isLoginPage(page)) {
-        log("SALON BOARD keep-alive", `${Math.round(keepAliveMs / 60_000)}min interval`);
-        await page.goto(scheduleUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
-        lastKeepAliveAt = Date.now();
-      }
       if (await isSessionExpired(page)) {
         log("SESSION_EXPIRED: returning to SALON BOARD login");
         await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
         sessionEstablished = false;
         await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));
+        await tryAutoLogin(page).catch((error) => log("SALON BOARD auto-login failed", error.message));
         // Re-check authentication on the next iteration before fetching tasks.
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
@@ -485,6 +481,12 @@ async function run() {
           await new Promise((resolve) => setTimeout(resolve, pollMs));
           continue;
         }
+      }
+      if (Date.now() - lastKeepAliveAt >= keepAliveMs && !isLoginPage(page)) {
+        log("SALON BOARD keep-alive", `${Math.round(keepAliveMs / 60_000)}min interval`);
+        await page.goto(scheduleUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
+        lastKeepAliveAt = Date.now();
+        if (isLoginPage(page) || await isSessionExpired(page)) continue;
       }
       sessionEstablished = true;
       loginAlertSent = false;
@@ -536,9 +538,10 @@ function isLoginPage(page) {
 }
 
 async function isSessionExpired(page) {
-  if (/login|ログイン/i.test(page.url())) return false;
-  const body = await page.locator("body").innerText().catch(() => "");
-  return /ログインの有効期限が切れました|再度ログインしてください|session expired/i.test(body);
+  // SALON BOARD can display expiry text at a URL that also contains "login".
+  // Line wrapping/spacing must not prevent recognition of the Japanese notice.
+  const body = (await page.locator("body").innerText().catch(() => "")).replace(/\s+/g, "");
+  return /ログインの有効期限が切れました|再度ログイン(?:しなおして|して)ください|sessionexpired/i.test(body);
 }
 
 async function navigate(page) {

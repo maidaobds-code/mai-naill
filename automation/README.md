@@ -78,3 +78,7 @@ Bot 0.1.8 hỗ trợ nút đăng nhập dạng liên kết `a[onclick*="dologin"
 Nếu không lưu tài khoản trong Bot Manager, bot có thể bấm đăng nhập khi cả hai ô
 đã được Chrome hoặc người dùng điền sẵn; bot không đọc mật khẩu ra log hay lưu lại.
 Kiểm thử form bằng trình duyệt thật: `node artifacts/booking-qa/salonboard-login-form-check.mjs`.
+
+Bot 0.1.9 nhận diện thông báo hết phiên cả trên URL có chữ login và khi thông báo
+bị xuống dòng. Khi phát hiện, bot quay về form và thử tự đăng nhập ngay trước
+khi tiếp tục quét hoặc xử lý task. Giữ phiên cũng kiểm tra lại xác thực sau điều hướng.

@@ -14,8 +14,8 @@ try {
   let navigateOnClick = true;
   // Public SALON BOARD form structure observed on 2026-11-13. Test credentials only.
   await page.route('https://salonboard.test/**', route => route.fulfill({
-    contentType: 'text/html',
-    body: `<form id="idPasswordInputForm"><input type="text" name="userId"><input type="password" name="password" id="jsiPwInput"><a href="javascript:void(0);" class="common-CNCcommon__primaryBtn loginBtnSize" onclick="dologin(event); return false;">ログイン</a></form><script>window.submissions=0; function dologin(event){ event.preventDefault(); window.submissions++; ${navigateOnClick ? "location.href='/KLP/schedule/salonSchedule/';" : ''} }</script>`,
+    contentType: 'text/html; charset=utf-8',
+    body: route.request().url().includes('expired-login') ? '<p>一定時間操作されなかったため、ログインの有効期限が\n切れました。再度ログインしなおしてください。</p><a href="/login/">ログインへ</a>' : `<form id="idPasswordInputForm"><input type="text" name="userId"><input type="password" name="password" id="jsiPwInput"><a href="javascript:void(0);" class="common-CNCcommon__primaryBtn loginBtnSize" onclick="dologin(event); return false;">ログイン</a></form><script>window.submissions=0; function dologin(event){ event.preventDefault(); window.submissions++; ${navigateOnClick ? "location.href='/KLP/schedule/salonSchedule/';" : ''} }</script>`,
   }));
   function context(username = 'test-id', password = 'test-password') {
     const result = vm.createContext({ page, loginUsername: username, loginPassword: password, log: () => {}, isLoginPage: p => /login/.test(p.url()), isSessionExpired: async () => false });
@@ -43,7 +43,24 @@ try {
   rejected.page = rejectedPage;
   for (let i = 0; i < 3; i++) assert.equal(await vm.runInContext('tryAutoLogin(page)', rejected), false);
   assert.equal(await page.evaluate(() => window.submissions), 2, 'anchor submission must retain the two-attempt limit');
-  console.log('PASS real-browser SALON BOARD anchor login, configured credentials, browser-prefilled credentials, empty form, and retry limit');
+  navigateOnClick = true;
+  const expirySource = source.slice(source.indexOf('async function isSessionExpired('), source.indexOf('async function navigate('));
+  const branchStart = source.indexOf('      if (await isSessionExpired(page)) {');
+  const branchEnd = source.indexOf(' else if (isLoginPage(page)) {', branchStart);
+  const branch = source.slice(branchStart, branchEnd);
+  const recovery = vm.createContext({
+    page, loginUsername: 'test-id', loginPassword: 'test-password',
+    isLoginPage: p => /login/.test(p.url()), log: () => {}, alertAdmin: async () => {},
+    loginUrl: 'https://salonboard.test/login/', pollMs: 10,
+    setTimeout: resolve => resolve(),
+  });
+  vm.runInContext(`let autoLoginAttempts=0; ${expirySource} ${loginSource}`, recovery);
+  await page.goto('https://salonboard.test/expired-login/');
+  assert.equal(await vm.runInContext('isSessionExpired(page)', recovery), true, 'expiry notice must be recognized even at login URL and with line breaks');
+  await vm.runInContext(`(async () => { let sessionEstablished=true; for (let i=0; i<1; i++) { ${branch} throw Error('Must not process tasks on expired page'); } })()`, recovery);
+  assert.match(page.url(), /\/KLP\/schedule/, 'expiry screen must recover through the real anchor login flow');
+  assert.equal(await vm.runInContext('isSessionExpired(page)', recovery), false, 'ordinary page must not be mistaken for expiry');
+  console.log('PASS real-browser anchor login, prefilled credentials, retry limit, and expired-login notice recovery');
 } finally {
   await browser.close();
 }
