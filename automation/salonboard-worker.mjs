@@ -124,15 +124,26 @@ async function alertAdmin(reason) {
 }
 
 async function tryAutoLogin(page) {
-  if (!loginUsername || !loginPassword || !isLoginPage(page) || autoLoginAttempts >= 2) return false;
+  if (!isLoginPage(page) || autoLoginAttempts >= 2) return false;
   if (await page.locator('iframe[src*="captcha"], input[name*="captcha"], input[autocomplete="one-time-code"]').count()) return false;
-  const user = page.locator('input[name="loginId"], input[name="username"], input[type="email"], input[type="text"]').first();
+  const user = page.locator('input[name="userId"], input[name="loginId"], input[name="username"], input[type="email"], input[type="text"]').first();
   const password = page.locator('input[name="password"], input[type="password"]').first();
-  if (!await user.count() || !await password.count()) return false;
-  await user.fill(loginUsername);
-  await password.fill(loginPassword);
-  const submit = page.locator('button[type="submit"], input[type="submit"], button:has-text("ログイン"), button:has-text("Login")').first();
-  if (!await submit.count()) return false;
+  if (!await user.count() || !await password.count()) {
+    log("SALON BOARD auto-login skipped: login fields not found");
+    return false;
+  }
+  if (loginUsername && loginPassword) {
+    await user.fill(loginUsername);
+    await password.fill(loginPassword);
+  } else if (!await user.evaluate((input) => Boolean(input.value.trim())) || !await password.evaluate((input) => Boolean(input.value))) {
+    log("SALON BOARD auto-login skipped: configure credentials in Bot Manager or fill both browser fields");
+    return false;
+  }
+  const submit = page.locator('form#idPasswordInputForm a[onclick*="dologin"], a.common-CNCcommon__primaryBtn[onclick*="dologin"], button[type="submit"], input[type="submit"], button:has-text("ログイン"), button:has-text("Login")').first();
+  if (!await submit.count()) {
+    log("SALON BOARD auto-login skipped: login control not found");
+    return false;
+  }
   const submitBox = await submit.boundingBox();
   if (!submitBox) return false;
   autoLoginAttempts += 1;

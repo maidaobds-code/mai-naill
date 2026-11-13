@@ -73,3 +73,8 @@ Không đưa mật khẩu/khóa bí mật vào log hay Git.
 
 Kiểm thử: `node artifacts/booking-qa/bot-alert-check.mjs` và
 `node artifacts/booking-qa/bot-recovery-check.mjs`.
+
+Bot 0.1.8 hỗ trợ nút đăng nhập dạng liên kết `a[onclick*="dologin"]` của SALON BOARD.
+Nếu không lưu tài khoản trong Bot Manager, bot có thể bấm đăng nhập khi cả hai ô
+đã được Chrome hoặc người dùng điền sẵn; bot không đọc mật khẩu ra log hay lưu lại.
+Kiểm thử form bằng trình duyệt thật: `node artifacts/booking-qa/salonboard-login-form-check.mjs`.
