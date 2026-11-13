@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { chromium } from "playwright";
 import { compactSalonboardName as compactName, salonboardStaffHeaderName as staffHeaderName } from "../lib/salonboardNames.mjs";
 import { awaitTaskCompletion } from "./task-guard.mjs";
-import { dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
+import { createScheduleScanPlanner, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
 
 const url = process.env.SALONBOARD_SCHEDULE_URL || "https://salonboard.com/login/";
 const loginUrl = "https://salonboard.com/login/";
@@ -27,9 +27,8 @@ const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000)
 // hours, without opening a second browser or attempting to bypass login/CAPTCHA.
 const keepAliveMs = Math.max(60_000, Number(process.env.SALONBOARD_KEEPALIVE_MS || 10 * 60_000));
 const daytimeScanDays = Math.max(1, Number(process.env.SALONBOARD_DAY_SCAN_DAYS || 31));
-const endOfDayScanDays = Math.max(daytimeScanDays, Number(process.env.SALONBOARD_END_OF_DAY_SCAN_DAYS || 93));
-const configuredEndOfDayHour = Number(process.env.SALONBOARD_END_OF_DAY_HOUR);
-const endOfDayHour = Number.isFinite(configuredEndOfDayHour) ? Math.min(23, Math.max(21, configuredEndOfDayHour)) : 21 + Math.floor(Math.random() * 3);
+const scanHorizonDays = Math.max(daytimeScanDays, Number(process.env.SALONBOARD_SCAN_HORIZON_DAYS || 93));
+const distantScanIntervalMs = Math.max(60_000, Number(process.env.SALONBOARD_DISTANT_SCAN_INTERVAL_MS || 10 * 60_000));
 const dryRun = String(process.env.SALONBOARD_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-worker.log");
 const observationFile = process.env.SALONBOARD_OBSERVATION_FILE || path.resolve("runtime", "salonboard-observed-bookings.json");
@@ -102,11 +101,6 @@ async function blockStaffSchedule(page, item) {
   // public API and its shift form can change; selectors must be verified in
   // the live account before enabling this branch.
   throw new Error(`Blocking is not enabled for ${item.staffName}; verify shift selectors first`);
-}
-
-function japanDateTime() {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map((part) => [part.type, part.value]));
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
 }
 
 async function alertAdmin(reason) {
@@ -455,10 +449,9 @@ async function run() {
   // on about:blank.
   const navigated = await navigate(page);
   if (!navigated) await alertAdmin("Không mở được SALON BOARD sau 3 lần thử");
-  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} endOfDayScanDays=${endOfDayScanDays} continuous=true`);
+  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} scanHorizonDays=${scanHorizonDays} distantScanIntervalMs=${distantScanIntervalMs} scanMode=interleaved continuous=true`);
 
-  let scanOffset = 0;
-  let lastFullSweepDate = "";
+  const scanPlanner = createScheduleScanPlanner({ nearDays: daytimeScanDays, horizonDays: scanHorizonDays, distantIntervalMs: distantScanIntervalMs });
   for (;;) {
     try {
       if (await isSessionExpired(page)) {
@@ -507,24 +500,11 @@ async function run() {
           if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
         }
       }
-      const clock = japanDateTime();
-      const fullSweepDue = clock.hour >= endOfDayHour && lastFullSweepDate !== clock.date;
-      if (fullSweepDue) {
-        log("SALON BOARD end-of-day three-month sweep started", JSON.stringify({ date: clock.date, days: endOfDayScanDays }));
-        for (let offset = 0; offset < endOfDayScanDays; offset += 1) {
-          const scanDate = dateKey(new Date(Date.now() + offset * 86_400_000));
-          await scanExternalBookings(page, scanDate);
-          await scanExternalClosedPeriods(page, scanDate);
-        }
-        lastFullSweepDate = clock.date;
-        scanOffset = 0;
-        log("SALON BOARD end-of-day three-month sweep finished", JSON.stringify({ date: clock.date, days: endOfDayScanDays }));
-      } else {
-        const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
-        await scanExternalBookings(page, scanDate);
-        await scanExternalClosedPeriods(page, scanDate);
-        scanOffset = (scanOffset + 1) % daytimeScanDays;
-      }
+      const scanPlan = scanPlanner.next();
+      log("SALON BOARD incremental scan", JSON.stringify(scanPlan));
+      await scanExternalBookings(page, scanPlan.date);
+      await scanExternalClosedPeriods(page, scanPlan.date);
+      scanPlanner.complete(scanPlan);
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
     }

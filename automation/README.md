@@ -82,3 +82,16 @@ Kiểm thử form bằng trình duyệt thật: `node artifacts/booking-qa/salon
 Bot 0.1.9 nhận diện thông báo hết phiên cả trên URL có chữ login và khi thông báo
 bị xuống dòng. Khi phát hiện, bot quay về form và thử tự đăng nhập ngay trước
 khi tiếp tục quét hoặc xử lý task. Giữ phiên cũng kiểm tra lại xác thực sau điều hướng.
+
+## Quét phân tán (Bot 0.1.10)
+
+Không còn quét dồn 93 ngày cuối ngày. Mỗi vòng xử lý task mới/sửa/hủy trước,
+sau đó quét đúng một ngày. 31 ngày gần được quét luân phiên; mỗi 10 phút xen
+một ngày xa trong ngày thứ 32–93. Một vòng ngày xa mất khoảng 10–11 giờ khi
+máy chạy liên tục. Không quét bù dồn sau khi ngủ hoặc mất mạng; ngày quét lỗi
+được thử lại, chỉ tăng con trỏ khi cả lịch hẹn và khung đóng đọc thành công.
+Ngày lịch được tính theo múi giờ Nhật. Khởi động lại bắt đầu vòng mới.
+
+Cấu hình tùy chọn: SALONBOARD_DAY_SCAN_DAYS (31),
+SALONBOARD_SCAN_HORIZON_DAYS (93), SALONBOARD_DISTANT_SCAN_INTERVAL_MS (600000).
+Các biến END_OF_DAY cũ không còn được sử dụng. Nailie giữ nguyên chế độ hiện tại.
