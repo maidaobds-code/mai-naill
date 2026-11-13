@@ -21,6 +21,14 @@ const DEFAULT_CONFIG = {
 
 let mainWindow;
 const workers = new Map();
+const startingWorkers = new Set();
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+app.on("second-instance", () => {
+  if (mainWindow?.isMinimized()) mainWindow.restore();
+  mainWindow?.show();
+  mainWindow?.focus();
+});
 
 function dataRoot() {
   return path.join(app.getPath("userData"), "runtime");
@@ -119,7 +127,9 @@ function sendWorkerState() {
 }
 
 async function startWorker(name) {
-  if (workers.has(name)) return;
+  if (workers.has(name) || startingWorkers.has(name)) return;
+  startingWorkers.add(name);
+  try {
   await fetchAutomationConfig();
   const config = readConfig();
   const launcherLog = path.join(dataRoot(), "logs", `${name}-launcher.log`);
@@ -145,6 +155,9 @@ async function startWorker(name) {
     sendWorkerState();
   });
   sendWorkerState();
+  } finally {
+    startingWorkers.delete(name);
+  }
 }
 
 function stopWorker(name) {
@@ -183,6 +196,7 @@ ipcMain.handle("mainaill:open", () => shell.openExternal(readConfig().mainaillUr
 ipcMain.handle("logs:open", () => shell.openPath(path.join(dataRoot(), "logs")));
 
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return;
   ensureDataFolders();
   createWindow();
   const config = readConfig();
