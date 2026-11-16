@@ -20,7 +20,7 @@ const items = [
 ];
 
 export default function SidebarEnhanced({ active, setActive, language, setLanguage, allowedItems = items.map((item) => item[2]) }) {
-  const [menuOpen, setMenuOpen] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(() => typeof window === "undefined" ? true : !window.matchMedia("(max-width:760px)").matches);
   const [logoUrl, setLogoUrl] = useState("");
   const { orders } = useStoreOrders();
   useEffect(() => {
