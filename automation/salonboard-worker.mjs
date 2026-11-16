@@ -257,6 +257,27 @@ async function acknowledgeTask(task, status, error = "") {
   if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ack HTTP ${response.status}`);
 }
 
+async function processPriorityTasks(page) {
+  const tasks = await fetchSyncTasks();
+  const blockedBookingIds = new Set();
+  for (const task of tasks) {
+    if (blockedBookingIds.has(String(task.booking?.id))) continue;
+    try {
+      await awaitTaskCompletion(applySyncTask(page, task), {
+        taskId: task.taskId || task.booking?.id || "unknown",
+        slowAfterMs: taskTimeoutMs,
+        onSlow: (message) => log("SALON BOARD sync task is slow; waiting for completion", message),
+      });
+      if (!dryRun) await acknowledgeTask(task, "synced");
+    } catch (error) {
+      blockedBookingIds.add(String(task.booking?.id));
+      log("SALON BOARD sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
+      if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
+    }
+  }
+  return tasks.length;
+}
+
 async function openScheduleForm(page, task) {
   const booking = task.booking || {};
   const rule = staffRules()[booking.staff] || Object.entries(staffRules()).find(([name]) => compactName(name) === compactName(booking.staff))?.[1];
@@ -486,26 +507,13 @@ async function run() {
       lastAlertAttemptAt = 0;
       loginRequiredSince = null;
       autoLoginAttempts = 0;
-      const tasks = await fetchSyncTasks();
-      const blockedBookingIds = new Set();
-      for (const task of tasks) {
-        if(blockedBookingIds.has(String(task.booking?.id))) continue;
-        try {
-          await awaitTaskCompletion(applySyncTask(page, task), {
-            taskId: task.taskId || task.booking?.id || "unknown",
-            slowAfterMs: taskTimeoutMs,
-            onSlow: (message) => log("SALON BOARD sync task is slow; waiting for completion", message),
-          });
-          if (!dryRun) await acknowledgeTask(task, "synced");
-        } catch (error) {
-          blockedBookingIds.add(String(task.booking?.id));
-          log("SALON BOARD sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
-          if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
-        }
-      }
+      await processPriorityTasks(page);
       const scanPlan = scanPlanner.next();
       log("SALON BOARD incremental scan", JSON.stringify(scanPlan));
       await scanExternalBookings(page, scanPlan.date);
+      // A scan can take long enough for a move/repair task to arrive. Pause the
+      // scan between page operations, finish every queued repair, then resume.
+      if (await processPriorityTasks(page)) log("SALON BOARD scan paused for priority tasks; resuming same date", scanPlan.date);
       await scanExternalClosedPeriods(page, scanPlan.date);
       scanPlanner.complete(scanPlan);
     } catch (error) {

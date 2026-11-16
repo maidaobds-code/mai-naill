@@ -158,6 +158,25 @@ async function acknowledgeTask(task, status, error = "") {
   if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ack HTTP ${response.status}`);
 }
 
+async function processPriorityTasks(page) {
+  const tasks = await fetchSyncTasks();
+  for (const task of tasks) {
+    try {
+      if (isExpiredCapacityTask(task, task.booking)) {
+        log("Nailie capacity task skipped; slot has already ended", JSON.stringify({ taskId: task.taskId, date: task.match?.date || task.booking?.date, end: task.match?.end || task.booking?.end }));
+        if (!dryRun) await acknowledgeTask(task, "synced");
+        continue;
+      }
+      await awaitTaskCompletion(applyExactSlotTask(page, task), { taskId: task.taskId || task.booking?.id || "unknown", slowAfterMs: taskTimeoutMs, onSlow: (message) => log("Nailie sync task is slow; waiting for completion", message) });
+      if (!dryRun) await acknowledgeTask(task, "synced");
+    } catch (error) {
+      log("Nailie sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
+      if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
+    }
+  }
+  return tasks.length;
+}
+
 async function ingestExternalBooking(event) {
   const response = await fetch(`${mainaillUrl}/api/booking-sync`, {
     method: "POST",
@@ -408,27 +427,10 @@ async function run() {
         await alertAdmin("Profile không tự đăng nhập được; trang login vẫn hiển thị sau 2 lần truy cập");
       } else {
         loginAlertSent = false;
-        const tasks = await fetchSyncTasks();
-        for (const task of tasks) {
-          try {
-            if (isExpiredCapacityTask(task, task.booking)) {
-              log("Nailie capacity task skipped; slot has already ended", JSON.stringify({ taskId: task.taskId, date: task.match?.date || task.booking?.date, end: task.match?.end || task.booking?.end }));
-              if (!dryRun) await acknowledgeTask(task, "synced");
-              continue;
-            }
-            await awaitTaskCompletion(applyExactSlotTask(page, task), {
-              taskId: task.taskId || task.booking?.id || "unknown",
-              slowAfterMs: taskTimeoutMs,
-              onSlow: (message) => log("Nailie sync task is slow; waiting for completion", message),
-            });
-            if (!dryRun) await acknowledgeTask(task, "synced");
-          } catch (error) {
-            log("Nailie sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
-            if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
-          }
-        }
+        await processPriorityTasks(page);
         const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
         await scanExternalBookings(page, scanDate);
+        if (await processPriorityTasks(page)) log("Nailie scan paused for priority tasks; resuming same date", scanDate);
         scanOffset = (scanOffset + 1) % 31;
       }
     } catch (error) {
