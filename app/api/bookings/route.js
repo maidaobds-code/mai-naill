@@ -159,7 +159,6 @@ export async function POST(request) {
     const allForConflict = [...currentAfterRelatedDeletes.filter((item) => !item.deletedAt && !incomingIds.has(item.id)), ...incoming];
     for (const booking of incoming) {
       const previous = current.find(item=>item.id===booking.id);
-      if(previous && previous.source === "hotpepper" && !sameSlot(previous, booking)) return Response.json({ok:false,message:"Lịch đặt gốc trên HOT cần đổi trên SALON BOARD; bot chưa xác minh được form đổi đặt chỗ gốc. Lịch Mainaill/Nailie vẫn kéo thả và đồng bộ bình thường."},{status:409});
       if((booking.staffId||booking.staff) && (!previous || !sameSlot(previous,booking))) {
         const available=salonCapacityState(booking,allForConflict.filter(item=>item.id!==booking.id),staff,settings,services);
         if(!available.availableStaff.some(member=>String(member.id)===String(booking.staffId)||member.name===booking.staff)) return Response.json({ok:false,message:"Nhân viên đang nghỉ, bận hoặc không phục vụ dịch vụ này."},{status:409});
@@ -173,7 +172,7 @@ export async function POST(request) {
       const source = String(booking.source || "direct").toLowerCase();
       const newlyAssignedNailie = source === "nailie" && previous?.assignmentStatus === "PENDING_ASSIGNMENT" && booking.assignmentStatus === "ASSIGNED";
       const slotChanged = !previous || !sameSlot(previous, booking) || previous.status !== booking.status;
-      if (!["direct", "nailie"].includes(source) || booking.assignmentStatus === "PENDING_ASSIGNMENT" || !slotChanged) return [];
+      if (!["direct", "nailie", "hotpepper"].includes(source) || booking.assignmentStatus === "PENDING_ASSIGNMENT" || !slotChanged) return [];
       const changedSlot = previous && !sameSlot(previous, booking);
       const previousMatch = changedSlot ? { date: previous.date, start: previous.start, end: previous.end, staffId: previous.staffId || "", staff: previous.staff || "" } : null;
       const tasks = [{ target: "hotpepper", action: newlyAssignedNailie ? "block" : previous ? "update" : "block", bookingId: booking.id, destination: { date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff }, ...(previousMatch ? { previousMatch } : {}) }];
