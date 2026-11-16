@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { printCallback } from "../lib/mobilePrinter";
 import Sidebar from "../components/SidebarEnhanced";
 import Dashboard from "../components/DashboardEnhanced";
 import CalendarEnhanced from "../components/CalendarResourceTimeline";
@@ -31,7 +32,8 @@ function storedAppLanguage() {
 function initialAppPage() {
   if (typeof window === "undefined") return "Calendar";
   const returnPage = new URLSearchParams(window.location.search).get("return");
-  if (returnPage === "bot-tasks" || window.sessionStorage.getItem("nail-japan-return-page") === "bot-tasks") return "Bot Tasks";
+  if(new URLSearchParams(window.location.search).has("passprnt_code"))return window.sessionStorage.getItem("nail-japan-print-return-page")||"POS / Checkout";
+  if (returnPage === "bot-tasks" || window.sessionStorage.getItem("nail-japan-return-page") === "bot-tasks") return "Settings";
   return "Calendar";
 }
 
@@ -39,6 +41,7 @@ export default function Home() {
   const [active, setActive] = useState(initialAppPage);
   const [language, setLanguage] = useState(storedAppLanguage);
   const [checkoutAppointmentId, setCheckoutAppointmentId] = useState("");
+  const [printNotice,setPrintNotice]=useState("");
   const [profileOpen, setProfileOpen] = useState(false);
   const { currentAccount } = useAccountStore();
   const allowed = permissionsFor(currentAccount);
@@ -75,11 +78,18 @@ export default function Home() {
     if (!currentAccount || typeof window === "undefined") return;
     const returnPage = new URLSearchParams(window.location.search).get("return");
     if (returnPage === "bot-tasks" || window.sessionStorage.getItem("nail-japan-return-page") === "bot-tasks") {
+      window.sessionStorage.setItem("nail-japan-settings-panel","bot-tasks");
       window.sessionStorage.removeItem("nail-japan-return-page");
       window.history.replaceState({}, "", window.location.pathname);
-      setActive("Bot Tasks");
+      setActive("Settings");
     }
   }, [currentAccount]);
+
+  useEffect(()=>{window.sessionStorage.setItem("nail-japan-active-page",activePage);},[activePage]);
+  useEffect(()=>{
+    const result=printCallback(window.location.href);if(!result)return;
+    setPrintNotice(result.message);const url=new URL(window.location.href);url.searchParams.delete("passprnt_code");url.searchParams.delete("passprnt_message");window.history.replaceState({},"",url.pathname+url.search+url.hash);
+  },[]);
 
   if (!currentAccount) return <LoginPage />;
 
@@ -93,10 +103,10 @@ export default function Home() {
   else if (activePage === "Payroll") content = <Payroll label={t(language, "payroll")} language={language} currentAccount={currentAccount} />;
   else if (activePage === "POS / Checkout") content = <Checkout label={t(language, "checkout")} appointmentId={checkoutAppointmentId} language={language} onOpenPaymentHistory={() => setActive("Payment History")} />;
   else if (activePage === "Reports") content = <Reports language={language} />;
-  else if (activePage === "Settings") content = <Settings language={language} />;
+  else if (activePage === "Settings") content = <Settings language={language} initialPanel={typeof window!=="undefined" && (new URLSearchParams(window.location.search).get("return")==="bot-tasks" || window.sessionStorage.getItem("nail-japan-settings-panel")==="bot-tasks") ? "bot-tasks" : undefined} />;
   else if (activePage === "Staff Closures") content = <StaffSchedule />;
   else if (activePage === "Staff") content = <StaffManagement label={t(language, "staff")} language={language} />;
-  else if (activePage === "Bot Tasks") content = <BotTasks />;
+  else if (activePage === "Bot Tasks") content = <Settings language={language} initialPanel="bot-tasks" />;
   else if (activePage !== "Dashboard") content = <GenericModule name={activePage} />;
 
   return (
@@ -104,6 +114,7 @@ export default function Home() {
       {!isCustomer && <Sidebar active={activePage} setActive={setActive} language={language} setLanguage={setLanguage} allowedItems={allowed} />}
       <main>
         {!isCustomer && <AccountGate language={language} setLanguage={setLanguage} />}
+        {printNotice && <p className="bookingMoveHint" role="status">{printNotice}</p>}
         {content}
         {profileOpen && <CustomerProfile language={language} onClose={() => setProfileOpen(false)} />}
       </main>

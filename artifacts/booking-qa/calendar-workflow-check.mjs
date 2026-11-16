@@ -54,3 +54,11 @@ result=await response.json();assert.equal(result.ok,true);assert.equal(result.re
 bookings=[];
 response=await post([{...base,id:'customer-confirmation',customer:'Customer',email:'customer@example.test',assignmentStatus:'PENDING_ASSIGNMENT'}]);result=await response.json();assert.equal(result.assignmentNotifications.length,0);assert.equal(result.customerNotifications.length,1);assert.equal(emails,emailsBefore+1,'customer confirmation must remain independent of staff assignment emails');
 console.log('PASS Nailie auto-assignment queues HOT without owner email and customer confirmations remain enabled');
+
+bookings=[];
+async function partial(days){return bulkRoute.POST(new Request('https://salon.test/api/staff-schedule',{method:'POST',headers:{cookie,'content-type':'application/json'},body:JSON.stringify({partial:true,staffIds:['a'],days})}));}
+response=await partial({'2099-02-28':{off:true},'2099-03-02':{off:false,start:'12:00',end:'19:00'}});assert.equal(response.status,200);
+assert.ok(settings.staffClosedPeriods.includes('a 2099-02-28 09:00-23:00'));assert.ok(settings.staffClosedPeriods.includes('a 2099-03-02 09:00-12:00'));
+response=await partial({'2099-02-28':{off:false,start:'09:00',end:'23:00'}});assert.equal(response.status,200);assert.ok(!settings.staffClosedPeriods.includes('a 2099-02-28 09:00-23:00'));assert.ok(settings.staffClosedPeriods.includes('a 2099-03-02 09:00-12:00'),'unselected days in other months must be preserved');
+const beforeInvalid=writes;response=await partial({'2099-02-30':{off:true}});assert.equal(response.status,400);assert.equal(writes,beforeInvalid);
+console.log('PASS partial arbitrary-date updates across months preserve unselected schedules and reject invalid dates');

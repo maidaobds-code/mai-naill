@@ -154,12 +154,12 @@ export default function PaymentHistory({ language = "vi" }) {
     if (!selected || printing) return;
     setPrinting(true);
     setNotice("");
-    if (getPrinterSettings().mode === "star-usb") {
+    if (["star-usb","passprnt"].includes(getPrinterSettings().mode)) {
       try {
-        await printStarReceipt(selected, selected.storeSnapshot || {}, {
+        const result = await printStarReceipt(selected, selected.storeSnapshot || {}, {
           openDrawer: false,
         });
-        setNotice("Star mPOP: OK");
+        setNotice(result?.handedOff ? "Đã chuyển lệnh sang Star PassPRNT; chờ xác nhận khi quay lại." : "Star mPOP: OK");
         setPrinting(false);
         return;
       } catch {
@@ -169,6 +169,15 @@ export default function PaymentHistory({ language = "vi" }) {
     setPrintMode("receipt");
     window.print();
     setPrinting(false);
+  }
+
+  async function printDocumentType(type) {
+    setNotice("");setPrintMode(type);
+    if(getPrinterSettings().mode === "passprnt"){
+      try{await printStarReceipt(selected,selected.storeSnapshot||{}, {openDrawer:false,documentType:type});setNotice("Đã chuyển lệnh sang Star PassPRNT.");}catch(error){setNotice(error.message);}
+      return;
+    }
+    window.setTimeout(()=>window.print(),80);
   }
 
   return (
@@ -254,7 +263,7 @@ export default function PaymentHistory({ language = "vi" }) {
             >
               {printing ? c.printing : c.reprint}
             </button>
-            {!selected.voided && <div className="paymentHistoryActions"><button type="button" className="ghost" onClick={() => { setNotice(""); setPrintMode("receipt"); window.setTimeout(() => window.print(), 80); }}>{actionText.receipt}</button><button type="button" className="ghost" onClick={() => { setNotice(""); setPrintMode("ryoshusho"); window.setTimeout(() => window.print(), 80); }}>領収書を印刷</button><button type="button" className="ghost" onClick={() => setEditing((value) => !value)}>{actionText.edit}</button></div>}
+            {!selected.voided && <div className="paymentHistoryActions"><button type="button" className="ghost" onClick={() => { printDocumentType("receipt"); }}>{actionText.receipt}</button><button type="button" className="ghost" onClick={() => { printDocumentType("ryoshusho"); }}>領収書を印刷</button><button type="button" className="ghost" onClick={() => setEditing((value) => !value)}>{actionText.edit}</button></div>}
             {editing && !selected.voided && <div className="paymentEditBox"><label>{actionText.staff}<select value={editStaff} onChange={(event) => { setEditStaff(event.target.value); setEditPassword(""); }}><option value="">{actionText.choose}</option>{staffList.map((member) => <option key={member.id} value={member.name}>{member.name}</option>)}</select></label><label>Mật khẩu nhân viên<input type="password" value={editPassword} onChange={(event) => setEditPassword(event.target.value)} autoComplete="current-password" /></label><label>支払方法<select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)}>{paymentChoices.map((method) => <option key={method}>{method}</option>)}</select></label><div className="paymentEditLines">{editLines.map((line, index) => <div className="paymentEditLine" key={line.id || index}><input value={line.name || ""} placeholder="サービス / 商品" onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /><input type="number" min="1" value={line.quantity || 1} onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, quantity: event.target.value } : item))} /><input type="number" min="0" value={line.unitPrice || 0} onChange={(event) => setEditLines((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, unitPrice: event.target.value } : item))} /><button type="button" className="ghost" onClick={() => setEditLines((current) => current.filter((_, itemIndex) => itemIndex !== index))}>削除</button></div>)}</div><button type="button" className="ghost" onClick={() => setEditLines((current) => [...current, { id: `new-line-${Date.now()}`, name: "", quantity: 1, unitPrice: 0, discountValue: 0 }])}>＋サービス・商品を追加</button><label>{c.total}<input type="number" min="0" value={editTotal} onChange={(event) => setEditTotal(event.target.value)} /></label><button type="button" className="primary" onClick={saveEditedPayment}>{actionText.save}</button></div>}
             {notice && <p className="printerNotice">{notice}</p>}
             <div className="orderInfoGrid">

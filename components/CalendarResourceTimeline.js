@@ -1,5 +1,7 @@
 ﻿"use client";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { staffIsOffAllDay } from "../lib/staffSchedule";
 import { tx } from "../lib/i18nClean";
 import { platforms, staff as seedStaff } from "../lib/salonData";
 import { escapeHtml } from "../lib/webText";
@@ -151,6 +153,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const [selected, setSelected] = useState(() => blankBooking(japanToday(), "10:00", EMPTY_STAFF));
   const [modalOpen, setModalOpen] = useState(false);
   const moveRef = useRef(null);
+  const [dragPreview, setDragPreview] = useState(null);
   const [movingId, setMovingId] = useState(null);
   const [moveStatus, setMoveStatus] = useState("");
   const [dragStart, setDragStart] = useState(null);
@@ -204,7 +207,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const name = calendarStaffName(booking.staff);
     return [comparableStaffName(name), { id: `external-${comparableStaffName(name)}`, name, color: "#f59e0b", status: "HOT · chưa mapping", external: true }];
   })).values()];
-  const calendarStaff = [...staff, ...externalStaff];
+  const workingStaff = staff.filter(member=>!staffIsOffAllDay(member,selectedDate,settings));
+  const offStaffBookings=selectedDayBookings.filter(booking=>staff.some(member=>staffIsOffAllDay(member,selectedDate,settings)&&(String(booking.staffId)===String(member.id)||booking.staff===member.name)));
+  const calendarStaff = [...workingStaff, ...externalStaff];
   const weekStart = mondayFor(selectedDate);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const visibleMonthDates = monthDates(selectedDate);
@@ -336,23 +341,28 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     clearTimeout(pressRef.current);
     const pointerId=event.pointerId;
     const box=event.currentTarget.getBoundingClientRect();
-    moveRef.current={booking,pointerId,x:event.clientX,y:event.clientY,grabMinutes:(event.clientX-box.left)/Math.max(1,box.width)*(toMinutes(booking.end)-toMinutes(booking.start)),active:false,target:null,element:event.currentTarget};
+    moveRef.current={booking,pointerId,x:event.clientX,y:event.clientY,grabX:event.clientX-box.left,grabY:event.clientY-box.top,width:box.width,height:box.height,grabMinutes:(event.clientX-box.left)/Math.max(1,box.width)*(toMinutes(booking.end)-toMinutes(booking.start)),active:false,target:null,element:event.currentTarget};
     event.currentTarget.setPointerCapture?.(pointerId);
-    pressRef.current=setTimeout(()=>{if(moveRef.current?.pointerId===pointerId){moveRef.current.active=true;setMovingId(booking.id);setMoveStatus("Kéo lịch sang nhân viên hoặc khung giờ mới rồi thả để lưu và đồng bộ.");}},650);
+    pressRef.current=setTimeout(()=>{if(moveRef.current?.pointerId===pointerId){moveRef.current.active=true;setMovingId(booking.id);setDragPreview({booking,left:box.left,top:box.top,width:box.width,height:box.height});setMoveStatus("Kéo lịch sang nhân viên hoặc khung giờ mới rồi thả để lưu và đồng bộ.");}},650);
   }
   function moveBookingPointer(event) {
     const move=moveRef.current;if(!move||move.pointerId!==event.pointerId)return;
     if(!move.active){if(Math.hypot(event.clientX-move.x,event.clientY-move.y)>10){clearTimeout(pressRef.current);moveRef.current=null;}return;}
     event.preventDefault();
+    const scroll=move.element.closest(".resourceTimelineShell");
+    if(scroll){const edge=scroll.getBoundingClientRect();if(event.clientX>edge.right-28)scroll.scrollLeft+=20;else if(event.clientX<edge.left+28)scroll.scrollLeft-=20;}
     const targets=document.elementsFromPoint(event.clientX,event.clientY);
     const cell=targets.find(element=>element.matches?.('.slotHit[data-hour][data-member]'));
     const lane=targets.find(element=>element.matches?.('.resourceLane[data-member]'));
     if(lane){const box=lane.getBoundingClientRect();const minutes=Math.round(((event.clientX-box.left)/box.width*(endMinutes-startMinutes)-move.grabMinutes)/30)*30+startMinutes;move.target={staffId:lane.dataset.member,start:`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`};}
     else if(cell)move.target={staffId:cell.dataset.member,start:cell.dataset.hour};
     else move.target=null;
+    const duration=toMinutes(move.booking.end)-toMinutes(move.booking.start);
+    const targetStart=move.target?.start;const targetEnd=targetStart?toMinutes(targetStart)+duration:null;
+    setDragPreview({booking:move.booking,left:event.clientX-move.grabX,top:event.clientY-move.grabY,width:move.width,height:move.height,target:move.target,end:targetEnd===null?null:`${String(Math.floor(targetEnd/60)).padStart(2,"0")}:${String(targetEnd%60).padStart(2,"0")}`});
   }
   async function finishBookingMove(event) {
-    const move=moveRef.current;clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);
+    const move=moveRef.current;clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);setDragPreview(null);
     if(!move||move.pointerId!==event.pointerId)return;
     if(!move.active)return;
     if(!move.target){setMoveStatus("Chưa chọn được ô đích; lịch giữ nguyên.");return;}
@@ -363,7 +373,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const next={...move.booking,date:selectedDate,staffId:member.id,staff:member.name,staffEmail:member.email||'',assignmentStatus:'ASSIGNED',start:move.target.start,end:`${String(Math.floor(end/60)).padStart(2,'0')}:${String(end%60).padStart(2,'0')}`};
     try{await saveBookingRecord(next);setMoveStatus("Đã chuyển lịch. Bot đang chờ đồng bộ khung cũ và khung mới trên HOT.");}catch(error){setMoveStatus(error.message);}
   }
-  function cancelHold(){clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);}
+  function cancelHold(){clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);setDragPreview(null);}
 
   async function notifyAssignedStaff(booking, previousBooking) {
     const actorEmail = String(currentAccount?.email || "").trim().toLowerCase();
@@ -531,6 +541,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
         </div>
       </div>
 
+      {dragPreview && createPortal(<div className="bookingDragGhost" style={{left:dragPreview.left,top:dragPreview.top,width:dragPreview.width,minHeight:dragPreview.height}}><strong>{dragPreview.target?.start||dragPreview.booking.start}–{dragPreview.end||dragPreview.booking.end}</strong><span>{dragPreview.booking.customer}</span><small>{staff.find(member=>String(member.id)===String(dragPreview.target?.staffId))?.name||"Kéo đến ô lịch mới"}</small></div>,document.body)}
+      {offStaffBookings.length>0 && <div className="bookingMoveHint"><strong>Lịch hẹn của nhân viên đang nghỉ — cần sắp xếp lại:</strong>{offStaffBookings.map(booking=><button className="ghost" key={booking.id} onClick={()=>{setSelected(booking);setModalOpen(true);}}>{booking.staff} · {booking.start}–{booking.end} · {booking.customer}</button>)}</div>}
       <p className="bookingMoveHint" role="status">{moveStatus || "Ấn giữ lịch hẹn để kéo sang nhân viên hoặc giờ khác. Nhấn đúp để chỉnh chi tiết."}</p>
       <div className="calendarSummary">
         <div className="card summaryPill"><span>{c.selectedDay}</span><strong>{dateLabel(selectedDate)}</strong></div>
@@ -562,6 +574,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                   </div>
                   <div className="resourceLane" data-member={member.id} style={{ backgroundSize: "var(--timeline-slot-width) 100%", height: bookingLaneCount > 1 ? `${Math.max(76, 10 + bookingLaneCount * 28 + 26)}px` : undefined }}>
                     {!member.external && memberClosedRanges.map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`} />)}
+                    {dragPreview?.target?.staffId===String(member.id) && dragPreview.end && <div className="bookingDropPreview" style={{left:`${(toMinutes(dragPreview.target.start)-startMinutes)/(endMinutes-startMinutes)*100}%`,width:`${(toMinutes(dragPreview.booking.end)-toMinutes(dragPreview.booking.start))/(endMinutes-startMinutes)*100}%`}}>{dragPreview.target.start}–{dragPreview.end}</div>}
                     <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>
                       {visibleIntervalSlots.map((hour) => (
                         <button

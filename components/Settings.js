@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { tx } from "../lib/i18nClean";
 import { supabaseReady } from "../lib/supabaseBrowser";
 import StaffManagement from "./StaffManagement";
+import BotTasks from "./BotTasks";
 import PrinterManager from "./PrinterManager";
 import { getCurrentAccount } from "../lib/accountStore";
 import { normalizeExternalAccounts, useStaffStore } from "../lib/staffStore";
@@ -63,7 +64,7 @@ export function getAppSettings() {
   }
 }
 
-export default function Settings({ language = "vi" }) {
+export default function Settings({ language = "vi", initialPanel }) {
   const [settings, setSettings] = useState(defaultSettings);
   const [saved, setSaved] = useState(false);
   const [qrUploadError, setQrUploadError] = useState("");
@@ -74,7 +75,7 @@ export default function Settings({ language = "vi" }) {
   const [linkedAccounts, setLinkedAccounts] = useState({ hotpepper: [""], nailie: [""], minimo: [""] });
   const isStaff = ["staff", "manager"].includes(currentAccount?.role);
   const [activePanel, setActivePanel] = useState(
-    isStaff ? "password" : "salon",
+    isStaff ? "password" : initialPanel || "salon",
   );
   const [passwordForm, setPasswordForm] = useState({
     current: "",
@@ -194,6 +195,7 @@ export default function Settings({ language = "vi" }) {
     ["business", tr("businessPanel"), tr("businessPanelDesc")],
     ["automation", tr("automationPanel"), tr("automationPanelDesc")],
     ["payment", tr("paymentPanel"), tr("paymentPanelDesc")],
+    ["bot-tasks", "Tác vụ bot", "Theo dõi lịch đồng bộ, lịch sử và lỗi bot."],
     ["printer", printerCopy.panel, printerCopy.panelDesc],
     ["apps", tr("appsPanel"), tr("appsPanelDesc")],
     ["staff", tr("staffPanel"), tr("staffPanelDesc")],
@@ -424,14 +426,16 @@ export default function Settings({ language = "vi" }) {
             className={
               activePanel === id ? "settingsTask active" : "settingsTask"
             }
-            onClick={() => setActivePanel(id)}
+            onClick={() => { setActivePanel(id); window.sessionStorage.removeItem("nail-japan-settings-panel"); }}
           >
             <strong>{title}</strong>
             <span>{desc}</span>
           </button>
         ))}
       </div>
+      {activePanel === "bot-tasks" && !isStaff && <BotTasks />}
       <form
+        hidden={activePanel === "bot-tasks"}
         id="settingsForm"
         className="settingsGrid settingsGridWide"
         onSubmit={saveSettings}

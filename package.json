@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "test:mobile-printer": "node artifacts/booking-qa/mobile-printer-and-schedule-check.mjs",
     "test:calendar-workflow": "node artifacts/booking-qa/calendar-workflow-check.mjs",
     "test:booking-sync": "node artifacts/booking-qa/shared-sync-check.mjs",
     "test:external-sync": "node artifacts/booking-qa/external-sync-check.mjs",

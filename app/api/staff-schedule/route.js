@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { isAdminRequest, isOwnerRequest } from "../../../lib/serverAuth.js";
 import { salonSettings, staffCatalog, serviceCatalog } from "../../../lib/serverEmail.js";
-import { scheduleClosedPeriods, parseStaffPeriod, monthDates } from "../../../lib/staffSchedule.js";
+import { scheduleClosedPeriods, closedPeriodsForDates, parseStaffPeriod, monthDates } from "../../../lib/staffSchedule.js";
 import { syncTaskId } from "../../../lib/bookingSync.js";
 import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
 const owner=process.env.CATALOG_OWNER_ID||"00000000-0000-0000-0000-000000000001";
@@ -18,7 +18,11 @@ function record(task,slot,member={}) {
 export async function POST(request) {
  if(!isAdminRequest(request)&&!isOwnerRequest(request)) return Response.json({ok:false,message:"Unauthorized"},{status:401});
  try {
-  const body=await request.json(); monthDates(body.month);
+  const body=await request.json(); if(body.partial!==true)monthDates(body.month);
+  const affectedDates=body.partial===true?Object.keys(body.days||{}).sort():monthDates(body.month);
+  if(!affectedDates.length||affectedDates.length>366)throw Error("Chọn từ 1 đến 366 ngày");
+  const affectedMonths=[...new Set(affectedDates.map(date=>date.slice(0,7)))];
+
   const [settings,staff,services,rows]=await Promise.all([salonSettings(),staffCatalog(),serviceCatalog(),rest(`app_kv?owner_id=eq.${encodeURIComponent(owner)}&key=eq.nail-japan-bookings&select=value`)]);
   const selected=staff.filter(member=>(body.staffIds||[]).map(String).includes(String(member.id)));
   if(!selected.length) return Response.json({ok:false,message:"Chọn ít nhất một nhân viên"},{status:400});
@@ -26,10 +30,14 @@ export async function POST(request) {
   const work={...settings.staffWorkSchedules}; const owned={...settings.bulkStaffClosedPeriods};
   const removed=[],added=[];
   for(const member of selected){
-   const key=`${member.id}|${body.month}`;
-   const next=scheduleClosedPeriods(member.id,body.month,body.days,settings.openTime||"09:00",settings.closeTime||"23:00");
-   const old=owned[key]||[]; removed.push(...old.filter(p=>!next.includes(p))); added.push(...next.filter(p=>!old.includes(p)));
-   owned[key]=next;work[key]=body.days;
+   const generated=closedPeriodsForDates(member.id,body.days,settings.openTime||"09:00",settings.closeTime||"23:00");
+   for(const month of affectedMonths){
+    const dates=affectedDates.filter(date=>date.startsWith(month+"-"));monthDates(month);
+    const key=`${member.id}|${month}`;const old=owned[key]||[];
+    const next=[...old.filter(raw=>!dates.includes(parseStaffPeriod(raw)?.date)),...generated.filter(raw=>dates.includes(parseStaffPeriod(raw).date))];
+    removed.push(...old.filter(raw=>!next.includes(raw)));added.push(...next.filter(raw=>!old.includes(raw)));
+    owned[key]=next;work[key]={...work[key],...Object.fromEntries(dates.map(date=>[date,body.days[date]]))};
+   }
   }
   for(const raw of added){const slot=parseStaffPeriod(raw);if(Date.parse(`${slot.date}T${slot.end}:00+09:00`)<=Date.now())continue;const member=selected.find(m=>String(m.id)===slot.staffId);const conflict=bookings.find(b=>!b.deletedAt&&!['CANCELLED','COMPLETED'].includes(String(b.status).toUpperCase())&&(String(b.staffId)===slot.staffId||b.staff===member?.name)&&b.date===slot.date&&b.start<slot.end&&b.end>slot.start);if(conflict)return Response.json({ok:false,message:`${member.name}: ${slot.date} ${slot.start}–${slot.end} đã có lịch hẹn. Hãy đổi lịch hẹn trước.`},{status:409});}
   const nextSettings={...settings,staffWorkSchedules:work,bulkStaffClosedPeriods:owned,staffClosedPeriods:[...new Set([...(settings.staffClosedPeriods||[]).filter(p=>!removed.includes(p)),...added])]};
