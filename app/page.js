@@ -15,6 +15,7 @@ import Reports from "../components/Reports";
 import Settings from "../components/Settings";
 import GenericModule from "../components/GenericModule";
 import BotTasks from "../components/BotTasks";
+import StaffSchedule from "../components/StaffSchedule";
 import StaffManagement from "../components/StaffManagement";
 import { AccountGate, CustomerProfile, LoginPage } from "../components/AccountAccess";
 import { permissionsFor, useAccountStore } from "../lib/accountStore";
@@ -93,6 +94,7 @@ export default function Home() {
   else if (activePage === "POS / Checkout") content = <Checkout label={t(language, "checkout")} appointmentId={checkoutAppointmentId} language={language} onOpenPaymentHistory={() => setActive("Payment History")} />;
   else if (activePage === "Reports") content = <Reports language={language} />;
   else if (activePage === "Settings") content = <Settings language={language} />;
+  else if (activePage === "Staff Closures") content = <StaffSchedule />;
   else if (activePage === "Staff") content = <StaffManagement label={t(language, "staff")} language={language} />;
   else if (activePage === "Bot Tasks") content = <BotTasks />;
   else if (activePage !== "Dashboard") content = <GenericModule name={activePage} />;

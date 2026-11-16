@@ -104,12 +104,7 @@ export async function POST(request) {
     const assigned = { ...baseAssigned, providerSync, syncStatus: overallSyncStatus(providerSync), pendingSyncActions: syncTasks };
     const next = allBookings.map((item) => item.id === assigned.id ? assigned : item);
     await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: next, updated_at: new Date().toISOString() }]) });
-    const notification = await sendEmail({
-      to: member.email,
-      subject: `Mai Beauty Salon · Lịch hẹn mới · ${assigned.customer}`,
-      text: `Bạn được phân công lịch hẹn mới.\nNgày: ${assigned.date}\nGiờ: ${assigned.start} - ${assigned.end}\nDịch vụ: ${assigned.service}`,
-      html: `<div style="font-family:Arial,sans-serif;color:#332936"><h2>Bạn được phân công lịch hẹn mới</h2><p><strong>Khách:</strong> ${escapeHtml(assigned.customer)}</p><p><strong>Ngày:</strong> ${escapeHtml(assigned.date)}</p><p><strong>Giờ:</strong> ${escapeHtml(assigned.start)} - ${escapeHtml(assigned.end)}</p><p><strong>Dịch vụ:</strong> ${escapeHtml(assigned.service)}</p></div>`,
-    });
+    const notification = { ok: true, skipped: true, reason: "Staff assignment emails disabled" };
     const origin = new URL(request.url).origin;
     const assignmentToken = new URL(request.url).searchParams.get("token") || body.token;
     const cancelToken = createBookingCancellationToken(assigned.id);

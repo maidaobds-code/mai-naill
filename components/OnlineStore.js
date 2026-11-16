@@ -673,12 +673,6 @@ export default function OnlineStore({
     }
     // The customer confirmation is sent by the server only after the salon
     // owner has reviewed the staff assignment.
-    if (assignedStaff?.email)
-      notifyByEmail({
-        to: assignedStaff.email,
-        subject: `Lịch hẹn mới - ${saved.customer}`,
-        html: `<h2>Lịch hẹn mới</h2><p>Khách: ${saved.customer}</p><p>Dịch vụ: ${saved.service}</p><p>Thời gian: ${saved.start}</p>`,
-      });
     const assignmentEmailFailed =
       saved.assignmentStatus === "PENDING_ASSIGNMENT" &&
       saved.assignmentNotifications?.some((item) => !item.ok);
@@ -694,6 +688,8 @@ export default function OnlineStore({
     return true;
   }
 
+  const aboutSuffix = {vi:"Vi",ja:"Ja",en:"En",zh:"Zh",ko:"Ko"}[language] || "Vi";
+  const salonAbout = settings[`about${aboutSuffix}`] ?? settings.about ?? "";
   return (
     <div className="storeSoftShell sakuraBackground">
       <header className="storeGlassToolbar">
@@ -742,6 +738,7 @@ export default function OnlineStore({
           </select>
         </div>
       </header>
+      {salonAbout && <section className="card salonIntroduction"><p style={{whiteSpace:"pre-wrap"}}>{salonAbout}</p></section>}
       <section className="storeHero softHero">
         <div>
           <p className="eyebrow">MAI BEAUTY SALON</p>
@@ -1215,8 +1212,7 @@ export default function OnlineStore({
                   )}
                 </strong>
                 <span>
-                  {selectedProduct.description ||
-                    selectedProduct.shortDescription}
+                  {productText(selectedProduct).description}
                 </span>
               </div>
             </div>

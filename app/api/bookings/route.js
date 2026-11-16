@@ -1,4 +1,7 @@
-import { createBookingAssignmentToken } from "../../../lib/bookingAssignmentToken.js";
+import { appointmentConfirmationEmail } from "../../../lib/appointmentEmail.js";
+import { autoAssignBooking } from "../../../lib/autoAssignment.js";
+import { salonCapacityState } from "../../../lib/salonCapacity.js";
+import { createBookingAssignmentToken, createBookingCancellationToken } from "../../../lib/bookingAssignmentToken.js";
 import { overallSyncStatus, providerSyncState, syncTaskId } from "../../../lib/bookingSync.js";
 import { managementEmails, sendEmail } from "../../../lib/serverEmail.js";
 import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/serverAuth.js";
@@ -59,12 +62,12 @@ function mainaillSyncMetadata(booking, previous) {
     providerSync.nailie = { ...providerSync.nailie, status: "pending", error: "" };
     return { ...booking, source, assignmentStatus: "ASSIGNED", approvalStatus: "OWNER_CONFIRMED", assignedAt: new Date().toISOString(), providerSync, syncStatus: overallSyncStatus(providerSync), updatedAt: new Date().toISOString() };
   }
-  if (source !== "direct") return booking;
+  if (!["direct", "nailie"].includes(source)) return booking;
   const changed = !previous || ["date", "start", "end", "staffId", "staff", "status"].some((field) => String(previous?.[field] || "") !== String(booking?.[field] || ""));
   if (!changed) return booking;
   const providerSync = providerSyncState(previous || booking);
   for (const provider of ["hotpepper", "nailie"]) providerSync[provider] = { ...providerSync[provider], status: "pending", error: "" };
-  return { ...booking, source: "direct", providerSync, syncStatus: overallSyncStatus(providerSync), updatedAt: new Date().toISOString() };
+  return { ...booking, source, providerSync, syncStatus: overallSyncStatus(providerSync), updatedAt: new Date().toISOString() };
 }
 
 function compactBookings(list) {
@@ -124,7 +127,13 @@ export async function POST(request) {
     const currentRows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
     const current = compactBookings(currentRows?.[0]?.value);
     const [staff, settings, services] = await Promise.all([staffCatalog(), salonSettings(), serviceCatalog()]);
-    const rawSubmitted = compactBookings(body.bookings);
+    const submittedRaw = compactBookings(body.bookings);
+    const assignmentPool = [...current.filter(item=>!submittedRaw.some(value=>value.id===item.id)), ...submittedRaw];
+    const rawSubmitted = submittedRaw.map(booking=>{
+      const previous=current.find(item=>item.id===booking.id);
+      const next=(!previous && isPendingAssignment(booking)) ? autoAssignBooking(booking,assignmentPool,staff,settings,services) : booking;
+      const position=assignmentPool.findIndex(item=>item.id===next.id); if(position>=0)assignmentPool[position]=next;else assignmentPool.push(next); return !previous && next.assignmentStatus === "ASSIGNED" ? {...next,approvalStatus:"AUTO_ASSIGNED"} : next;
+    });
     const submitted = rawSubmitted.map((booking) => mainaillSyncMetadata(booking, current.find((item) => item.id === booking.id)));
     const currentIds = new Set(current.map((item) => item.id));
     const incomingIds = new Set(submitted.map((item) => item.id));
@@ -149,6 +158,12 @@ export async function POST(request) {
     const incoming = deduplicatedProtectedBookings.filter((item) => item && !item.deletedAt && !["cancelled", "completed"].includes(String(item.status).toLowerCase()));
     const allForConflict = [...currentAfterRelatedDeletes.filter((item) => !item.deletedAt && !incomingIds.has(item.id)), ...incoming];
     for (const booking of incoming) {
+      const previous = current.find(item=>item.id===booking.id);
+      if(previous && previous.source === "hotpepper" && !sameSlot(previous, booking)) return Response.json({ok:false,message:"Lịch đặt gốc trên HOT cần đổi trên SALON BOARD; bot chưa xác minh được form đổi đặt chỗ gốc. Lịch Mainaill/Nailie vẫn kéo thả và đồng bộ bình thường."},{status:409});
+      if((booking.staffId||booking.staff) && (!previous || !sameSlot(previous,booking))) {
+        const available=salonCapacityState(booking,allForConflict.filter(item=>item.id!==booking.id),staff,settings,services);
+        if(!available.availableStaff.some(member=>String(member.id)===String(booking.staffId)||member.name===booking.staff)) return Response.json({ok:false,message:"Nhân viên đang nghỉ, bận hoặc không phục vụ dịch vụ này."},{status:409});
+      }
       const conflict = allForConflict.find((item) => item.id !== booking.id && item.date === booking.date && item.staff && booking.staff && item.staff === booking.staff && overlaps(item, booking));
       if (conflict) return Response.json({ ok: false, message: `Khung giờ ${booking.start}-${booking.end} của ${booking.staff} đã có lịch khác.` }, { status: 409 });
     }
@@ -157,10 +172,11 @@ export async function POST(request) {
       const previous = current.find((item) => item.id === booking.id);
       const source = String(booking.source || "direct").toLowerCase();
       const newlyAssignedNailie = source === "nailie" && previous?.assignmentStatus === "PENDING_ASSIGNMENT" && booking.assignmentStatus === "ASSIGNED";
-      if (source !== "direct" && !newlyAssignedNailie) return [];
+      const slotChanged = !previous || !sameSlot(previous, booking) || previous.status !== booking.status;
+      if (!["direct", "nailie"].includes(source) || booking.assignmentStatus === "PENDING_ASSIGNMENT" || !slotChanged) return [];
       const changedSlot = previous && !sameSlot(previous, booking);
       const previousMatch = changedSlot ? { date: previous.date, start: previous.start, end: previous.end, staffId: previous.staffId || "", staff: previous.staff || "" } : null;
-      const tasks = [{ target: "hotpepper", action: newlyAssignedNailie ? "block" : previous ? "update" : "block", bookingId: booking.id, ...(previousMatch ? { previousMatch } : {}) }];
+      const tasks = [{ target: "hotpepper", action: newlyAssignedNailie ? "block" : previous ? "update" : "block", bookingId: booking.id, destination: { date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff }, ...(previousMatch ? { previousMatch } : {}) }];
       if (previousMatch) tasks.push(nailieCapacityTask(previousMatch, merged, staff, settings, booking.id, services));
       tasks.push(nailieCapacityTask(booking, merged, staff, settings, booking.id, services));
       return tasks;
@@ -168,11 +184,23 @@ export async function POST(request) {
     const identifiedSyncTasks = syncTasks.map((task) => ({ ...task, taskId: syncTaskId(task) }));
     const tasksByBooking = new Map(identifiedSyncTasks.map((task) => [String(task.bookingId), []]));
     for (const task of identifiedSyncTasks) tasksByBooking.get(String(task.bookingId))?.push(task);
-    const mergedWithTasks = merged.map((booking) => tasksByBooking.has(String(booking.id)) ? { ...booking, pendingSyncActions: tasksByBooking.get(String(booking.id)) } : booking);
+    const mergedWithTasks = merged.map((booking) => {
+      if(!tasksByBooking.has(String(booking.id)))return booking;
+      const previous=current.find(item=>item.id===booking.id);
+      const actions=[...(previous?.pendingSyncActions||[]),...tasksByBooking.get(String(booking.id))];
+      return {...booking,pendingSyncActions:[...new Map(actions.map(task=>[task.taskId||syncTaskId(task),task])).values()]};
+    });
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: mergedWithTasks, updated_at: new Date().toISOString() }]) });
     const newOnlineBookings = deduplicatedProtectedBookings.filter((booking) => booking.id && !booking.deletedAt && !currentIds.has(booking.id) && String(booking.source || "").toLowerCase() === "direct");
-    const notifications = await Promise.all(newOnlineBookings.map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
-    return Response.json({ ok: true, value: rows?.[0]?.value || mergedWithTasks, assignmentNotifications: notifications, syncTasks: identifiedSyncTasks });
+    const notifications = await Promise.all(newOnlineBookings.filter(isPendingAssignment).map((booking) => notifyManagementForAssignment(request, booking).catch((error) => ({ ok: false, reason: error.message }))));
+    const customerNotifications=await Promise.all(newOnlineBookings.filter(booking=>booking.assignmentStatus === "ASSIGNED" && booking.email).map(async booking=>{
+      try {
+        const origin=publicOrigin(request);const token=createBookingAssignmentToken(booking.id);const cancel=createBookingCancellationToken(booking.id);
+        const confirmation=appointmentConfirmationEmail({booking,settings,language:booking.language||"en",bookingUrl:`${origin}/booking?appointment=${encodeURIComponent(booking.id)}`,changeUrl:`${origin}/assign-booking?token=${encodeURIComponent(token)}`,cancelUrl:`${origin}/cancel-booking?token=${encodeURIComponent(cancel)}`});
+        return await sendEmail({to:booking.email,...confirmation});
+      }catch(error){return {ok:false,reason:error.message};}
+    }));
+    return Response.json({ ok: true, value: rows?.[0]?.value || mergedWithTasks, assignmentNotifications: notifications, customerNotifications, syncTasks: identifiedSyncTasks });
   } catch { return Response.json({ ok: false, message: "Không thể lưu lịch hẹn." }, { status: 500 }); }
 }
 

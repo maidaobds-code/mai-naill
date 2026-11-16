@@ -1,4 +1,5 @@
-import { acknowledgeProviderSync, ingestExternalBooking, syncTaskId } from "../../../lib/bookingSync.js";
+import { autoAssignBooking } from "../../../lib/autoAssignment.js";
+import { acknowledgeProviderSync, ingestExternalBooking, syncTaskId, providerSyncState, overallSyncStatus } from "../../../lib/bookingSync.js";
 import { createBookingAssignmentToken, createBookingCancellationToken } from "../../../lib/bookingAssignmentToken.js";
 import { managementEmails, sendEmail, salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
 import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
@@ -44,7 +45,7 @@ export async function GET(request) {
         const retry = { target: "hotpepper", action: "cancel", bookingId: booking.id, match: { date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId || "", staff: booking.staff || "" } };
         pending.push({ ...retry, taskId: syncTaskId(retry) });
       }
-      return pending.map((action) => ({ ...action, booking: { id: booking.id, date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff, status: booking.status } }));
+      return pending.map((action) => ({ ...action, booking: { id: booking.id, date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff, status: booking.status, ...(action.destination || action.match || {}) } }));
     });
     return Response.json({ ok: true, provider, tasks }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
@@ -124,6 +125,11 @@ export async function POST(request) {
     const generatedTasks = [...(outcome.tasks || [])];
     if (body.kind !== "ack" && outcome.result?.date && outcome.result?.start && outcome.result?.end) {
       const [staff, settings, services] = await Promise.all([staffCatalog(), salonSettings(), serviceCatalog()]);
+      if(outcome.result.assignmentStatus === "PENDING_ASSIGNMENT" && !outcome.ignoredOwnerDeletion) {
+        const assigned=autoAssignBooking(outcome.result,outcome.bookings,staff,settings,services);
+        outcome.result=assigned; outcome.bookings=outcome.bookings.map(item=>item.id===assigned.id?assigned:item);
+        if(assigned.assignmentStatus === "ASSIGNED") generatedTasks.push({target:"hotpepper",action:"block",bookingId:assigned.id});
+      }
       const moved = existingExternal && ["date", "start", "end"].some((field) => String(existingExternal[field] || "") !== String(outcome.result[field] || ""));
       if (moved) generatedTasks.push(nailieCapacityTask(existingExternal, outcome.bookings, staff, settings, outcome.result.id, services));
       generatedTasks.push(nailieCapacityTask(outcome.result, outcome.bookings, staff, settings, outcome.result.id, services));
@@ -140,7 +146,9 @@ export async function POST(request) {
       if (!tasks?.length) return booking;
       const targets = new Set(tasks.map((task) => task.target));
       const existing = (Array.isArray(booking.pendingSyncActions) ? booking.pendingSyncActions : []).filter((task) => !targets.has(task.target));
-      return { ...booking, pendingSyncActions: [...existing, ...tasks] };
+      const providerSync=providerSyncState(booking);
+      for(const target of targets) providerSync[target]={...providerSync[target],status:"pending",error:""};
+      return { ...booking, providerSync, syncStatus:overallSyncStatus(providerSync), pendingSyncActions: [...existing, ...tasks] };
     });
     const value = await saveBookings(queued);
     const notification = outcome.conflicts ? await notifyConflict(request, outcome.conflicts).catch((error) => ({ ok: false, reason: error.message })) : null;

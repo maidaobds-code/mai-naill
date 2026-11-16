@@ -1,6 +1,6 @@
 {
   "name": "nail-japan-mvp",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Mainaill desktop booking synchronization manager",
   "author": "Mainaill",
   "private": true,
@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "test:calendar-workflow": "node artifacts/booking-qa/calendar-workflow-check.mjs",
     "test:booking-sync": "node artifacts/booking-qa/shared-sync-check.mjs",
     "test:external-sync": "node artifacts/booking-qa/external-sync-check.mjs",
     "test:salon-capacity": "node artifacts/booking-qa/salon-capacity-check.mjs",

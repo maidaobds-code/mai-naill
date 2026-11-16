@@ -20,6 +20,7 @@ globalThis.fetch = async (url, options = {}) => {
     stored = row.value;
     return Response.json([row]);
   }
+  if(value.includes("key=in.")) return Response.json([{key:"nail-japan-staff",value:[{id:"staff-1",name:"Mai"}]}]);
   return Response.json([{ value: stored }]);
 };
 
@@ -54,7 +55,7 @@ assert.equal(deleteResult.value.length, 1);
 assert.equal(deleteResult.value.every((item) => Boolean(item.deletedAt)), true);
 assert.deepEqual(deleteResult.syncTasks.map((task) => task.target).sort(), ["hotpepper", "nailie"]);
 assert.equal(deleteResult.syncTasks.find((task) => task.target === "hotpepper").action, "cancel");
-assert.equal(deleteResult.syncTasks.find((task) => task.target === "nailie").action, "capacity_block");
+assert.equal(deleteResult.syncTasks.find((task) => task.target === "nailie").action, "capacity_unblock");
 assert.equal(deleteResult.syncTasks.every((task) => task.match.date === "2026-10-26" && task.match.start === "10:00" && task.match.end === "11:00"), true);
 assert.equal(deleteResult.syncTasks.find((task) => task.target === "hotpepper").match.staff, "Mai");
 assert.equal(deleteResult.value.every((item) => item.pendingSyncActions?.length === 2), true);

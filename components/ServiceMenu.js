@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import LocalizedContentEditor from "./LocalizedContentEditor";
+import { preserveManualTranslations } from "../lib/manualTranslations";
 import { useMemo, useRef, useState } from "react";
 import { emptyService, useServiceCatalog, useBookingOptionCatalog } from "../lib/catalogStore";
 import { bookingGroups, fallbackBookingGroup, bookingGroupLabel } from "../lib/bookingMenu";
@@ -65,7 +67,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
 
   async function translateText(text) {
     if (!text?.trim()) return {};
-    return translateWithMemory(text);
+    return translateWithMemory(text).catch(() => ({}));
   }
 
   async function translateExistingServices() {
@@ -75,7 +77,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
         const missingName = ["nameVi", "nameJa", "nameEn", "nameZh", "nameKo"].some((key) => !service[key]);
         const missingDescription = service.description && ["descriptionVi", "descriptionJa", "descriptionEn", "descriptionZh", "descriptionKo"].some((key) => !service[key]);
         const [names, descriptions] = await Promise.all([missingName ? translateText(service.name) : {}, missingDescription ? translateText(service.description) : {}]);
-        return { ...service, nameVi: names.VI || service.nameVi || service.name, nameJa: names.JA || service.nameJa || service.name, nameEn: names.EN || service.nameEn || service.name, nameZh: names.ZH || service.nameZh || service.name, nameKo: names.KO || service.nameKo || service.name, descriptionVi: descriptions.VI ?? service.descriptionVi ?? service.description, descriptionJa: descriptions.JA ?? service.descriptionJa ?? service.description, descriptionEn: descriptions.EN ?? service.descriptionEn ?? service.description, descriptionZh: descriptions.ZH ?? service.descriptionZh ?? service.description, descriptionKo: descriptions.KO ?? service.descriptionKo ?? service.description, translationSourceName: service.name, translationSourceDescription: service.description };
+        return preserveManualTranslations({ ...service, nameVi: names.VI || service.nameVi || service.name, nameJa: names.JA || service.nameJa || service.name, nameEn: names.EN || service.nameEn || service.name, nameZh: names.ZH || service.nameZh || service.name, nameKo: names.KO || service.nameKo || service.name, descriptionVi: descriptions.VI ?? service.descriptionVi ?? service.description, descriptionJa: descriptions.JA ?? service.descriptionJa ?? service.description, descriptionEn: descriptions.EN ?? service.descriptionEn ?? service.description, descriptionZh: descriptions.ZH ?? service.descriptionZh ?? service.description, descriptionKo: descriptions.KO ?? service.descriptionKo ?? service.description, translationSourceName: service.name, translationSourceDescription: service.description }, service);
       }));
       setServices(translated);
     } finally { setTranslatingExisting(false); }
@@ -94,7 +96,8 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     const nameChanged = draft.translationSourceName !== draft.name;
     const descriptionChanged = draft.translationSourceDescription !== draft.description;
     const [names, descriptions] = await Promise.all([nameChanged || !hasNameTranslations ? translateText(draft.name) : Promise.resolve({}), descriptionChanged || !hasDescriptionTranslations ? translateText(draft.description) : Promise.resolve({})]);
-    const record = { ...draft, id: draft.id || `svc-${Date.now()}`, nameVi: names.VI || draft.nameVi || draft.name, nameJa: names.JA || draft.nameJa || draft.name, nameEn: names.EN || draft.nameEn || draft.name, nameZh: names.ZH || draft.nameZh || draft.name, nameKo: names.KO || draft.nameKo || draft.name, descriptionVi: descriptions.VI ?? draft.descriptionVi ?? draft.description, descriptionJa: descriptions.JA ?? draft.descriptionJa ?? draft.description, descriptionEn: descriptions.EN ?? draft.descriptionEn ?? draft.description, descriptionZh: descriptions.ZH ?? draft.descriptionZh ?? draft.description, descriptionKo: descriptions.KO ?? draft.descriptionKo ?? draft.description, translationSourceName: draft.name, translationSourceDescription: draft.description };
+    let record = { ...draft, id: draft.id || `svc-${Date.now()}`, nameVi: names.VI || draft.nameVi || draft.name, nameJa: names.JA || draft.nameJa || draft.name, nameEn: names.EN || draft.nameEn || draft.name, nameZh: names.ZH || draft.nameZh || draft.name, nameKo: names.KO || draft.nameKo || draft.name, descriptionVi: descriptions.VI ?? draft.descriptionVi ?? draft.description, descriptionJa: descriptions.JA ?? draft.descriptionJa ?? draft.description, descriptionEn: descriptions.EN ?? draft.descriptionEn ?? draft.description, descriptionZh: descriptions.ZH ?? draft.descriptionZh ?? draft.description, descriptionKo: descriptions.KO ?? draft.descriptionKo ?? draft.description, translationSourceName: draft.name, translationSourceDescription: draft.description };
+    record = preserveManualTranslations(record, draft);
     setServices((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
     setDraft({ ...emptyService });
   }
@@ -115,7 +118,8 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
           <label>{c.duration}<input type="number" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: Number(event.target.value) })} /></label>
           <label>{c.owner}<select value={draft.owner} onChange={(event) => setDraft({ ...draft, owner: event.target.value })}><option>Admin</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label>
           <label>{c.image}<input type="file" accept="image/*" onChange={uploadLocalImage} /></label>
-          <label>{tc("note")}<input value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
+          <LocalizedContentEditor value={draft} onChange={setDraft} field="description" label="Mô tả menu" />
+          <LocalizedContentEditor value={draft} onChange={setDraft} field="name" label="Tên menu" multiline={false} />
         </div>
 
         {draft.imageUrl && <div className="imagePreview"><img src={draft.imageUrl} alt={draft.name || "Nail sample"} /><span>{draft.imageFileName || c.selectedImage}</span></div>}

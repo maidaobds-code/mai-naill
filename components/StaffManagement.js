@@ -1,4 +1,6 @@
 ﻿"use client";
+import LocalizedContentEditor from "./LocalizedContentEditor";
+import { preserveManualTranslations } from "../lib/manualTranslations";
 import { useState } from "react";
 import { staff as seedStaff } from "../lib/salonData";
 import { useAccountStore } from "../lib/accountStore";
@@ -167,8 +169,9 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     if (!name || !email) return setAccountMessage("Vui lòng nhập tên và Gmail nhân viên.");
     if (staffTask.password && staffTask.password.length < 6) return setAccountMessage("Mật khẩu phải có ít nhất 6 ký tự.");
     const description = String(staffTask.bookingDescription || "").trim();
-    const translatedDescription = description ? await translateWithMemory(description) : {};
-    const nextMember = { ...staffTask, name, email, role: staffTask.role || "staff", designationFee: Math.max(0, Number(staffTask.designationFee || 0)), bookingDescription: description, bookingDescriptionVi: translatedDescription.VI || description, bookingDescriptionJa: translatedDescription.JA || description, bookingDescriptionEn: translatedDescription.EN || description, bookingDescriptionZh: translatedDescription.ZH || description, bookingDescriptionKo: translatedDescription.KO || description, displayName: staffTask.displayName === staffTask.originalName ? name : staffTask.displayName };
+    const translatedDescription = description ? await translateWithMemory(description).catch(() => ({})) : {};
+    let nextMember = { ...staffTask, name, email, role: staffTask.role || "staff", designationFee: Math.max(0, Number(staffTask.designationFee || 0)), bookingDescription: description, bookingDescriptionVi: translatedDescription.VI || description, bookingDescriptionJa: translatedDescription.JA || description, bookingDescriptionEn: translatedDescription.EN || description, bookingDescriptionZh: translatedDescription.ZH || description, bookingDescriptionKo: translatedDescription.KO || description, displayName: staffTask.displayName === staffTask.originalName ? name : staffTask.displayName };
+    nextMember = preserveManualTranslations(nextMember, staffTask);
     const nextStaff = staff.map((item) => item.id === staffTask.id ? (({ password, originalName, ...member }) => member)(nextMember) : item);
     try {
       await upsertStaffAccount(nextMember, staffTask.password || "");
@@ -210,9 +213,10 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     reader.readAsDataURL(file);
   }
 
-  function saveBookingDisplay() {
+  async function saveBookingDisplay() {
     if (!bookingDraft) return;
-    setStaff((current) => current.map((member) => member.id === bookingDraft.id ? { ...member, displayName: bookingDraft.displayName.trim() || member.name, designationFee: Math.max(0, Number(bookingDraft.designationFee || 0)), bookingDescription: bookingDraft.bookingDescription.trim(), bookingVisible: bookingDraft.bookingVisible, avatarUrl: bookingDraft.avatarUrl, avatarFileName: bookingDraft.avatarFileName } : member));
+    const next = staff.map((member) => member.id === bookingDraft.id ? { ...member, ...bookingDraft, displayName: bookingDraft.displayName.trim() || member.name, designationFee: Math.max(0, Number(bookingDraft.designationFee || 0)), bookingDescription: bookingDraft.bookingDescription.trim(), bookingVisible: bookingDraft.bookingVisible, avatarUrl: bookingDraft.avatarUrl, avatarFileName: bookingDraft.avatarFileName } : member);
+    try { await saveStaff(next); } catch(error) { setAccountMessage(error.message); return; }
     setAccountMessage(`Đã lưu cài đặt hiển thị cho ${bookingDraft.displayName || bookingDraft.name}.`);
     setBookingDraft(null);
   }
@@ -263,7 +267,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
           <label>Chức vụ<select value={staffTask.role} onChange={(event) => setStaffTask({ ...staffTask, role: event.target.value })}><option value="staff">Nhân viên</option><option value="manager">Quản lý</option><option value="owner">Chủ quán</option></select></label>
           <label>Mật khẩu mới<input type="password" value={staffTask.password} onChange={(event) => setStaffTask({ ...staffTask, password: event.target.value })} placeholder="Để trống nếu không đổi" /></label>
           <label>Phí khi chỉ định nhân viên (JPY)<input type="number" min="0" step="100" value={staffTask.designationFee} onChange={(event) => setStaffTask({ ...staffTask, designationFee: Math.max(0, Number(event.target.value || 0)) })} /></label>
-          <label>Mô tả khi chỉ định nhân viên<textarea rows="3" value={staffTask.bookingDescription} onChange={(event) => setStaffTask({ ...staffTask, bookingDescription: event.target.value })} placeholder="Ví dụ: Chuyên nail art, vui lòng đặt trước…" /></label>
+          <LocalizedContentEditor value={staffTask} onChange={setStaffTask} field="bookingDescription" label="Mô tả nhân viên" />
           <label className="staffTaskColorField">Màu lịch<div className="staffColorPicker">{staffColors.map(([colorName, color]) => <button type="button" key={color} title={colorName} aria-label={`Chọn màu ${colorName}`} className={staffTask.color === color ? "staffColorChoice active" : "staffColorChoice"} style={{ background: color }} onClick={() => setStaffTask({ ...staffTask, color })}><span>{colorName}</span></button>)}</div></label>
           <div className="staffTaskAvatarField fullField">
             <span>Ảnh đại diện</span>
@@ -285,7 +289,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
         <div className="staffBookingForm">
           <label>{bookingCopy.displayName}<input value={bookingDraft.displayName} onChange={(event) => setBookingDraft({ ...bookingDraft, displayName: event.target.value })} /></label>
           <label>{bookingCopy.fee}<input type="number" min="0" step="100" value={bookingDraft.designationFee} onChange={(event) => setBookingDraft({ ...bookingDraft, designationFee: Number(event.target.value) })} /></label>
-          <label className="fullField">{bookingCopy.description}<textarea rows="3" value={bookingDraft.bookingDescription} onChange={(event) => setBookingDraft({ ...bookingDraft, bookingDescription: event.target.value })} placeholder="Ví dụ: Chuyên vẽ design, tư vấn mẫu theo yêu cầu…" /></label>
+          <LocalizedContentEditor value={bookingDraft} onChange={setBookingDraft} field="bookingDescription" label={bookingCopy.description} />
           <label>{bookingCopy.image}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={uploadBookingAvatar} /></label>
           <label className="staffBookingToggle"><input type="checkbox" checked={bookingDraft.bookingVisible} onChange={(event) => setBookingDraft({ ...bookingDraft, bookingVisible: event.target.checked })} />{bookingCopy.visible}</label>
         </div>

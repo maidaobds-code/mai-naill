@@ -50,12 +50,14 @@ console.log("PASS alert delivery failures retry, successful alerts deduplicate, 
 const start = worker.indexOf('      if (await isSessionExpired(page)) {');
 const end = worker.indexOf(' else if (isLoginPage(page)) {', start);
 const expiredBranch = worker.slice(start, end);
+let expiredAlerts = 0;
 let navigations = 0;
 let pauses = 0;
 let scans = 0;
 const expired = vm.createContext({
+  autoLoginAttempts: 0,
   isSessionExpired: async () => true,
-  alertAdmin: async () => {}, tryAutoLogin: async () => false, log: () => {},
+  alertAdmin: async () => { expiredAlerts++; }, tryAutoLogin: async () => { expired.autoLoginAttempts++; return false; }, log: () => {},
   page: { goto: async () => { navigations++; } },
   loginUrl: 'https://example.test/login', pollMs: 60_000,
   setTimeout: (resolve) => { pauses++; resolve(); },
@@ -65,6 +67,7 @@ await vm.runInContext(`(async () => { let sessionEstablished = true; for (let i 
 assert.equal(navigations, 2);
 assert.equal(pauses, 2, 'expired sessions must wait between retries');
 assert.equal(scans, 0, 'expired sessions must not scan or acknowledge tasks');
+assert.equal(expiredAlerts, 1, 'first failed login must not alert; second failed login must alert');
 console.log('PASS expired sessions pause and skip task processing until authentication is rechecked');
 
 const diagnosticEnv = { RESEND_API_KEY: 'test-key', RESEND_FROM: 'Salon <bot@example.test>' };

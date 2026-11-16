@@ -20,7 +20,10 @@ assert.match(picker, /selectedMember\?\.closed/);
 assert.match(picker, /Bỏ đóng lịch và thêm lịch hẹn/);
 assert.match(cancel, /cancelledBy: "customer"/);
 
-console.log("PASS customer acceptance waits for owner confirmation");
+const bookingsRoute = fs.readFileSync("app/api/bookings/route.js", "utf8");
+assert.match(bookingsRoute, /AUTO_ASSIGNED/);
+assert.match(bookingsRoute, /customerNotifications/);
+console.log("PASS automatic assignment confirms customers without routine owner/staff assignment emails");
 console.log("PASS owner can change unavailable requested staff or use no preference");
 console.log("PASS accepted email contains staff choice and cancellation actions");
 console.log("PASS customer cancellation persists to the shared server calendar");

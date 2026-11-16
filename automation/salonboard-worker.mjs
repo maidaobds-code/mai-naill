@@ -336,7 +336,7 @@ async function openScheduleForm(page, task) {
 }
 
 async function applySyncTask(page, task) {
-  if (["cancel", "unblock"].includes(task.action)) return reopenManagedSlot(page, task);
+  if (["cancel", "unblock"].includes(task.action)) return reopenManagedSlot(page, { ...task, booking: { ...task.booking, ...task.match } });
   if (!["block", "update"].includes(task.action)) throw new Error(`Unsupported SALON BOARD action: ${task.action}`);
   if (task.action === "update" && task.previousMatch) {
     await reopenManagedSlot(page, { ...task, action: "unblock", previousMatch: null, booking: { ...task.booking, ...task.previousMatch } });
@@ -456,10 +456,10 @@ async function run() {
     try {
       if (await isSessionExpired(page)) {
         log("SESSION_EXPIRED: returning to SALON BOARD login");
-        await alertAdmin("SALON BOARD đã đăng xuất trong khi bot đang hoạt động; hãy đăng nhập lại");
         sessionEstablished = false;
         await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));
-        await tryAutoLogin(page).catch((error) => log("SALON BOARD auto-login failed", error.message));
+        const recovered = await tryAutoLogin(page).catch((error) => { log("SALON BOARD auto-login failed", error.message); return false; });
+        if (!recovered && autoLoginAttempts >= 2) await alertAdmin("SALON BOARD không đăng nhập được sau 2 lần thử; hãy kiểm tra trên Chrome của bot");
         // Re-check authentication on the next iteration before fetching tasks.
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
@@ -468,7 +468,7 @@ async function run() {
         if (!autoLoggedIn) {
           log("LOGIN_REQUIRED: sign in to SALON BOARD in the visible browser");
           loginRequiredSince ??= Date.now();
-          if (sessionEstablished || Date.now() - loginRequiredSince >= 120_000) {
+          if (autoLoginAttempts >= 2) {
             await alertAdmin("SALON BOARD đang ở trang đăng nhập; bot không thể đồng bộ, hãy đăng nhập lại");
           }
           await new Promise((resolve) => setTimeout(resolve, pollMs));
@@ -487,7 +487,9 @@ async function run() {
       loginRequiredSince = null;
       autoLoginAttempts = 0;
       const tasks = await fetchSyncTasks();
+      const blockedBookingIds = new Set();
       for (const task of tasks) {
+        if(blockedBookingIds.has(String(task.booking?.id))) continue;
         try {
           await awaitTaskCompletion(applySyncTask(page, task), {
             taskId: task.taskId || task.booking?.id || "unknown",
@@ -496,6 +498,7 @@ async function run() {
           });
           if (!dryRun) await acknowledgeTask(task, "synced");
         } catch (error) {
+          blockedBookingIds.add(String(task.booking?.id));
           log("SALON BOARD sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
           if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
         }

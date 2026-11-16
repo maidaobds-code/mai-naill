@@ -95,3 +95,21 @@ Ngày lịch được tính theo múi giờ Nhật. Khởi động lại bắt �
 Cấu hình tùy chọn: SALONBOARD_DAY_SCAN_DAYS (31),
 SALONBOARD_SCAN_HORIZON_DAYS (93), SALONBOARD_DISTANT_SCAN_INTERVAL_MS (600000).
 Các biến END_OF_DAY cũ không còn được sử dụng. Nailie giữ nguyên chế độ hiện tại.
+
+## Bot 0.1.12 và lịch hẹn
+
+- Chỉ gửi cảnh báo mất đăng nhập HOT sau ít nhất hai lần tự đăng nhập thất bại.
+- Các lần kéo chuyển lịch được xếp hàng theo thứ tự, có vị trí đích riêng và
+  không xử lý tiếp tác vụ cùng booking nếu tác vụ trước bị lỗi.
+- Trang Lịch làm/nghỉ cho chủ quán/admin tạo giờ làm theo thứ trong tuần và
+  ngoại lệ từng ngày của tháng. Khung ngoài giờ làm được đóng, có thể sửa/mở lại;
+  từ chối đóng khung đang có lịch hẹn. Lịch đã qua không tạo tác vụ HOT mới.
+- Phân công tự động chọn người trống đủ điều kiện theo thứ tự hiển thị. Chỉ khi
+  không đủ nhân viên mới báo chủ quán. Không gửi email phân công thông thường;
+  email xác nhận cho khách vẫn được gửi khi đã phân công.
+- Kéo giữ áp dụng cho lịch Mainaill/Nailie và khung Mainaill quản lý trên HOT.
+  Đặt chỗ gốc trên HOT chưa có form đổi đặt chỗ được xác minh; server từ chối
+  đổi vị trí loại này để tránh Mainaill và HOT hiển thị khác nhau.
+
+Kiểm thử: calendar-workflow-check.mjs, calendar-workflow-ui-check.mjs,
+bot-alert-check.mjs, salonboard-login-form-check.mjs và các script test trong package.json.

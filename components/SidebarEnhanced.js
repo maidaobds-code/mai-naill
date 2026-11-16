@@ -5,6 +5,7 @@ import { useStoreOrders } from "../lib/orderStore";
 
 const items = [
   ["calendar", "▦", "Calendar", "calendar", "#7dd3fc"],
+  ["staff-closures", "▦", "Staff Closures", "staffClosures", "#fb923c"],
   ["checkout", "¥", "POS / Checkout", "checkout", "#fbbf24"],
   ["payment-history", "▤", "Payment History", "paymentHistory", "#22c55e"],
   ["orders", "◕", "Orders", "orders", "#eab308"],
@@ -20,6 +21,7 @@ const items = [
 ];
 
 export default function SidebarEnhanced({ active, setActive, language, setLanguage, allowedItems = items.map((item) => item[2]) }) {
+  const [menuOpen, setMenuOpen] = useState(true);
   const [logoUrl, setLogoUrl] = useState("");
   const { orders } = useStoreOrders();
   useEffect(() => {
@@ -46,12 +48,13 @@ export default function SidebarEnhanced({ active, setActive, language, setLangua
   const unread = orders.filter((order) => order.unread && !["FULFILLED", "Completed", "Delivered"].includes(order.status)).length;
   const visibleItems = items.filter((item) => allowedItems.includes(item[2]));
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${menuOpen ? " menuExpanded" : ""}`}>
       <div className="brand">{logoUrl ? <img className="appBrandLogo" src={logoUrl} alt={tx(language, "brand", "name")} /> : <div className="brandMark">M</div>}<div><strong>{tx(language, "brand", "name")}</strong><span>{t(language, "salonOs")}</span></div></div>
-      <nav>
+      <button type="button" className="sidebarMenuToggle" aria-expanded={menuOpen} aria-controls="main-navigation" onClick={() => setMenuOpen(!menuOpen)}>☰ <span>Menu</span></button>
+      <nav id="main-navigation" hidden={!menuOpen}>
         {visibleItems.map(([iconType, icon, label, key, accent]) => (
-          <button key={label} className={active === label ? "navItem active" : "navItem"} style={{ "--nav-accent": accent }} onClick={() => setActive(label)}>
-            <span className={`navIcon navIcon-${iconType}`}>{icon}</span>{t(language, key)}{label === "Orders" && unread > 0 && <b className="navBadge">{unread}</b>}
+          <button key={label} className={active === label ? "navItem active" : "navItem"} style={{ "--nav-accent": accent }} onClick={() => { setActive(label); if(window.matchMedia("(max-width:760px)").matches)setMenuOpen(false); }}>
+            <span className={`navIcon navIcon-${iconType}`}>{icon}</span>{label === "Staff Closures" ? "Lịch làm / nghỉ" : t(language, key)}{label === "Orders" && unread > 0 && <b className="navBadge">{unread}</b>}
           </button>
         ))}
       </nav>

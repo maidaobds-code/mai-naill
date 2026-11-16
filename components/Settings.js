@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import LocalizedContentEditor from "./LocalizedContentEditor";
+import { preserveManualTranslations } from "../lib/manualTranslations";
 import { useEffect, useState } from "react";
 import { tx } from "../lib/i18nClean";
 import { supabaseReady } from "../lib/supabaseBrowser";
@@ -473,17 +475,8 @@ export default function Settings({ language = "vi" }) {
                 onChange={(event) => update("email", event.target.value)}
               />
             </label>
-            <label>
-              Nội dung “Lưu ý khi đến salon”
-              <textarea
-                rows="6"
-                value={settings.bookingNotice || ""}
-                onChange={(event) =>
-                  update("bookingNotice", event.target.value)
-                }
-              />
-            </label>
-            <button type="button" className="ghost" onClick={translateBookingNotice} disabled={noticeTranslating || !settings.bookingNotice?.trim()}>{noticeTranslating ? "Đang dịch nội dung…" : "Dịch nội dung lưu ý sang 5 ngôn ngữ"}</button>
+            <LocalizedContentEditor value={settings} onChange={value=>{setSettings(value);setSaved(false);}} field="bookingNotice" label="Quy định / lưu ý khi đến salon" />
+            <LocalizedContentEditor value={settings} onChange={value=>{setSettings(value);setSaved(false);}} field="about" label="Giới thiệu salon" />
             <label>
               {tr("logo")}
               <input type="file" accept="image/*" onChange={uploadLogo} />

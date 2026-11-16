@@ -150,6 +150,9 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const selectedDay = Number(selectedDate.slice(-2));
   const [selected, setSelected] = useState(() => blankBooking(japanToday(), "10:00", EMPTY_STAFF));
   const [modalOpen, setModalOpen] = useState(false);
+  const moveRef = useRef(null);
+  const [movingId, setMovingId] = useState(null);
+  const [moveStatus, setMoveStatus] = useState("");
   const [dragStart, setDragStart] = useState(null);
   const [paintRange, setPaintRange] = useState(null);
   const [bookingError, setBookingError] = useState("");
@@ -326,17 +329,41 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     return slotIndex >= Math.min(startIndex, endIndex) && slotIndex <= Math.max(startIndex, endIndex);
   }
 
-  function openBookingAfterHold(booking) {
+  useEffect(()=>()=>{ clearTimeout(pressRef.current); moveRef.current=null; },[]);
+  function beginBookingMove(event, booking) {
+    if(event.button !== undefined && event.button !== 0) return;
+    event.stopPropagation();
     clearTimeout(pressRef.current);
-    pressRef.current = setTimeout(() => {
-      setSelected(booking);
-      setModalOpen(true);
-    }, 900);
+    const pointerId=event.pointerId;
+    const box=event.currentTarget.getBoundingClientRect();
+    moveRef.current={booking,pointerId,x:event.clientX,y:event.clientY,grabMinutes:(event.clientX-box.left)/Math.max(1,box.width)*(toMinutes(booking.end)-toMinutes(booking.start)),active:false,target:null,element:event.currentTarget};
+    event.currentTarget.setPointerCapture?.(pointerId);
+    pressRef.current=setTimeout(()=>{if(moveRef.current?.pointerId===pointerId){moveRef.current.active=true;setMovingId(booking.id);setMoveStatus("Kéo lịch sang nhân viên hoặc khung giờ mới rồi thả để lưu và đồng bộ.");}},650);
   }
-
-  function cancelHold() {
-    clearTimeout(pressRef.current);
+  function moveBookingPointer(event) {
+    const move=moveRef.current;if(!move||move.pointerId!==event.pointerId)return;
+    if(!move.active){if(Math.hypot(event.clientX-move.x,event.clientY-move.y)>10){clearTimeout(pressRef.current);moveRef.current=null;}return;}
+    event.preventDefault();
+    const targets=document.elementsFromPoint(event.clientX,event.clientY);
+    const cell=targets.find(element=>element.matches?.('.slotHit[data-hour][data-member]'));
+    const lane=targets.find(element=>element.matches?.('.resourceLane[data-member]'));
+    if(lane){const box=lane.getBoundingClientRect();const minutes=Math.round(((event.clientX-box.left)/box.width*(endMinutes-startMinutes)-move.grabMinutes)/30)*30+startMinutes;move.target={staffId:lane.dataset.member,start:`${String(Math.floor(minutes/60)).padStart(2,'0')}:${String(minutes%60).padStart(2,'0')}`};}
+    else if(cell)move.target={staffId:cell.dataset.member,start:cell.dataset.hour};
+    else move.target=null;
   }
+  async function finishBookingMove(event) {
+    const move=moveRef.current;clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);
+    if(!move||move.pointerId!==event.pointerId)return;
+    if(!move.active)return;
+    if(!move.target){setMoveStatus("Chưa chọn được ô đích; lịch giữ nguyên.");return;}
+    const member=staff.find(item=>String(item.id)===String(move.target.staffId));
+    if(!member){setMoveStatus("Chọn một nhân viên đã được cấu hình.");return;}
+    const duration=toMinutes(move.booking.end)-toMinutes(move.booking.start);const start=toMinutes(move.target.start);const end=start+duration;
+    if(start<startMinutes||end>endMinutes){setMoveStatus("Lịch vượt giờ mở cửa; lịch giữ nguyên.");return;}
+    const next={...move.booking,date:selectedDate,staffId:member.id,staff:member.name,staffEmail:member.email||'',assignmentStatus:'ASSIGNED',start:move.target.start,end:`${String(Math.floor(end/60)).padStart(2,'0')}:${String(end%60).padStart(2,'0')}`};
+    try{await saveBookingRecord(next);setMoveStatus("Đã chuyển lịch. Bot đang chờ đồng bộ khung cũ và khung mới trên HOT.");}catch(error){setMoveStatus(error.message);}
+  }
+  function cancelHold(){clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);}
 
   async function notifyAssignedStaff(booking, previousBooking) {
     const actorEmail = String(currentAccount?.email || "").trim().toLowerCase();
@@ -412,7 +439,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       const saved = await saveBookingRecord(bookingToSave);
       setSelected(saved);
       setModalOpen(false);
-      try { await notifyAssignedStaff(saved, previousBooking); } catch (error) { console.warn(error); }
+
     } catch (error) {
       setBookingError(error.message || "Không thể lưu lịch hẹn lên Supabase.");
     }
@@ -504,6 +531,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
         </div>
       </div>
 
+      <p className="bookingMoveHint" role="status">{moveStatus || "Ấn giữ lịch hẹn để kéo sang nhân viên hoặc giờ khác. Nhấn đúp để chỉnh chi tiết."}</p>
       <div className="calendarSummary">
         <div className="card summaryPill"><span>{c.selectedDay}</span><strong>{dateLabel(selectedDate)}</strong></div>
         <div className="card summaryPill"><span>{c.dayBookings}</span><strong>{selectedDayBookings.length}</strong></div>
@@ -532,7 +560,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                     {member.avatarUrl ? <img className="avatar small resourceStaffAvatar" src={member.avatarUrl} alt={`Ảnh đại diện ${member.name}`} /> : <div className="avatar small" style={{ background: member.color }}>{member.name[0]}</div>}
                     <div><strong>{member.name}</strong><span>{member.status}</span></div>
                   </div>
-                  <div className="resourceLane" style={{ backgroundSize: "var(--timeline-slot-width) 100%", height: bookingLaneCount > 1 ? `${Math.max(76, 10 + bookingLaneCount * 28 + 26)}px` : undefined }}>
+                  <div className="resourceLane" data-member={member.id} style={{ backgroundSize: "var(--timeline-slot-width) 100%", height: bookingLaneCount > 1 ? `${Math.max(76, 10 + bookingLaneCount * 28 + 26)}px` : undefined }}>
                     {!member.external && memberClosedRanges.map((range) => <button type="button" className="closedScheduleBlock" key={`${member.id}-${range.scope}-${range.start}-${range.end}`} style={{ left: range.left, width: range.width }} title={`${range.label}: ${range.start} - ${range.end}`} onClick={() => { setSelected({ ...blankBooking(selectedDate, range.start, member), start: range.start, end: range.end, closedScope: range.scope }); setModalOpen(true); }} aria-label={`${range.label} ${range.start}-${range.end}. Nhấn để bỏ khóa.`} />)}
                     <div className="slotHitGrid" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>
                       {visibleIntervalSlots.map((hour) => (
@@ -555,14 +583,14 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                       const platform = platformFor(booking.source);
                       return (
                         <button
-                          className={selected.id === booking.id ? "timelineBooking selectedBar" : "timelineBooking"}
+                          className={`timelineBooking${selected.id === booking.id ? " selectedBar" : ""}${movingId === booking.id ? " movingBooking" : ""}`}
                           key={booking.id}
                           style={{ ...bookingStyle(booking, startMinutes, endMinutes), ...(bookingLayout.get(booking.id)?.lanes > 1 ? { top: `${10 + bookingLayout.get(booking.id).lane * 28}px`, height: "26px" } : {}), borderColor: member.color, background: `${member.color}2b` }}
-                          onMouseDown={() => openBookingAfterHold(booking)}
-                          onMouseUp={cancelHold}
-                          onMouseLeave={cancelHold}
-                          onTouchStart={() => openBookingAfterHold(booking)}
-                          onTouchEnd={cancelHold}
+                          onPointerDown={event=>beginBookingMove(event, booking)}
+                          onPointerMove={moveBookingPointer}
+                          onPointerUp={finishBookingMove}
+                          onPointerCancel={cancelHold}
+                          onContextMenu={event=>event.preventDefault()}
                           onDoubleClick={() => { setSelected(booking); setModalOpen(true); }}
                         >
                           <strong>{booking.start} - {booking.end}</strong>

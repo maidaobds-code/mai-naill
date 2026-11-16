@@ -1,4 +1,5 @@
 "use client";
+import { localizedContent } from "../lib/manualTranslations";
 import { useState } from "react";
 import {
   bookingGroups,
@@ -250,7 +251,7 @@ export default function GroupedBooking({
                               {service.description && (
                                 <small>
                                   {service[
-                                    `description${lang === "ja" ? "Ja" : lang === "en" ? "En" : "Vi"}`
+                                    `description${{ja:"Ja",en:"En",vi:"Vi",zh:"Zh",ko:"Ko"}[lang]}`
                                   ] || service.description}
                                 </small>
                               )}
@@ -390,7 +391,7 @@ export default function GroupedBooking({
                       <span>
                         <strong>{member.displayName || member.name}</strong>
                         <small>
-                          {closedAtSelectedTime ? copy("この時間は受付停止中", "Đang đóng lịch trong giờ này", "Closed for this time") : hasClosure ? copy("この日は受付停止時間あり", "Có thời gian đóng lịch trong ngày", "Has closed hours on this date") : member.bookingDescription || member.role || "Nailist"}
+                          {closedAtSelectedTime ? copy("この時間は受付停止中", "Đang đóng lịch trong giờ này", "Closed for this time") : hasClosure ? copy("この日は受付停止時間あり", "Có thời gian đóng lịch trong ngày", "Has closed hours on this date") : localizedContent(member,"bookingDescription",lang) || member.role || "Nailist"}
                         </small>
                       </span>
                       <b>{closedAtSelectedTime ? copy("受付停止", "Đóng lịch", "Closed") : yen(member.designationFee)}</b>
