@@ -11,7 +11,7 @@ const STAFF_COLORS = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f97316", "#0
 function authorized(request) { return isAdminRequest(request) || isOwnerRequest(request) || isStaffRequest(request); }
 function isLegacySample(value) { return Array.isArray(value) && value.length > 0 && value.every((member) => legacySampleStaff.some((sample) => String(member?.id) === String(sample.id) && member?.name === sample.name && member?.role === sample.role && member?.color === sample.color && member?.external?.hotpepper === sample.external.hotpepper && member?.external?.nailie === sample.external.nailie && member?.external?.minimo === sample.external.minimo)); }
 function staffFromAccounts(accounts) {
-  return (Array.isArray(accounts) ? accounts : []).filter((account) => ["owner", "manager", "staff"].includes(account?.role) && account?.name && !(account.id === "owner" && account.email === "owner@salon.local" && !account.passwordHash)).map((account, index) => ({
+  return (Array.isArray(accounts) ? accounts : []).filter((account) => ["owner", "manager", "staff", "cashier"].includes(account?.role) && account?.name && !(account.id === "owner" && account.email === "owner@salon.local" && !account.passwordHash)).map((account, index) => ({
     id: String(account.id || `account-${index + 1}`).replace(/^staff-/, ""),
     name: account.staffName || account.name,
     displayName: account.staffName || account.name,
