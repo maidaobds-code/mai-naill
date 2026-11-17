@@ -32,6 +32,7 @@ const distantScanIntervalMs = Math.max(60_000, Number(process.env.SALONBOARD_DIS
 const dryRun = String(process.env.SALONBOARD_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-worker.log");
 const observationFile = process.env.SALONBOARD_OBSERVATION_FILE || path.resolve("runtime", "salonboard-observed-bookings.json");
+const manualVerificationFile = path.join(path.dirname(observationFile), "salonboard-manual-verification-required");
 const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 const loginUsername = String(process.env.SALONBOARD_USERNAME || "").trim();
@@ -46,6 +47,7 @@ let lastKeepAliveAt = 0;
 let nativeChangeConfirmationExpected = false;
 let nativeChangeConfirmationHandled = false;
 let hotErrorUntil = 0;
+let manualVerificationRequired = fsSync.existsSync(manualVerificationFile);
 // Give manual login two minutes at startup, then report unattended login failures.
 let sessionEstablished = false;
 
@@ -61,6 +63,18 @@ async function waitBeforeOperation() {
 async function hotAction(action) {
   await waitBeforeOperation();
   return action();
+}
+async function isHumanVerificationPage(page) {
+  const body = await page.locator("body").innerText().catch(() => "");
+  return /画像認証|イラストを完成させて|バーをドラッグして/.test(body);
+}
+async function requireManualVerification() {
+  if (manualVerificationRequired) return;
+  manualVerificationRequired = true;
+  await fs.mkdir(path.dirname(manualVerificationFile), { recursive: true });
+  await fs.writeFile(manualVerificationFile, new Date().toISOString(), "utf8");
+  log("SALON BOARD image verification required; HOT automation paused");
+  await alertAdmin("SALON BOARD yêu cầu xác minh hình; bot đã tạm dừng. Hãy xác minh thủ công trong Chrome của bot.");
 }
 
 function staffRules() {
@@ -125,7 +139,8 @@ async function alertAdmin(reason) {
 }
 
 async function tryAutoLogin(page) {
-  if (!isLoginPage(page) || autoLoginAttempts >= 2) return false;
+  if (manualVerificationRequired || !isLoginPage(page) || autoLoginAttempts >= 2) return false;
+  if (await isHumanVerificationPage(page)) { await requireManualVerification(); return false; }
   if (await page.locator('iframe[src*="captcha"], input[name*="captcha"], input[autocomplete="one-time-code"]').count()) return false;
   const user = page.locator('input[name="userId"], input[name="loginId"], input[name="username"], input[type="email"], input[type="text"]').first();
   const password = page.locator('input[name="password"], input[type="password"]').first();
@@ -150,6 +165,7 @@ async function tryAutoLogin(page) {
   autoLoginAttempts += 1;
   await hotAction(() => page.mouse.click(submitBox.x + submitBox.width / 2, submitBox.y + submitBox.height / 2));
   await page.waitForURL((target) => !/login|ログイン/i.test(target.href), { timeout: 20_000 }).catch(() => {});
+  if (await isHumanVerificationPage(page)) { await requireManualVerification(); return false; }
   const loggedIn = !isLoginPage(page) && !(await isSessionExpired(page));
   log(loggedIn ? "SALON BOARD auto-login succeeded" : "SALON BOARD auto-login needs visible verification");
   return loggedIn;
@@ -591,13 +607,25 @@ async function run() {
   // login manually. A blank/new tab must never be treated as the logged-in
   // page, and navigation errors should be retried instead of leaving Chrome
   // on about:blank.
-  const navigated = await navigate(page);
+  const navigated = manualVerificationRequired && page.url() !== "about:blank" ? true : await navigate(page);
   if (!navigated) await alertAdmin("Không mở được SALON BOARD sau 3 lần thử");
   log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} scanHorizonDays=${scanHorizonDays} distantScanIntervalMs=${distantScanIntervalMs} scanMode=interleaved continuous=true`);
 
   const scanPlanner = createScheduleScanPlanner({ nearDays: daytimeScanDays, horizonDays: scanHorizonDays, distantIntervalMs: distantScanIntervalMs });
   for (;;) {
     try {
+      if (await isHumanVerificationPage(page)) await requireManualVerification();
+      if (manualVerificationRequired) {
+        if (page.url().includes("/KLP/schedule/salonSchedule/") && await page.locator('[id^="STAFF_"]').count()) {
+          manualVerificationRequired = false;
+          await fs.rm(manualVerificationFile, { force: true });
+          autoLoginAttempts = 0;
+          log("SALON BOARD manual verification completed; HOT automation resumed");
+        } else {
+          await new Promise((resolve) => setTimeout(resolve, pollMs));
+          continue;
+        }
+      }
       if (Date.now() < hotErrorUntil) {
         await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, hotErrorUntil - Date.now())));
         continue;
