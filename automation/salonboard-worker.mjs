@@ -22,6 +22,7 @@ const scheduleUrl = "https://salonboard.com/KLP/schedule/salonSchedule/";
 const profileDir = process.env.SALONBOARD_PROFILE_DIR || path.resolve(".salonboard-profile");
 const debugPort = Number(process.env.SALONBOARD_DEBUG_PORT || 9229);
 const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000));
+const scanIntervalMs = Math.max(5 * 60_000, Number(process.env.SALONBOARD_SCAN_INTERVAL_MS || 5 * 60_000));
 // SALON BOARD can expire an otherwise valid browser session after a period of
 // inactivity. Keep the same visible session active, including during quiet
 // hours, without opening a second browser or attempting to bypass login/CAPTCHA.
@@ -612,6 +613,7 @@ async function run() {
   log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} scanHorizonDays=${scanHorizonDays} distantScanIntervalMs=${distantScanIntervalMs} scanMode=interleaved continuous=true`);
 
   const scanPlanner = createScheduleScanPlanner({ nearDays: daytimeScanDays, horizonDays: scanHorizonDays, distantIntervalMs: distantScanIntervalMs });
+  let lastScanAt = 0;
   for (;;) {
     try {
       if (await isHumanVerificationPage(page)) await requireManualVerification();
@@ -669,6 +671,11 @@ async function run() {
       autoLoginAttempts = 0;
       await processPriorityTasks(page);
       if (Date.now() < hotErrorUntil) continue;
+      if (Date.now() - lastScanAt < scanIntervalMs) {
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+        continue;
+      }
+      lastScanAt = Date.now();
       const scanPlan = scanPlanner.next();
       if (scanPlan.date.endsWith("-12-31") || scanPlan.date.endsWith("-01-01")) {
         log("SALON BOARD holiday scan skipped", scanPlan.date);
