@@ -286,6 +286,16 @@ async function processPriorityTasks(page) {
   const blockedBookingIds = new Set();
   for (const task of tasks) {
     if (blockedBookingIds.has(String(task.booking?.id))) continue;
+    if (task.action === "block" && task.booking?.date && task.booking?.end) {
+      const nowJapan = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date()).replace(" ", "T");
+      const expiresAt = `${task.booking.date}T${task.booking.end}`;
+      if (expiresAt <= nowJapan) {
+        const error = "SALON BOARD slot expired before automation started; skipped without opening the form";
+        log("SALON BOARD expired task skipped", `${task.booking.id || "unknown"} ${expiresAt}`);
+        if (!dryRun) await acknowledgeTask(task, "manual_required", error).catch(() => {});
+        continue;
+      }
+    }
     try {
       const result = await awaitTaskCompletion(applySyncTask(page, task), {
         taskId: task.taskId || task.booking?.id || "unknown",
