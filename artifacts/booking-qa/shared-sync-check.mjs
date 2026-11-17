@@ -94,6 +94,23 @@ assert.equal(moveResult.syncTasks.find((task) => task.target === "hotpepper").pr
 assert.equal(moveResult.syncTasks.filter((task) => task.target === "nailie").length, 2);
 assert.equal(moveResult.value.find((item) => item.id === newBooking.id).start, "16:30");
 
+// Repeated drags of an imported HOT booking must not leave contradictory edits.
+const hotBooking = { id: "external-hotpepper-test", source: "hotpepper", externalBookingId: "a".repeat(32), date: "2026-10-27", start: "12:00", end: "13:00", customer: "SALON BOARD", staff: "Mai", staffId: "staff-1", status: "CONFIRMED" };
+stored = [hotBooking];
+const hotFirstMove = await (await route.POST(request([{ ...hotBooking, start: "14:00", end: "15:00" }]))).json();
+assert.equal(hotFirstMove.ok, true);
+assert.equal(hotFirstMove.value[0].pendingSyncActions.filter((task) => task.target === "hotpepper" && task.action === "update").length, 1);
+const hotMoveBack = await (await route.POST(request([{ ...hotFirstMove.value[0], start: "12:00", end: "13:00" }]))).json();
+assert.equal(hotMoveBack.ok, true);
+assert.equal(hotMoveBack.value[0].pendingSyncActions.filter((task) => task.target === "hotpepper" && task.action === "update").length, 0);
+stored = [hotBooking];
+const hotAgain = await (await route.POST(request([{ ...hotBooking, start: "14:00", end: "15:00" }]))).json();
+const hotFinal = await (await route.POST(request([{ ...hotAgain.value[0], start: "16:00", end: "17:00" }]))).json();
+const finalHotMoves = hotFinal.value[0].pendingSyncActions.filter((task) => task.target === "hotpepper" && task.action === "update");
+assert.equal(finalHotMoves.length, 1);
+assert.equal(finalHotMoves[0].previousMatch.start, "12:00");
+assert.equal(finalHotMoves[0].destination.start, "16:00");
+
 console.log("PASS numeric ID is normalized to string ID");
 console.log("PASS unauthenticated deletion is rejected");
 console.log("PASS deletion remains after server reload");
@@ -104,3 +121,4 @@ console.log("PASS new manual booking remains visible after server reload");
 console.log("PASS Mainaill bookings create pending sync tasks for Nailie and HOT PEPPER");
 console.log("PASS moving a Mainaill booking queues old-slot reopening before new-slot blocking");
 console.log("PASS deleting a Mainaill booking queues exact-slot cancellation for both external apps");
+console.log("PASS repeated HOT drags collapse to the final position");

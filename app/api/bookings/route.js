@@ -186,7 +186,23 @@ export async function POST(request) {
     const mergedWithTasks = merged.map((booking) => {
       if(!tasksByBooking.has(String(booking.id)))return booking;
       const previous=current.find(item=>item.id===booking.id);
-      const actions=[...(previous?.pendingSyncActions||[]),...tasksByBooking.get(String(booking.id))];
+      const incomingTasks = tasksByBooking.get(String(booking.id));
+      const pending = previous?.pendingSyncActions || [];
+      const nativeMove = String(booking.source || "").toLowerCase() === "hotpepper"
+        ? incomingTasks.find((task) => task.target === "hotpepper" && task.action === "update" && task.previousMatch)
+        : null;
+      if (nativeMove) {
+        // The schedule on HOT has not changed while earlier moves are queued.
+        // Collapse successive drags into one move from the first HOT position.
+        const original = pending.find((task) => task.target === "hotpepper" && task.action === "update" && task.previousMatch)?.previousMatch || nativeMove.previousMatch;
+        const unchangedOnHot = sameSlot(original, booking);
+        const otherTasks = [...pending, ...incomingTasks].filter((task) => !(task.target === "hotpepper" && task.action === "update"));
+        const finalMove = unchangedOnHot ? [] : [{ ...nativeMove, previousMatch: original, taskId: syncTaskId({ ...nativeMove, previousMatch: original }) }];
+        const providerSync = providerSyncState(booking);
+        if (unchangedOnHot) providerSync.hotpepper = { ...providerSync.hotpepper, status: "synced", error: "" };
+        return { ...booking, providerSync, syncStatus: overallSyncStatus(providerSync), pendingSyncActions: [...new Map([...otherTasks, ...finalMove].map((task) => [task.taskId || syncTaskId(task), task])).values()] };
+      }
+      const actions=[...pending,...incomingTasks];
       return {...booking,pendingSyncActions:[...new Map(actions.map(task=>[task.taskId||syncTaskId(task),task])).values()]};
     });
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: mergedWithTasks, updated_at: new Date().toISOString() }]) });
