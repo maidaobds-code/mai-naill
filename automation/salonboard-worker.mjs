@@ -452,7 +452,7 @@ async function updateNativeReservation(page, task) {
   await waitBeforeOperation();
   nativeChangeConfirmationExpected = true;
   try {
-    await page.locator("#change").click();
+    await Promise.all([page.waitForEvent("dialog", { timeout: 15_000 }), page.locator("#change").click()]);
   } finally {
     nativeChangeConfirmationExpected = false;
   }
@@ -560,7 +560,7 @@ async function run() {
   page.on("dialog", async (dialog) => {
     const message = dialog.message();
     const isExpectedRegistration = /予定を登録します[。？?]/.test(message);
-    const isExpectedNativeChange = nativeChangeConfirmationExpected && dialog.type() === "confirm" && /^予約を変更します。よろしいですか？$/.test(message);
+    const isExpectedNativeChange = nativeChangeConfirmationExpected && dialog.type() === "confirm" && /^予約を変更します。よろしいですか？$/.test(message.trim());
     const accept = isExpectedRegistration || isExpectedNativeChange;
     log("SALON BOARD dialog", `${dialog.type()}: ${message} action=${accept ? "accept" : "dismiss"}`);
     try {
