@@ -196,7 +196,20 @@ export async function POST(request) {
         // Collapse successive drags into one move from the first HOT position.
         const original = pending.find((task) => task.target === "hotpepper" && task.action === "update" && task.previousMatch)?.previousMatch || nativeMove.previousMatch;
         const unchangedOnHot = sameSlot(original, booking);
-        const otherTasks = [...pending, ...incomingTasks].filter((task) => !(task.target === "hotpepper" && task.action === "update"));
+      const moveSlots = [original, nativeMove.destination, booking, ...pending.map((task) => task.destination || task.match)].filter(Boolean);
+      const sameTime = (left, right) => String(left?.date || "") === String(right?.date || "")
+        && String(left?.start || "") === String(right?.start || "")
+        && String(left?.end || "") === String(right?.end || "");
+      const isMoveCapacityTask = (task) => task.target === "nailie"
+        && ["capacity_block", "capacity_unblock"].includes(task.action)
+        && moveSlots.some((slot) => sameTime(task.match, slot));
+      const otherTasks = [...pending, ...incomingTasks].filter((task) => {
+        if (task.target === "hotpepper" && task.action === "update") return false;
+        // A drag followed by an immediate undo cancels its paired capacity
+        // updates too; no external provider should receive either half.
+        if (unchangedOnHot && isMoveCapacityTask(task)) return false;
+        return true;
+      });
         const finalMove = unchangedOnHot ? [] : [{ ...nativeMove, previousMatch: original, taskId: syncTaskId({ ...nativeMove, previousMatch: original }) }];
         const providerSync = providerSyncState(booking);
         if (unchangedOnHot) providerSync.hotpepper = { ...providerSync.hotpepper, status: "synced", error: "" };

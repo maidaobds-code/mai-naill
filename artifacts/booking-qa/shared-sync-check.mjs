@@ -103,6 +103,7 @@ assert.equal(hotFirstMove.value[0].pendingSyncActions.filter((task) => task.targ
 const hotMoveBack = await (await route.POST(request([{ ...hotFirstMove.value[0], start: "12:00", end: "13:00" }]))).json();
 assert.equal(hotMoveBack.ok, true);
 assert.equal(hotMoveBack.value[0].pendingSyncActions.filter((task) => task.target === "hotpepper" && task.action === "update").length, 0);
+assert.equal(hotMoveBack.value[0].pendingSyncActions.filter((task) => task.target === "nailie" && ["capacity_block", "capacity_unblock"].includes(task.action)).length, 0);
 stored = [hotBooking];
 const hotAgain = await (await route.POST(request([{ ...hotBooking, start: "14:00", end: "15:00" }]))).json();
 const hotFinal = await (await route.POST(request([{ ...hotAgain.value[0], start: "16:00", end: "17:00" }]))).json();
