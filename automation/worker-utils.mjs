@@ -6,7 +6,7 @@ export function dateKey(date = new Date()) {
 }
 
 export async function waitBeforeOperation(log = () => {}) {
-  const delay = 1000 + Math.floor(Math.random() * 2001);
+  const delay = 1000 + Math.floor(Math.random() * 1001);
   log("waiting before operation", `${delay}ms`);
   await new Promise((resolve) => setTimeout(resolve, delay));
 }

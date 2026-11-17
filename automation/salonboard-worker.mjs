@@ -44,6 +44,8 @@ let loginRequiredSince = null;
 let autoLoginAttempts = 0;
 let lastKeepAliveAt = 0;
 let nativeChangeConfirmationExpected = false;
+let nativeChangeConfirmationHandled = false;
+let hotErrorUntil = 0;
 // Give manual login two minutes at startup, then report unattended login failures.
 let sessionEstablished = false;
 
@@ -55,6 +57,10 @@ function log(message, details = "") {
 
 async function waitBeforeOperation() {
   await waitWithOperationDelay(log);
+}
+async function hotAction(action) {
+  await waitBeforeOperation();
+  return action();
 }
 
 function staffRules() {
@@ -128,8 +134,8 @@ async function tryAutoLogin(page) {
     return false;
   }
   if (loginUsername && loginPassword) {
-    await user.fill(loginUsername);
-    await password.fill(loginPassword);
+    await hotAction(() => user.fill(loginUsername));
+    await hotAction(() => password.fill(loginPassword));
   } else if (!await user.evaluate((input) => Boolean(input.value.trim())) || !await password.evaluate((input) => Boolean(input.value))) {
     log("SALON BOARD auto-login skipped: configure credentials in Bot Manager or fill both browser fields");
     return false;
@@ -142,7 +148,7 @@ async function tryAutoLogin(page) {
   const submitBox = await submit.boundingBox();
   if (!submitBox) return false;
   autoLoginAttempts += 1;
-  await page.mouse.click(submitBox.x + submitBox.width / 2, submitBox.y + submitBox.height / 2);
+  await hotAction(() => page.mouse.click(submitBox.x + submitBox.width / 2, submitBox.y + submitBox.height / 2));
   await page.waitForURL((target) => !/login|ログイン/i.test(target.href), { timeout: 20_000 }).catch(() => {});
   const loggedIn = !isLoginPage(page) && !(await isSessionExpired(page));
   log(loggedIn ? "SALON BOARD auto-login succeeded" : "SALON BOARD auto-login needs visible verification");
@@ -168,7 +174,7 @@ async function ingestExternalBooking(event) {
 
 async function scanExternalBookings(page, date) {
   const compactDate = date.replaceAll("-", "");
-  await page.goto(`${scheduleUrl}?date=${compactDate}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await hotAction(() => page.goto(`${scheduleUrl}?date=${compactDate}`, { waitUntil: "domcontentloaded", timeout: 45_000 }));
   await page.waitForSelector('[id^="STAFF_"]', { timeout: 20_000 });
   const records = await page.evaluate(() => {
     const heads = [...document.querySelectorAll('[id^="STAFF_"]')];
@@ -272,8 +278,11 @@ async function processPriorityTasks(page) {
       if (!dryRun) await acknowledgeTask(task, "synced", "", result?.externalBookingId || "");
     } catch (error) {
       blockedBookingIds.add(String(task.booking?.id));
+      if (nativeChangeConfirmationHandled && task.booking?.source === "hotpepper" && task.previousMatch) error.noRetry = true;
       log("SALON BOARD sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
-      if (!dryRun) await acknowledgeTask(task, "error", error.message).catch(() => {});
+      if (!dryRun) await acknowledgeTask(task, error.noRetry ? "manual_required" : "error", error.message).catch(() => {});
+      if (page.url().includes("/ErrorDocument/") || /HOT returned error page/.test(error.message || "")) hotErrorUntil = Date.now() + 5 * 60_000;
+      nativeChangeConfirmationHandled = false;
     }
   }
   return tasks.length;
@@ -288,7 +297,7 @@ async function openScheduleForm(page, task) {
   const [endHour, endMinute] = String(booking.end || "").split(":");
   if (!/^\d{8}$/.test(date) || !startHour || !startMinute || !endHour || !endMinute || !externalName) throw new Error("Invalid exact-slot booking task");
 
-  await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await hotAction(() => page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 }));
   await page.waitForSelector('[id^="STAFF_"]', { timeout: 20_000 });
   const heads = page.locator('[id^="STAFF_"]');
   const rows = page.locator("li.jscScheduleMainTableLine");
@@ -320,11 +329,11 @@ async function openScheduleForm(page, task) {
   if (!areaBox || !timeBox) throw new Error("SALON BOARD schedule grid is not visible");
   const startMinutes = Number(startHour) * 60 + Number(startMinute);
   const firstMinutes = firstHour * 60 + firstMinute;
-  await page.mouse.click(areaBox.x + ((startMinutes - firstMinutes) * timeBox.width / 60) + 3, areaBox.y + areaBox.height / 2);
+  await hotAction(() => page.mouse.click(areaBox.x + ((startMinutes - firstMinutes) * timeBox.width / 60) + 3, areaBox.y + areaBox.height / 2));
   const timeChoice = page.locator(".jscScheduleTimePeriodModal [data-start-time]").filter({ hasText: `${startHour}:${startMinute}` });
-  if (await timeChoice.isVisible().catch(() => false)) await timeChoice.click();
+  if (await timeChoice.isVisible().catch(() => false)) await hotAction(() => timeChoice.click());
   await page.waitForSelector("#fnc_schedule", { timeout: 20_000 });
-  await page.locator("#fnc_schedule").click();
+  await hotAction(() => page.locator("#fnc_schedule").click());
   await page.waitForSelector('[name="schEndHour"]', { timeout: 20_000 });
 
   const staffValue = await page.locator('[name="staffId"] option').evaluateAll((options, target) => {
@@ -332,19 +341,19 @@ async function openScheduleForm(page, task) {
     return options.find((option) => compact(option.textContent) === compact(target))?.value || "";
   }, externalName);
   if (!staffValue) throw new Error(`SALON BOARD staff option not found: ${externalName}`);
-  await page.locator('[name="staffId"]').selectOption(staffValue);
-  await page.locator('[name="rsvHour"]').selectOption(startHour);
-  await page.locator('[name="rsvMinute"]').selectOption(startMinute);
+  await hotAction(() => page.locator('[name="staffId"]').selectOption(staffValue));
+  await hotAction(() => page.locator('[name="rsvHour"]').selectOption(startHour));
+  await hotAction(() => page.locator('[name="rsvMinute"]').selectOption(startMinute));
   const selectTimeOption = async (selector, value, label) => {
     await page.waitForFunction(({ selector: targetSelector, value: targetValue, label: targetLabel }) => [...document.querySelectorAll(`${targetSelector} option`)].some((option) => option.value === targetValue || option.textContent.trim() === targetLabel), { selector, value, label }, { timeout: 20_000 });
     const option = page.locator(`${selector} option`).filter({ hasText: label }).first();
-    if (await option.count()) await page.locator(selector).selectOption({ label });
-    else await page.locator(selector).selectOption(value);
+    if (await option.count()) await hotAction(() => page.locator(selector).selectOption({ label }));
+    else await hotAction(() => page.locator(selector).selectOption(value));
   };
   await selectTimeOption('[name="schEndHour"]', endHour, endHour);
   await selectTimeOption('[name="schEndMinute"]', endMinute, endMinute);
-  await page.locator('[name="schTitle"]').fill("Mainaill予約");
-  await page.locator('[name="schMemo"]').fill(`Mainaill booking ${booking.id}`);
+  await hotAction(() => page.locator('[name="schTitle"]').fill("Mainaill予約"));
+  await hotAction(() => page.locator('[name="schMemo"]').fill(`Mainaill booking ${booking.id}`));
   const prepared = await page.evaluate(() => ({
     date: document.querySelector('[name="date"]')?.value,
     staff: document.querySelector('[name="staffId"]')?.selectedOptions?.[0]?.textContent?.trim(),
@@ -379,7 +388,7 @@ async function applySyncTask(page, task) {
   // The worker is already gated by dry-run mode, so accept only this prepared
   // submission and then verify the persisted time range on the schedule page.
   await page.evaluate(() => { window.confirm = () => true; });
-  await page.locator("#regist").click();
+  await hotAction(() => page.locator("#regist").click());
   await page.waitForURL(/\/KLP\/schedule\/salonSchedule\//, { timeout: 20_000 });
   const savedItem = page.locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${task.booking.id}` }).first();
   await savedItem.waitFor({ state: "visible", timeout: 20_000 });
@@ -392,6 +401,7 @@ async function applySyncTask(page, task) {
 }
 
 async function updateNativeReservation(page, task) {
+  nativeChangeConfirmationHandled = false;
   const old = task.previousMatch;
   const next = task.destination || task.booking;
   const expectedId = String(task.booking?.externalBookingId || "");
@@ -402,7 +412,7 @@ async function updateNativeReservation(page, task) {
   const oldRule = staffRules()[old.staff] || Object.entries(staffRules()).find(([name]) => compactName(name) === compactName(old.staff))?.[1];
   const oldName = String(oldRule?.externalStaffName || oldRule?.externalStaffId || old.staff || "");
   const date = old.date.replaceAll("-", "");
-  await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await hotAction(() => page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 }));
   await page.locator(".scheduleReservation").first().waitFor({ timeout: 20_000 });
   const rows = page.locator("li.jscScheduleMainTableLine");
   const heads = page.locator('[id^="STAFF_"]');
@@ -418,8 +428,8 @@ async function updateNativeReservation(page, task) {
   }));
   const exact = candidates.filter((candidate) => createHash("sha256").update([old.date, originalHeader, candidate.start, candidate.end, candidate.customer].join("|")).digest("hex").slice(0, 32) === expectedId);
   if (exact.length !== 1 || exact[0].start !== old.start || exact[0].end !== old.end) throw new Error(`HOT original reservation identity mismatch: ${old.date} ${old.start}-${old.end} ${oldName} (${exact.length} matches)`);
-  await matches.nth(exact[0].index).click();
-  await page.locator(".btn_schedule_change").click();
+  await hotAction(() => matches.nth(exact[0].index).click());
+  await hotAction(() => page.locator(".btn_schedule_change").click());
   await page.waitForURL(/\/KLP\/reserve\/ext\/extReserveChange\//, { timeout: 20_000 });
   const reserveId = new URL(page.url()).searchParams.get("reserveId");
   if (!reserveId || !/^[A-Za-z0-9_-]+$/.test(reserveId)) throw new Error("HOT reservation ID missing from edit form; edit refused");
@@ -437,27 +447,31 @@ async function updateNativeReservation(page, task) {
   const [endHour, endMinute] = next.end.split(":");
   const duration = (Number(endHour) * 60 + Number(endMinute)) - (Number(startHour) * 60 + Number(startMinute));
   if (duration <= 0 || duration % 5) throw new Error("HOT destination duration invalid");
-  await page.locator('[name="rsvHour"]').selectOption(startHour);
-  await page.locator('[name="rsvMinute"]').selectOption(startMinute);
-  await page.locator('[name="rsvTermHour"]').selectOption(String(Math.floor(duration / 60) * 60));
-  await page.locator('[name="rsvTermMinute"]').selectOption(String(duration % 60));
-  await page.locator('[name="staffIdList"]').selectOption(staffOption);
-  await page.locator('[name="staffStartHourList"]').selectOption(startHour);
-  await page.locator('[name="staffStartMinuteList"]').selectOption(startMinute);
-  await page.locator('[name="staffEndHourList"]').selectOption(endHour);
-  await page.locator('[name="staffEndMinuteList"]').selectOption(endMinute);
+  await hotAction(() => page.locator('[name="rsvHour"]').selectOption(startHour));
+  await hotAction(() => page.locator('[name="rsvMinute"]').selectOption(startMinute));
+  await hotAction(() => page.locator('[name="rsvTermHour"]').selectOption(String(Math.floor(duration / 60) * 60)));
+  await hotAction(() => page.locator('[name="rsvTermMinute"]').selectOption(String(duration % 60)));
+  await hotAction(() => page.locator('[name="staffIdList"]').selectOption(staffOption));
+  await hotAction(() => page.locator('[name="staffStartHourList"]').selectOption(startHour));
+  await hotAction(() => page.locator('[name="staffStartMinuteList"]').selectOption(startMinute));
+  await hotAction(() => page.locator('[name="staffEndHourList"]').selectOption(endHour));
+  await hotAction(() => page.locator('[name="staffEndMinuteList"]').selectOption(endMinute));
   const prepared = await page.evaluate(() => ({ start: `${document.querySelector('[name="rsvHour"]')?.value}:${document.querySelector('[name="rsvMinute"]')?.value}`, staff: document.querySelector('[name="staffIdList"]')?.value, end: `${document.querySelector('[name="staffEndHourList"]')?.value}:${document.querySelector('[name="staffEndMinuteList"]')?.value}` }));
   if (prepared.start !== next.start || prepared.end !== next.end || prepared.staff !== staffOption) throw new Error(`HOT native reservation form mismatch: ${JSON.stringify(prepared)}`);
   if (dryRun) { log("DRY_RUN HOT native reservation prepared", JSON.stringify({ id: task.booking.id, reserveId, destinationName, ...prepared })); return; }
-  await waitBeforeOperation();
   nativeChangeConfirmationExpected = true;
+  nativeChangeConfirmationHandled = false;
   try {
-    await Promise.all([page.waitForEvent("dialog", { timeout: 15_000 }), page.locator("#change").click()]);
+    await Promise.all([page.waitForEvent("dialog", { timeout: 15_000 }), hotAction(() => page.locator("#change").click())]);
+    await page.waitForURL((target) => target.pathname.includes("/KLP/schedule/salonSchedule/") || target.pathname.includes("/ErrorDocument/"), { timeout: 45_000 });
+    if (page.url().includes("/ErrorDocument/")) throw new Error("HOT returned error page after reservation save; result must be checked manually");
+  } catch (error) {
+    if (nativeChangeConfirmationHandled) error.noRetry = true;
+    throw error;
   } finally {
     nativeChangeConfirmationExpected = false;
   }
-  await page.waitForURL(/\/KLP\/schedule\/salonSchedule\/|\/KLP\/reserve\//, { timeout: 20_000 });
-  await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await hotAction(() => page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 }));
   await page.locator(".scheduleReservation").first().waitFor({ timeout: 20_000 });
   const confirmed = await page.evaluate(({ slot, staffName }) => {
     const heads = [...document.querySelectorAll('[id^="STAFF_"]')];
@@ -478,8 +492,8 @@ async function updateNativeReservation(page, task) {
     try { const range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); return range[0] === slot.start && range[1] === slot.end ? [index] : []; } catch { return []; }
   }), next);
   if (destinationMatches.length !== 1) throw new Error(`HOT destination ambiguous after save (${destinationMatches.length} matches)`);
-  await destinationCandidates.nth(destinationMatches[0]).click();
-  await page.locator(".btn_schedule_change").click();
+  await hotAction(() => destinationCandidates.nth(destinationMatches[0]).click());
+  await hotAction(() => page.locator(".btn_schedule_change").click());
   await page.waitForURL(/\/KLP\/reserve\/ext\/extReserveChange\//, { timeout: 20_000 });
   const savedReserveId = new URL(page.url()).searchParams.get("reserveId");
   if (savedReserveId !== reserveId) throw new Error(`HOT reservation ID changed after save: ${reserveId} -> ${savedReserveId}`);
@@ -495,7 +509,7 @@ async function reopenManagedSlot(page, task) {
   const externalName = String(rule?.externalStaffName || rule?.externalStaffId || booking.staff || "");
   const date = String(booking.date || "").replaceAll("-", "").replaceAll("/", "");
   if (!/^\d{8}$/.test(date) || !externalName) throw new Error("Invalid SALON BOARD unblock task");
-  await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await hotAction(() => page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 }));
   await page.waitForSelector('[id^="STAFF_"]', { timeout: 20_000 });
   const heads = page.locator('[id^="STAFF_"]');
   const rows = page.locator("li.jscScheduleMainTableLine");
@@ -529,8 +543,8 @@ async function reopenManagedSlot(page, task) {
     return;
   }
   await waitBeforeOperation();
-  await itemToOpen.click();
-  await page.locator(".mod_popup_02.sch.js_yotei .mod_btn_10").click();
+  await hotAction(() => itemToOpen.click());
+  await hotAction(() => page.locator(".mod_popup_02.sch.js_yotei .mod_btn_10").click());
   await page.waitForURL(/\/KLP\/set\/scheduleChange\//, { timeout: 20_000 });
   const memoField = page.locator('[name="schMemo"]');
   const savedMemo = await memoField.count() ? await memoField.first().inputValue().catch(() => "") : "";
@@ -544,7 +558,7 @@ async function reopenManagedSlot(page, task) {
     throw new Error(`SALON BOARD managed-slot ownership verification failed: ${savedMemo || "memo missing"}`);
   }
   await page.evaluate(() => { window.confirm = () => true; });
-  await page.locator("#delete").click();
+  await hotAction(() => page.locator("#delete").click());
   await page.waitForURL(/\/KLP\/schedule\/salonSchedule\//, { timeout: 20_000 });
   const remaining = page.locator(".scheduleToDoInner").filter({ hasText: `Mainaill booking ${booking.id}` });
   if (!externalClosure && await remaining.count()) throw new Error("SALON BOARD managed slot still exists after delete");
@@ -564,7 +578,10 @@ async function run() {
     const accept = isExpectedRegistration || isExpectedNativeChange;
     log("SALON BOARD dialog", `${dialog.type()}: ${message} action=${accept ? "accept" : "dismiss"}`);
     try {
-      if (accept) await dialog.accept();
+      if (accept) {
+        await dialog.accept();
+        if (isExpectedNativeChange) nativeChangeConfirmationHandled = true;
+      }
       else await dialog.dismiss();
     } catch (error) {
       log("SALON BOARD dialog handler failed", error.message);
@@ -581,10 +598,14 @@ async function run() {
   const scanPlanner = createScheduleScanPlanner({ nearDays: daytimeScanDays, horizonDays: scanHorizonDays, distantIntervalMs: distantScanIntervalMs });
   for (;;) {
     try {
+      if (Date.now() < hotErrorUntil) {
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, hotErrorUntil - Date.now())));
+        continue;
+      }
       if (await isSessionExpired(page)) {
         log("SESSION_EXPIRED: returning to SALON BOARD login");
         sessionEstablished = false;
-        await page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }).catch((error) => log("login navigation failed", error.message));
+        await hotAction(() => page.goto(loginUrl, { waitUntil: "domcontentloaded", timeout: 45_000 })).catch((error) => log("login navigation failed", error.message));
         const recovered = await tryAutoLogin(page).catch((error) => { log("SALON BOARD auto-login failed", error.message); return false; });
         if (!recovered && autoLoginAttempts >= 2) await alertAdmin("SALON BOARD không đăng nhập được sau 2 lần thử; hãy kiểm tra trên Chrome của bot");
         // Re-check authentication on the next iteration before fetching tasks.
@@ -604,9 +625,14 @@ async function run() {
       }
       if (Date.now() - lastKeepAliveAt >= keepAliveMs && !isLoginPage(page)) {
         log("SALON BOARD keep-alive", `${Math.round(keepAliveMs / 60_000)}min interval`);
-        await page.goto(scheduleUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
+        await hotAction(() => page.goto(scheduleUrl, { waitUntil: "domcontentloaded", timeout: 45_000 }));
         lastKeepAliveAt = Date.now();
         if (isLoginPage(page) || await isSessionExpired(page)) continue;
+      }
+      if (page.url().includes("/ErrorDocument/") || /混み合っている可能性があります/.test(await page.locator("body").innerText().catch(() => ""))) {
+        hotErrorUntil = Date.now() + 5 * 60_000;
+        log("SALON BOARD overloaded; pausing all HOT actions", "5 minutes");
+        continue;
       }
       sessionEstablished = true;
       loginAlertSent = false;
@@ -614,6 +640,7 @@ async function run() {
       loginRequiredSince = null;
       autoLoginAttempts = 0;
       await processPriorityTasks(page);
+      if (Date.now() < hotErrorUntil) continue;
       const scanPlan = scanPlanner.next();
       if (scanPlan.date.endsWith("-12-31") || scanPlan.date.endsWith("-01-01")) {
         log("SALON BOARD holiday scan skipped", scanPlan.date);
@@ -630,6 +657,10 @@ async function run() {
       scanPlanner.complete(scanPlan);
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
+      if (page.url().includes("/ErrorDocument/") || /ErrorDocument|HOT returned error page/.test(error.message || "")) {
+        hotErrorUntil = Date.now() + 5 * 60_000;
+        log("SALON BOARD error page; pausing all HOT actions", "5 minutes");
+      }
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
@@ -650,7 +681,7 @@ async function isSessionExpired(page) {
 async function navigate(page) {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+      await hotAction(() => page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 }));
       if (page.url() !== "about:blank") return true;
     } catch (error) {
       log("navigation failed", `${attempt}/3 ${error.message}`);
