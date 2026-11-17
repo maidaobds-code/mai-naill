@@ -1,6 +1,6 @@
 {
   "name": "nail-japan-mvp",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Mainaill desktop booking synchronization manager",
   "author": "Mainaill",
   "private": true,
@@ -51,9 +51,23 @@
     "appId": "com.mainaill.bot",
     "productName": "Mainaill Bot",
     "asar": true,
-    "files": ["electron/**/*", "automation/**/*", "lib/salonboardNames.mjs", "lib/syncTaskExpiry.js", "package.json", "node_modules/**/*"],
-    "directories": { "output": "dist" },
-    "extraResources": [{ "from": "vendor/playwright-browsers", "to": "playwright-browsers" }],
+    "files": [
+      "electron/**/*",
+      "automation/**/*",
+      "lib/salonboardNames.mjs",
+      "lib/syncTaskExpiry.js",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "extraResources": [
+      {
+        "from": "vendor/playwright-browsers",
+        "to": "playwright-browsers"
+      }
+    ],
     "nsis": {
       "oneClick": true,
       "perMachine": false,
@@ -61,6 +75,11 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Mainaill Bot"
     },
-    "win": { "target": ["nsis"], "artifactName": "Mainaill-Bot-Setup-${version}.${ext}" }
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "artifactName": "Mainaill-Bot-Setup-${version}.${ext}"
+    }
   }
 }
