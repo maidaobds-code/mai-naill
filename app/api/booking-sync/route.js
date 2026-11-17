@@ -45,7 +45,7 @@ export async function GET(request) {
         const retry = { target: "hotpepper", action: "cancel", bookingId: booking.id, match: { date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId || "", staff: booking.staff || "" } };
         pending.push({ ...retry, taskId: syncTaskId(retry) });
       }
-      return pending.map((action) => ({ ...action, booking: { id: booking.id, date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff, status: booking.status, ...(action.destination || action.match || {}) } }));
+      return pending.map((action) => ({ ...action, booking: { id: booking.id, source: booking.source, externalBookingId: booking.externalBookingId, date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff, status: booking.status, ...(action.destination || action.match || {}) } }));
     });
     return Response.json({ ok: true, provider, tasks }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {

@@ -247,11 +247,11 @@ async function fetchSyncTasks() {
   return Array.isArray(result.tasks) ? result.tasks : [];
 }
 
-async function acknowledgeTask(task, status, error = "") {
+async function acknowledgeTask(task, status, error = "", externalBookingId = "") {
   const response = await fetch(`${mainaillUrl}/api/booking-sync`, {
     method: "POST",
     headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" },
-    body: JSON.stringify({ kind: "ack", provider: "hotpepper", bookingId: task.booking.id, taskId: task.taskId || "", status, error }),
+    body: JSON.stringify({ kind: "ack", provider: "hotpepper", bookingId: task.booking.id, taskId: task.taskId || "", status, error, externalBookingId }),
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) throw new Error(result.message || `Mainaill ack HTTP ${response.status}`);
@@ -263,12 +263,12 @@ async function processPriorityTasks(page) {
   for (const task of tasks) {
     if (blockedBookingIds.has(String(task.booking?.id))) continue;
     try {
-      await awaitTaskCompletion(applySyncTask(page, task), {
+      const result = await awaitTaskCompletion(applySyncTask(page, task), {
         taskId: task.taskId || task.booking?.id || "unknown",
         slowAfterMs: taskTimeoutMs,
         onSlow: (message) => log("SALON BOARD sync task is slow; waiting for completion", message),
       });
-      if (!dryRun) await acknowledgeTask(task, "synced");
+      if (!dryRun) await acknowledgeTask(task, "synced", "", result?.externalBookingId || "");
     } catch (error) {
       blockedBookingIds.add(String(task.booking?.id));
       log("SALON BOARD sync task failed", `${task?.booking?.id || "unknown"} ${error.message}`);
@@ -357,6 +357,7 @@ async function openScheduleForm(page, task) {
 }
 
 async function applySyncTask(page, task) {
+  if (task.booking?.source === "hotpepper" && task.action === "update" && task.previousMatch) return updateNativeReservation(page, task);
   if (["cancel", "unblock"].includes(task.action)) return reopenManagedSlot(page, { ...task, booking: { ...task.booking, ...task.match } });
   if (!["block", "update"].includes(task.action)) throw new Error(`Unsupported SALON BOARD action: ${task.action}`);
   if (task.action === "update" && task.previousMatch) {
@@ -387,6 +388,99 @@ async function applySyncTask(page, task) {
     throw new Error(`SALON BOARD saved-slot verification failed: ${savedRange}`);
   }
   log("SALON BOARD exact slot blocked", JSON.stringify({ bookingId: task.booking.id, ...prepared }));
+}
+
+async function updateNativeReservation(page, task) {
+  const old = task.previousMatch;
+  const next = task.destination || task.booking;
+  const expectedId = String(task.booking?.externalBookingId || "");
+  if (!/^[a-f0-9]{32}$/.test(expectedId)) throw new Error("HOT original reservation fingerprint missing; edit refused");
+  if (old.date !== next.date) throw new Error("HOT native reservation date move needs separate calendar verification");
+  const rule = staffRules()[next.staff] || Object.entries(staffRules()).find(([name]) => compactName(name) === compactName(next.staff))?.[1];
+  const destinationName = String(rule?.externalStaffName || rule?.externalStaffId || next.staff || "");
+  const oldRule = staffRules()[old.staff] || Object.entries(staffRules()).find(([name]) => compactName(name) === compactName(old.staff))?.[1];
+  const oldName = String(oldRule?.externalStaffName || oldRule?.externalStaffId || old.staff || "");
+  const date = old.date.replaceAll("-", "");
+  await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.locator(".scheduleReservation").first().waitFor({ timeout: 20_000 });
+  const rows = page.locator("li.jscScheduleMainTableLine");
+  const heads = page.locator('[id^="STAFF_"]');
+  let rowIndex = -1;
+  for (let i = 0; i < await heads.count(); i += 1) if (compactName(staffHeaderName(await heads.nth(i).innerText())) === compactName(oldName)) { rowIndex = i; break; }
+  if (rowIndex < 0) throw new Error(`HOT original staff not found: ${oldName}`);
+  const originalHeader = staffHeaderName(await heads.nth(rowIndex).innerText());
+  const matches = rows.nth(rowIndex).locator(".scheduleReservation").filter({ has: page.locator(".jscScheduleTimeZoneSetting") });
+  const candidates = await matches.evaluateAll((items) => items.map((item, index) => {
+    let range = [];
+    try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
+    return { index, start: range[0] || "", end: range[1] || "", customer: (item.querySelector(".scheduleReserveName")?.textContent || "").replace(/\s*様\s*$/, "").trim() };
+  }));
+  const exact = candidates.filter((candidate) => createHash("sha256").update([old.date, originalHeader, candidate.start, candidate.end, candidate.customer].join("|")).digest("hex").slice(0, 32) === expectedId);
+  if (exact.length !== 1 || exact[0].start !== old.start || exact[0].end !== old.end) throw new Error(`HOT original reservation identity mismatch: ${old.date} ${old.start}-${old.end} ${oldName} (${exact.length} matches)`);
+  await matches.nth(exact[0].index).click();
+  await page.locator(".btn_schedule_change").click();
+  await page.waitForURL(/\/KLP\/reserve\/ext\/extReserveChange\//, { timeout: 20_000 });
+  const reserveId = new URL(page.url()).searchParams.get("reserveId");
+  if (!reserveId || !/^[A-Za-z0-9_-]+$/.test(reserveId)) throw new Error("HOT reservation ID missing from edit form; edit refused");
+  const formDate = await page.locator('[name="rsvDispDate"]').inputValue();
+  if (formDate.replace(/\D/g, "") !== date) throw new Error(`HOT reservation date mismatch: ${formDate}`);
+  const originalForm = await page.evaluate(() => ({
+    start: `${document.querySelector('[name="rsvHour"]')?.value}:${document.querySelector('[name="rsvMinute"]')?.value}`,
+    end: `${document.querySelector('[name="staffEndHourList"]')?.value}:${document.querySelector('[name="staffEndMinuteList"]')?.value}`,
+    staff: document.querySelector('[name="staffIdList"]')?.selectedOptions?.[0]?.textContent?.trim() || "",
+  }));
+  if (originalForm.start !== old.start || originalForm.end !== old.end || !compactName(originalForm.staff).includes(compactName(oldName))) throw new Error(`HOT original edit form differs from schedule: ${JSON.stringify(originalForm)}`);
+  const staffOption = await page.locator('[name="staffIdList"] option').evaluateAll((options, target) => options.find(option => String(option.textContent || "").replace(/^[○×]\s*/, "").replace(/\s+/g, "").toLowerCase() === target.replace(/\s+/g, "").toLowerCase())?.value || "", destinationName);
+  if (!staffOption) throw new Error(`HOT destination staff option not found: ${destinationName}`);
+  const [startHour, startMinute] = next.start.split(":");
+  const [endHour, endMinute] = next.end.split(":");
+  const duration = (Number(endHour) * 60 + Number(endMinute)) - (Number(startHour) * 60 + Number(startMinute));
+  if (duration <= 0 || duration % 5) throw new Error("HOT destination duration invalid");
+  await page.locator('[name="rsvHour"]').selectOption(startHour);
+  await page.locator('[name="rsvMinute"]').selectOption(startMinute);
+  await page.locator('[name="rsvTermHour"]').selectOption(String(Math.floor(duration / 60) * 60));
+  await page.locator('[name="rsvTermMinute"]').selectOption(String(duration % 60));
+  await page.locator('[name="staffIdList"]').selectOption(staffOption);
+  await page.locator('[name="staffStartHourList"]').selectOption(startHour);
+  await page.locator('[name="staffStartMinuteList"]').selectOption(startMinute);
+  await page.locator('[name="staffEndHourList"]').selectOption(endHour);
+  await page.locator('[name="staffEndMinuteList"]').selectOption(endMinute);
+  const prepared = await page.evaluate(() => ({ start: `${document.querySelector('[name="rsvHour"]')?.value}:${document.querySelector('[name="rsvMinute"]')?.value}`, staff: document.querySelector('[name="staffIdList"]')?.value, end: `${document.querySelector('[name="staffEndHourList"]')?.value}:${document.querySelector('[name="staffEndMinuteList"]')?.value}` }));
+  if (prepared.start !== next.start || prepared.end !== next.end || prepared.staff !== staffOption) throw new Error(`HOT native reservation form mismatch: ${JSON.stringify(prepared)}`);
+  if (dryRun) { log("DRY_RUN HOT native reservation prepared", JSON.stringify({ id: task.booking.id, reserveId, destinationName, ...prepared })); return; }
+  await waitBeforeOperation();
+  await page.locator("#change").click();
+  await page.waitForURL(/\/KLP\/schedule\/salonSchedule\/|\/KLP\/reserve\//, { timeout: 20_000 });
+  await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.locator(".scheduleReservation").first().waitFor({ timeout: 20_000 });
+  const confirmed = await page.evaluate(({ slot, staffName }) => {
+    const heads = [...document.querySelectorAll('[id^="STAFF_"]')];
+    const rows = [...document.querySelectorAll('li.jscScheduleMainTableLine')];
+    const compact = value => String(value || '').replace(/\s+/g, '').toLowerCase();
+    const index = heads.findIndex(head => compact(head.textContent).includes(compact(staffName)));
+    if (index < 0) return false;
+    return [...rows[index].querySelectorAll('.scheduleReservation')].some(item => { try { const range = JSON.parse(item.querySelector('.jscScheduleTimeZoneSetting')?.textContent || '[]'); return range[0] === slot.start && range[1] === slot.end; } catch { return false; } });
+  }, { slot: next, staffName: destinationName });
+  if (!confirmed) throw new Error("HOT native reservation not visible at destination after save");
+  const destinationRows = page.locator("li.jscScheduleMainTableLine");
+  const destinationHeads = page.locator('[id^="STAFF_"]');
+  let destinationIndex = -1;
+  for (let i = 0; i < await destinationHeads.count(); i += 1) if (compactName(staffHeaderName(await destinationHeads.nth(i).innerText())) === compactName(destinationName)) { destinationIndex = i; break; }
+  if (destinationIndex < 0) throw new Error("HOT destination staff missing during ID verification");
+  const destinationCandidates = destinationRows.nth(destinationIndex).locator(".scheduleReservation");
+  const destinationMatches = await destinationCandidates.evaluateAll((items, slot) => items.flatMap((item, index) => {
+    try { const range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); return range[0] === slot.start && range[1] === slot.end ? [index] : []; } catch { return []; }
+  }), next);
+  if (destinationMatches.length !== 1) throw new Error(`HOT destination ambiguous after save (${destinationMatches.length} matches)`);
+  await destinationCandidates.nth(destinationMatches[0]).click();
+  await page.locator(".btn_schedule_change").click();
+  await page.waitForURL(/\/KLP\/reserve\/ext\/extReserveChange\//, { timeout: 20_000 });
+  const savedReserveId = new URL(page.url()).searchParams.get("reserveId");
+  if (savedReserveId !== reserveId) throw new Error(`HOT reservation ID changed after save: ${reserveId} -> ${savedReserveId}`);
+  const destinationHeader = staffHeaderName(await destinationHeads.nth(destinationIndex).innerText());
+  const externalBookingId = createHash("sha256").update([next.date, destinationHeader, next.start, next.end, exact[0].customer].join("|")).digest("hex").slice(0, 32);
+  log("HOT native reservation updated", JSON.stringify({ bookingId: task.booking.id, reserveId, destinationName, start: next.start, end: next.end }));
+  return { externalBookingId };
 }
 
 async function reopenManagedSlot(page, task) {
@@ -509,6 +603,12 @@ async function run() {
       autoLoginAttempts = 0;
       await processPriorityTasks(page);
       const scanPlan = scanPlanner.next();
+      if (scanPlan.date.endsWith("-12-31") || scanPlan.date.endsWith("-01-01")) {
+        log("SALON BOARD holiday scan skipped", scanPlan.date);
+        scanPlanner.complete(scanPlan);
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+        continue;
+      }
       log("SALON BOARD incremental scan", JSON.stringify(scanPlan));
       await scanExternalBookings(page, scanPlan.date);
       // A scan can take long enough for a move/repair task to arrive. Pause the
