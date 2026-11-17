@@ -43,6 +43,7 @@ let lastAlertAttemptAt = 0;
 let loginRequiredSince = null;
 let autoLoginAttempts = 0;
 let lastKeepAliveAt = 0;
+let nativeChangeConfirmationExpected = false;
 // Give manual login two minutes at startup, then report unattended login failures.
 let sessionEstablished = false;
 
@@ -449,7 +450,12 @@ async function updateNativeReservation(page, task) {
   if (prepared.start !== next.start || prepared.end !== next.end || prepared.staff !== staffOption) throw new Error(`HOT native reservation form mismatch: ${JSON.stringify(prepared)}`);
   if (dryRun) { log("DRY_RUN HOT native reservation prepared", JSON.stringify({ id: task.booking.id, reserveId, destinationName, ...prepared })); return; }
   await waitBeforeOperation();
-  await page.locator("#change").click();
+  nativeChangeConfirmationExpected = true;
+  try {
+    await page.locator("#change").click();
+  } finally {
+    nativeChangeConfirmationExpected = false;
+  }
   await page.waitForURL(/\/KLP\/schedule\/salonSchedule\/|\/KLP\/reserve\//, { timeout: 20_000 });
   await page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 });
   await page.locator(".scheduleReservation").first().waitFor({ timeout: 20_000 });
@@ -554,9 +560,15 @@ async function run() {
   page.on("dialog", async (dialog) => {
     const message = dialog.message();
     const isExpectedRegistration = /予定を登録します[。？?]/.test(message);
-    log("SALON BOARD dialog", `${dialog.type()}: ${message} action=${isExpectedRegistration ? "accept" : "dismiss"}`);
-    if (isExpectedRegistration) await dialog.accept();
-    else await dialog.dismiss();
+    const isExpectedNativeChange = nativeChangeConfirmationExpected && dialog.type() === "confirm" && /^予約を変更します。よろしいですか？$/.test(message);
+    const accept = isExpectedRegistration || isExpectedNativeChange;
+    log("SALON BOARD dialog", `${dialog.type()}: ${message} action=${accept ? "accept" : "dismiss"}`);
+    try {
+      if (accept) await dialog.accept();
+      else await dialog.dismiss();
+    } catch (error) {
+      log("SALON BOARD dialog handler failed", error.message);
+    }
   });
   // Keep the persistent profile visible so the user can complete SALON BOARD
   // login manually. A blank/new tab must never be treated as the logged-in
