@@ -121,6 +121,9 @@ export async function POST(request) {
   try {
     const current = await readBookings();
     const existingExternal = body.kind === "ack" ? null : current.find((booking) => String(booking.source || "").toLowerCase() === String(body.provider || "").toLowerCase() && String(booking.externalBookingId || "") === String(body.externalBookingId || ""));
+    const matchingHotBooking = body.kind !== "ack" && String(body.provider || "").toLowerCase() === "nailie"
+      ? current.find((booking) => String(booking.source || "").toLowerCase() === "hotpepper" && !booking.deletedAt && sameCustomerTime(booking, body.booking))
+      : null;
     const outcome = body.kind === "ack" ? acknowledgeProviderSync(current, body) : ingestExternalBooking(current, body);
     const generatedTasks = [...(outcome.tasks || [])];
     if (body.kind !== "ack" && outcome.result?.date && outcome.result?.start && outcome.result?.end) {
@@ -128,7 +131,13 @@ export async function POST(request) {
       if(outcome.result.assignmentStatus === "PENDING_ASSIGNMENT" && !outcome.ignoredOwnerDeletion) {
         const assigned=autoAssignBooking(outcome.result,outcome.bookings,staff,settings,services);
         outcome.result=assigned; outcome.bookings=outcome.bookings.map(item=>item.id===assigned.id?assigned:item);
-        if(assigned.assignmentStatus === "ASSIGNED") generatedTasks.push({target:"hotpepper",action:"block",bookingId:assigned.id});
+        if (assigned.assignmentStatus === "ASSIGNED" && !matchingHotBooking) generatedTasks.push({ target: "hotpepper", action: "block", bookingId: assigned.id });
+        if (matchingHotBooking) {
+          const sync = providerSyncState(assigned);
+          sync.hotpepper = { ...sync.hotpepper, status: "synced", externalBookingId: matchingHotBooking.externalBookingId, lastSyncAt: new Date().toISOString(), error: "" };
+          outcome.result = { ...assigned, hotPepperMatch: matchingHotBooking.id, syncNote: "Nailie trùng lịch đã có trên HOT; không tạo tác vụ đóng trùng", providerSync: sync, syncStatus: overallSyncStatus(sync) };
+          outcome.bookings = outcome.bookings.map((item) => item.id === assigned.id ? outcome.result : item);
+        }
       }
       const moved = existingExternal && ["date", "start", "end"].some((field) => String(existingExternal[field] || "") !== String(outcome.result[field] || ""));
       if (moved) generatedTasks.push(nailieCapacityTask(existingExternal, outcome.bookings, staff, settings, outcome.result.id, services));

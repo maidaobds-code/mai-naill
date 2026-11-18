@@ -221,7 +221,7 @@ async function scanExternalBookings(page, date) {
       provider: "hotpepper",
       externalBookingId,
       action: "upsert",
-      booking: { date, start: record.start, end: record.end, staff: internalStaffName(record.externalStaff), customer: "SALON BOARD", service: "SALON BOARD booking", status: "CONFIRMED" },
+      booking: { date, start: record.start, end: record.end, staff: internalStaffName(record.externalStaff), customer: record.customer || "SALON BOARD", service: "SALON BOARD booking", status: "CONFIRMED" },
     });
     activeIds.push(externalBookingId);
     imported += 1;
