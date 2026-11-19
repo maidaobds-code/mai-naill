@@ -441,6 +441,36 @@ async function updateNativeReservation(page, task) {
   const date = old.date.replaceAll("-", "");
   await hotAction(() => page.goto(`${scheduleUrl}?date=${date}`, { waitUntil: "domcontentloaded", timeout: 45_000 }));
   await page.locator(".scheduleReservation").first().waitFor({ timeout: 20_000 });
+  const alreadyMoved = await page.evaluate(({ staffName, slot, customer }) => {
+    const heads = [...document.querySelectorAll('[id^="STAFF_"]')];
+    const rows = [...document.querySelectorAll('li.jscScheduleMainTableLine')];
+    const compact = value => String(value || '').replace(/\s+/g, '').toLowerCase();
+    const index = heads.findIndex(head => compact(head.textContent?.split(/\r?\n/).find(Boolean)) === compact(staffName));
+    if (index < 0 || !customer) return [];
+    return [...rows[index].querySelectorAll('.scheduleReservation')].flatMap(item => {
+      try {
+        const range = JSON.parse(item.querySelector('.jscScheduleTimeZoneSetting')?.textContent || '[]');
+        const name = (item.querySelector('.scheduleReserveName')?.textContent || '').replace(/\s*様\s*$/, '').trim();
+        return range[0] === slot.start && range[1] === slot.end && compact(name) === compact(customer) ? [{ header: heads[index].textContent?.split(/\r?\n/).find(Boolean)?.trim() || '', customer: name }] : [];
+      } catch { return []; }
+    });
+  }, { staffName: destinationName, slot: next, customer: task.booking?.customer });
+  if (alreadyMoved.length === 1) {
+    const originalStillVisible = await page.evaluate(({ staffName, slot }) => {
+      const heads = [...document.querySelectorAll('[id^="STAFF_"]')];
+      const rows = [...document.querySelectorAll('li.jscScheduleMainTableLine')];
+      const compact = value => String(value || '').replace(/\s+/g, '').toLowerCase();
+      const index = heads.findIndex(head => compact(head.textContent?.split(/\r?\n/).find(Boolean)) === compact(staffName));
+      return index >= 0 && [...rows[index].querySelectorAll('.scheduleReservation')].some(item => {
+        try { const range = JSON.parse(item.querySelector('.jscScheduleTimeZoneSetting')?.textContent || '[]'); return range[0] === slot.start && range[1] === slot.end; } catch { return false; }
+      });
+    }, { staffName: oldName, slot: old });
+    if (originalStillVisible && (oldName !== destinationName || old.start !== next.start || old.end !== next.end)) throw new Error("HOT original and destination both occupied; edit refused");
+    const movedId = createHash("sha256").update([next.date, alreadyMoved[0].header, next.start, next.end, alreadyMoved[0].customer].join("|")).digest("hex").slice(0, 32);
+    log("HOT reservation already at destination; skipping edit", JSON.stringify({ bookingId: task.booking.id, destinationName, start: next.start, end: next.end }));
+    return { externalBookingId: movedId };
+  }
+  if (alreadyMoved.length > 1) throw new Error("HOT destination has ambiguous matching reservations; edit refused");
   const rows = page.locator("li.jscScheduleMainTableLine");
   const heads = page.locator('[id^="STAFF_"]');
   let rowIndex = -1;
