@@ -2337,9 +2337,13 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 .serviceEditorModal .localizedEditorHead{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
 .serviceEditorModal .localizedEditorHead strong{margin-right:auto}
 .serviceEditorModal .localizedEditorHead select{max-width:150px}
-.serviceEditorModal .localizedEditorInput{width:100%;min-height:94px;box-sizing:border-box;resize:vertical}
+.serviceEditorModal .localizedEditorInput{width:100%;min-height:94px;height:94px;box-sizing:border-box;resize:vertical}
+.serviceEditorModal .localizedEditor:has(.localizedEditorInput:not(textarea)){align-content:start}
+.serviceEditorModal .localizedEditor:has(.localizedEditorInput:not(textarea)) .localizedEditorInput{height:44px;min-height:44px}
 .serviceEditorModal .imagePreview{margin:14px 0 0;padding:10px 12px}
 .serviceEditorModal .staffPicker{padding-top:16px;margin-top:18px;border-top:1px solid var(--line);gap:8px}
-.serviceEditorModal .serviceEditorModalActions{padding-top:16px;margin-top:18px;border-top:1px solid var(--line)}
+.serviceEditorModal .serviceEditorModalActions{display:flex;align-items:center;justify-content:space-between;padding-top:16px;margin-top:18px;border-top:1px solid var(--line)}
+.serviceEditorModal .serviceEditorModalActionButtons{display:flex;align-items:center;gap:10px}
+.serviceEditorModal .serviceEditorModalActions .serviceVisibilityToggle{margin:0;flex:0 0 auto}
 @media(max-width:800px){.serviceEditorModal{padding:22px}.serviceEditorModal .staffForm{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:560px){.serviceEditorModal{width:calc(100vw - 20px);max-height:calc(100vh - 20px);padding:18px}.serviceEditorModal .staffForm{grid-template-columns:1fr;gap:12px}.serviceEditorModal .localizedEditorInput{min-height:82px}.serviceEditorModal .serviceEditorModalActions{position:sticky;bottom:-18px;background:#fff;padding-bottom:18px}}
+@media(max-width:560px){.serviceEditorModal{width:calc(100vw - 20px);max-height:calc(100vh - 20px);padding:18px}.serviceEditorModal .staffForm{grid-template-columns:1fr;gap:12px}.serviceEditorModal .localizedEditorInput{min-height:82px;height:82px}.serviceEditorModal .localizedEditor:has(.localizedEditorInput:not(textarea)) .localizedEditorInput{height:44px;min-height:44px}.serviceEditorModal .serviceEditorModalActions{position:sticky;bottom:-18px;background:#fff;padding-bottom:18px}.serviceEditorModal .serviceEditorModalActionButtons{gap:7px}}
