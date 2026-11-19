@@ -489,7 +489,12 @@ async function updateNativeReservation(page, task) {
   nativeChangeConfirmationExpected = true;
   nativeChangeConfirmationHandled = false;
   try {
-    await Promise.all([page.waitForEvent("dialog", { timeout: 15_000 }), hotAction(() => page.locator("#change").click())]);
+    // HOT's edit form has used both `#change` and a plain submit input
+    // labelled 「変更する」.  Prefer the id, but fall back to the visible
+    // Japanese submit control so a form variant cannot silently do nothing.
+    const saveControl = page.locator('#change, input[type="submit"][value*="変更"], button:has-text("変更する")').first();
+    await saveControl.waitFor({ state: "visible", timeout: 20_000 });
+    await Promise.all([page.waitForEvent("dialog", { timeout: 15_000 }), hotAction(() => saveControl.click())]);
     await page.waitForURL((target) => target.pathname.includes("/KLP/schedule/salonSchedule/") || target.pathname.includes("/ErrorDocument/"), { timeout: 45_000 });
     if (page.url().includes("/ErrorDocument/")) throw new Error("HOT returned error page after reservation save; result must be checked manually");
   } catch (error) {
