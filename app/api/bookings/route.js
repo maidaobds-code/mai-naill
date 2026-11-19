@@ -180,7 +180,8 @@ export async function POST(request) {
       tasks.push(nailieCapacityTask(booking, merged, staff, settings, booking.id, services));
       return tasks;
     });
-    const identifiedSyncTasks = syncTasks.map((task) => ({ ...task, taskId: syncTaskId(task) }));
+    const settleUntil = new Date(Date.now() + 60_000).toISOString();
+    const identifiedSyncTasks = syncTasks.map((task) => ({ ...task, taskId: syncTaskId(task), ...(task.target === "nailie" ? { notBefore: settleUntil } : {}) }));
     const tasksByBooking = new Map(identifiedSyncTasks.map((task) => [String(task.bookingId), []]));
     for (const task of identifiedSyncTasks) tasksByBooking.get(String(task.bookingId))?.push(task);
     const mergedWithTasks = merged.map((booking) => {
@@ -188,6 +189,7 @@ export async function POST(request) {
       const previous=current.find(item=>item.id===booking.id);
       const incomingTasks = tasksByBooking.get(String(booking.id));
       const pending = previous?.pendingSyncActions || [];
+      const isNailieCapacity = (task) => task.target === "nailie" && ["capacity_block", "capacity_unblock"].includes(task.action);
       const nativeMove = String(booking.source || "").toLowerCase() === "hotpepper"
         ? incomingTasks.find((task) => task.target === "hotpepper" && task.action === "update" && task.previousMatch)
         : null;
@@ -205,6 +207,7 @@ export async function POST(request) {
         && moveSlots.some((slot) => sameTime(task.match, slot));
       const otherTasks = [...pending, ...incomingTasks].filter((task) => {
         if (task.target === "hotpepper" && task.action === "update") return false;
+        if (isNailieCapacity(task) && pending.includes(task)) return false;
         // A drag followed by an immediate undo cancels its paired capacity
         // updates too; no external provider should receive either half.
         if (unchangedOnHot && isMoveCapacityTask(task)) return false;
@@ -215,7 +218,9 @@ export async function POST(request) {
         if (unchangedOnHot) providerSync.hotpepper = { ...providerSync.hotpepper, status: "synced", error: "" };
         return { ...booking, providerSync, syncStatus: overallSyncStatus(providerSync), pendingSyncActions: [...new Map([...otherTasks, ...finalMove].map((task) => [task.taskId || syncTaskId(task), task])).values()] };
       }
-      const actions=[...pending,...incomingTasks];
+      // Recalculate capacity from the final slot after the quiet period.
+      // Earlier capacity commands for the same booking are superseded by this edit.
+      const actions=[...pending.filter((task) => !isNailieCapacity(task)),...incomingTasks];
       return {...booking,pendingSyncActions:[...new Map(actions.map(task=>[task.taskId||syncTaskId(task),task])).values()]};
     });
     const rows = await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value: mergedWithTasks, updated_at: new Date().toISOString() }]) });

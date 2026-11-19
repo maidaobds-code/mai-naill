@@ -40,14 +40,15 @@ export async function GET(request) {
     const pruned = removeExpiredCapacityTasks(storedBookings);
     const bookings = pruned.changed ? await saveBookings(pruned.value) : storedBookings;
     const tasks = bookings.flatMap((booking) => {
-      const pending = (Array.isArray(booking.pendingSyncActions) ? booking.pendingSyncActions : []).filter((action) => action.target === provider);
+      const pending = (Array.isArray(booking.pendingSyncActions) ? booking.pendingSyncActions : []).filter((action) => action.target === provider && (provider !== "nailie" || !action.notBefore || Date.parse(action.notBefore) <= Date.now()));
       if (!pending.length && provider === "hotpepper" && booking.deletedAt && booking.providerSync?.hotpepper?.status === "error" && booking.date && booking.start && booking.end && (booking.staffId || booking.staff)) {
         const retry = { target: "hotpepper", action: "cancel", bookingId: booking.id, match: { date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId || "", staff: booking.staff || "" } };
         pending.push({ ...retry, taskId: syncTaskId(retry) });
       }
       return pending.map((action) => ({ ...action, booking: { id: booking.id, source: booking.source, externalBookingId: booking.externalBookingId, date: booking.date, start: booking.start, end: booking.end, staffId: booking.staffId, staff: booking.staff, status: booking.status, ...(action.destination || action.match || {}) } }));
     });
-    return Response.json({ ok: true, provider, tasks }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    const uniqueTasks = [...new Map(tasks.map((task) => [task.taskId || syncTaskId(task), task])).values()];
+    return Response.json({ ok: true, provider, tasks: uniqueTasks }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     return Response.json({ ok: false, message: error.message || "Cannot read sync tasks" }, { status: 500 });
   }
