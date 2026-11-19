@@ -141,10 +141,10 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
 
       <div className="serviceCatalogTools">
         <input aria-label={searchLabel} placeholder={searchLabel} value={query} onChange={(event) => setQuery(event.target.value)} />
-        <select aria-label={categoryLabel} value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)}><option value="">{allGroupsLabel}</option>{groups.map((group) => <option key={group.id} value={group.id}>{group[languageKey]}</option>)}</select>
         <span>{visibleServices.length} / {services.length}</span>
       </div>
-      <div className="serviceGroupManager serviceGroupManagerBelow"><div className="serviceGroupAdd"><input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Tên nhóm mới" /><button className="ghost" type="button" onClick={saveGroup}>＋ Thêm nhóm</button></div>{customGroups.map((group) => <div className="serviceGroupChip" key={group.id}><button type="button" className={groupFilter === group.id ? "active" : ""} onClick={() => setGroupFilter(group.id)}>{group[languageKey]}</button><button type="button" aria-label={`Xóa nhóm ${group.vi}`} onClick={() => { const next = customGroups.filter((item) => item.id !== group.id); setCustomGroups(next); window.localStorage.setItem("nail-japan-service-groups", JSON.stringify(next)); if (groupFilter === group.id) setGroupFilter(""); }}>×</button></div>)}</div>
+      <div className="serviceGroupBar" aria-label={categoryLabel}><button type="button" className={!groupFilter ? "active" : ""} onClick={() => setGroupFilter("")}>{allGroupsLabel}</button>{groups.map((group) => <div className="serviceGroupChip" key={group.id}><button type="button" className={groupFilter === group.id ? "active" : ""} onClick={() => setGroupFilter(group.id)}>{group[languageKey]}</button>{customGroups.some((item) => item.id === group.id) && <button type="button" aria-label={`Xóa nhóm ${group.vi}`} onClick={() => { const next = customGroups.filter((item) => item.id !== group.id); setCustomGroups(next); window.localStorage.setItem("nail-japan-service-groups", JSON.stringify(next)); if (groupFilter === group.id) setGroupFilter(""); }}>×</button>}</div>)}</div>
+      <div className="serviceGroupAdd serviceGroupAddBelow"><input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Tên nhóm mới" /><button className="ghost" type="button" onClick={saveGroup}>＋ Thêm nhóm</button></div>
 
       <section className="card tableWrap">
         <table>
