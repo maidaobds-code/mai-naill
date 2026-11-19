@@ -73,9 +73,9 @@ export default function Settings({ language = "vi", initialPanel }) {
   const { staff, saveStaff } = useStaffStore();
   const [linkedStaffId, setLinkedStaffId] = useState("");
   const [linkedAccounts, setLinkedAccounts] = useState({ hotpepper: [""], nailie: [""], minimo: [""] });
-  const isStaff = ["staff", "manager"].includes(currentAccount?.role);
+  const isStaff = ["staff", "manager", "cashier"].includes(currentAccount?.role);
   const [activePanel, setActivePanel] = useState(
-    isStaff ? "password" : initialPanel || "salon",
+    currentAccount?.role === "cashier" ? "printer" : isStaff ? "password" : initialPanel || "salon",
   );
   const [passwordForm, setPasswordForm] = useState({
     current: "",
@@ -200,7 +200,7 @@ export default function Settings({ language = "vi", initialPanel }) {
     ["apps", tr("appsPanel"), tr("appsPanelDesc")],
     ["staff", tr("staffPanel"), tr("staffPanelDesc")],
   ];
-  const panels = isStaff
+  const panels = currentAccount?.role === "cashier" ? [["printer", printerCopy.panel, printerCopy.panelDesc], ["password", "Đổi mật khẩu", "Cập nhật mật khẩu đăng nhập của bạn."]] : isStaff
     ? [
         ["password", "Đổi mật khẩu", "Cập nhật mật khẩu đăng nhập của bạn."],
         ["printer", printerCopy.panel, printerCopy.panelDesc],
@@ -712,7 +712,7 @@ export default function Settings({ language = "vi", initialPanel }) {
               <p className="mutedText">{printerCopy.desc}</p>
             </div>
             <div className="printerSettingsAction">
-              <PrinterManager language={language} showLogoUpload />
+              <PrinterManager language={language} showLogoUpload={currentAccount?.role !== "cashier"} />
             </div>
             <p className="printerSupportNote">{printerCopy.support}</p>
           </section>

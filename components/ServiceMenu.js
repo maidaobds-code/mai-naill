@@ -118,6 +118,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
           <label>{c.duration}<input type="number" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: Number(event.target.value) })} /></label>
           <label>{c.owner}<select value={draft.owner} onChange={(event) => setDraft({ ...draft, owner: event.target.value })}><option>Admin</option>{staff.map((member) => <option key={member.id}>{member.name}</option>)}</select></label>
           <label>{c.image}<input type="file" accept="image/*" onChange={uploadLocalImage} /></label>
+          <label><input type="checkbox" checked={draft.visible !== false} onChange={(event) => setDraft({ ...draft, visible: event.target.checked })} /> Hiển thị dịch vụ cho khách đặt lịch</label>
           <LocalizedContentEditor value={draft} onChange={setDraft} field="description" label="Mô tả menu" />
           <LocalizedContentEditor value={draft} onChange={setDraft} field="name" label="Tên menu" multiline={false} />
         </div>
@@ -143,7 +144,7 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
               <td>JPY {service.price.toLocaleString("ja-JP")}</td>
               <td>{service.duration} {c.minutes}</td>
               <td>{allStaffSelected(service) ? "Tất cả nhân viên" : service.staff.join(", ")}</td>
-              <td>Chạm hoặc double-click để sửa</td>
+              <td><button className="ghost" type="button" onClick={() => setServices((current) => current.map((item) => item.id === service.id ? { ...item, visible: item.visible === false } : item))}>{service.visible === false ? "Đang tắt · Bật lại" : "Đang hiện · Tắt"}</button></td>
             </tr>
           ))}{(!groupFilter || groupFilter === "addons") && bookingOptions.filter((option) => !query || option.name.toLowerCase().includes(query.toLowerCase())).map((option) => <tr key={option.id} onDoubleClick={() => { setDraft({ ...emptyService, ...option, category: "addons" }); setEditorOpen(true); }} onTouchEnd={() => { setDraft({ ...emptyService, ...option, category: "addons" }); setEditorOpen(true); }}><td><div className="serviceCell"><span className="serviceThumb">＋</span><div><strong>{option.name}</strong><br /><small>Dịch vụ bổ sung</small></div></div></td><td><span className="serviceGroupBadge">{bookingGroupLabel("addons", language)}</span></td><td>JPY {Number(option.price).toLocaleString("ja-JP")}</td><td>{option.duration} {c.minutes}</td><td>—</td><td>Chạm hoặc double-click để sửa</td></tr>)}</tbody>
         </table>

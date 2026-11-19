@@ -120,7 +120,7 @@ export default function OnlineStore({
   const featured = storeProducts.filter(
     (product) => product.featuredOnline !== false,
   );
-  const activeServices = services;
+  const activeServices = services.filter((service) => service.visible !== false);
   const [bookingOptions, setBookingOptions] = useState([]);
   const { bookings, addBookingConfirmed: addBooking } = useBookingStore();
   const [message, setMessage] = useState("");
