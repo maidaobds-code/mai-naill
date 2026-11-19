@@ -11,7 +11,7 @@ const STAFF_COLORS = ["#7c3aed", "#ec4899", "#0ea5e9", "#10b981", "#f97316", "#0
 function authorized(request) { return isAdminRequest(request) || isOwnerRequest(request) || isStaffRequest(request); }
 function isLegacySample(value) { return Array.isArray(value) && value.length > 0 && value.every((member) => legacySampleStaff.some((sample) => String(member?.id) === String(sample.id) && member?.name === sample.name && member?.role === sample.role && member?.color === sample.color && member?.external?.hotpepper === sample.external.hotpepper && member?.external?.nailie === sample.external.nailie && member?.external?.minimo === sample.external.minimo)); }
 function staffFromAccounts(accounts) {
-  return (Array.isArray(accounts) ? accounts : []).filter((account) => ["owner", "manager", "staff", "cashier"].includes(account?.role) && account?.name && !(account.id === "owner" && account.email === "owner@salon.local" && !account.passwordHash)).map((account, index) => ({
+  return (Array.isArray(accounts) ? accounts : []).filter((account) => ["owner", "manager", "staff"].includes(account?.role) && account?.name && !(account.id === "owner" && account.email === "owner@salon.local" && !account.passwordHash)).map((account, index) => ({
     id: String(account.id || `account-${index + 1}`).replace(/^staff-/, ""),
     name: account.staffName || account.name,
     displayName: account.staffName || account.name,
@@ -64,7 +64,11 @@ export async function GET(request) {
         await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
       }
     }
-    const safeValue = isPublicBookingRequest && !authorized(request) && Array.isArray(value) ? value.filter((member) => member.bookingVisible !== false).map(({ email, phone, accountPassword, ...member }) => member) : value;
+    const accountRows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${ACCOUNTS_KV}&select=value&limit=1`);
+    const cashierAccounts = (Array.isArray(accountRows?.[0]?.value) ? accountRows[0].value : []).filter((account) => account?.role === "cashier");
+    const staffValue = Array.isArray(value) ? value.filter((member) => member?.role !== "cashier" && !cashierAccounts.some((account) =>
+      String(account.id || "") === `staff-${member.id}` || (account.email && String(account.email).toLowerCase() === String(member.email || "").toLowerCase()))) : value;
+    const safeValue = isPublicBookingRequest && !authorized(request) && Array.isArray(staffValue) ? staffValue.filter((member) => member.bookingVisible !== false).map(({ email, phone, accountPassword, ...member }) => member) : staffValue;
     return Response.json({ ok: true, value: safeValue }, { headers: { "Cache-Control": "no-store" } });
   } catch { return Response.json({ ok: false, value: [], message: "Không thể đọc danh sách nhân viên." }, { status: 500 }); }
 }
@@ -73,7 +77,7 @@ export async function POST(request) {
   if (!isAdminRequest(request) && !isOwnerRequest(request)) return Response.json({ ok: false, message: "Chỉ chủ quán được cập nhật danh sách nhân viên." }, { status: 401 });
   const body = await request.json().catch(() => null);
   if (!Array.isArray(body?.value)) return Response.json({ ok: false, message: "Invalid staff list" }, { status: 400 });
-  const value = body.value.map(({ accountPassword, ...member }) => member);
+  const value = body.value.filter((member) => member?.role !== "cashier").map(({ accountPassword, ...member }) => member);
   try {
     await rest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER, key: KV, value, updated_at: new Date().toISOString() }]) });
     const accountRows = await rest(`app_kv?owner_id=eq.${OWNER}&key=eq.${ACCOUNTS_KV}&select=value&limit=1`);

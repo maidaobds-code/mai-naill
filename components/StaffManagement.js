@@ -79,12 +79,12 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     const record = { ...draft, id: uniqueId, external: normalizeExternalAccounts(draft.external), credentialStatus: draft.accountPassword ? c.accountReady : c.needsPassword };
     try {
       await upsertStaffAccount(record, draft.accountPassword);
-      setStaff((current) => [...current, record]);
+      if (record.role !== "cashier") setStaff((current) => [...current, record]);
       setDraft(newStaff(Date.now()));
       setPasswordConfirmation("");
       setShowPassword(false);
       setShowPasswordConfirmation(false);
-      setAccountMessage("Đã tạo và đồng bộ tài khoản nhân viên.");
+      setAccountMessage(record.role === "cashier" ? "Đã tạo tài khoản máy tính tiền; tài khoản này không nằm trong danh sách nhân viên." : "Đã tạo và đồng bộ tài khoản nhân viên.");
     } catch (error) { setAccountMessage(`Không thể tạo tài khoản: ${error.message}`); }
   }
 
@@ -172,7 +172,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     const translatedDescription = description ? await translateWithMemory(description).catch(() => ({})) : {};
     let nextMember = { ...staffTask, name, email, role: staffTask.role || "staff", designationFee: Math.max(0, Number(staffTask.designationFee || 0)), bookingDescription: description, bookingDescriptionVi: translatedDescription.VI || description, bookingDescriptionJa: translatedDescription.JA || description, bookingDescriptionEn: translatedDescription.EN || description, bookingDescriptionZh: translatedDescription.ZH || description, bookingDescriptionKo: translatedDescription.KO || description, displayName: staffTask.displayName === staffTask.originalName ? name : staffTask.displayName };
     nextMember = preserveManualTranslations(nextMember, staffTask);
-    const nextStaff = staff.map((item) => item.id === staffTask.id ? (({ password, originalName, ...member }) => member)(nextMember) : item);
+    const nextStaff = staff.map((item) => item.id === staffTask.id ? (({ password, originalName, ...member }) => member)(nextMember) : item).filter((item) => item.role !== "cashier");
     try {
       await upsertStaffAccount(nextMember, staffTask.password || "");
       await saveStaff(nextStaff);
@@ -226,7 +226,7 @@ export default function StaffManagement({ label = "Staff", embedded = false, lan
     const role = roleDraft[account.id] || account.role;
     const result = await updateAccountRole(account.id, role);
     if (result.ok) {
-      setStaff((current) => current.map((item) => item.email?.trim().toLowerCase() === account.email?.trim().toLowerCase() ? { ...item, role } : item));
+      setStaff((current) => current.map((item) => item.email?.trim().toLowerCase() === account.email?.trim().toLowerCase() ? { ...item, role } : item).filter((item) => item.role !== "cashier"));
       setRoleDraft((current) => { const next = { ...current }; delete next[account.id]; return next; });
     }
     setAccountMessage(result.ok ? "Đã lưu vai trò cho nhân viên." : result.message);
