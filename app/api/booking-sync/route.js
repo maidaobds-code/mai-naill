@@ -1,7 +1,7 @@
 import { autoAssignBooking } from "../../../lib/autoAssignment.js";
 import { acknowledgeProviderSync, ingestExternalBooking, syncTaskId, providerSyncState, overallSyncStatus } from "../../../lib/bookingSync.js";
 import { createBookingAssignmentToken, createBookingCancellationToken } from "../../../lib/bookingAssignmentToken.js";
-import { managementEmails, sendEmail, salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
+import { adminAlertEmails, managementEmails, sendEmail, salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
 import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
 import { removeExpiredCapacityTasks } from "../../../lib/syncTaskExpiry.js";
 import { isAutomationRequest } from "../../../lib/automationAuth.js";
@@ -107,7 +107,7 @@ async function notifyPendingAssignment(request, booking, allBookings = []) {
 }
 
 async function notifyManualSyncRequired(booking, task, error) {
-  const recipients = await managementEmails();
+  const recipients = adminAlertEmails();
   const platform = task?.target === "nailie" ? "NAILIE" : "HOT PEPPER / SALON BOARD";
   const operation = ["cancel", "unblock", "capacity_unblock"].includes(task?.action) ? "mở lịch" : "đóng/cập nhật lịch";
   const subject = `Mai Beauty Salon · Bot dừng tác vụ ${platform} sau 4 lần lỗi`;
