@@ -2313,7 +2313,7 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 
 /* Landscape phone: keep the navigation light, narrow and free of logo framing. */
 @media (max-width:900px) and (orientation:landscape){
-  .sidebar{width:82px!important;padding:10px 8px!important;background:#fff!important;border-right:1px solid #e5e7eb;box-shadow:4px 0 18px rgba(31,41,55,.06);pointer-events:auto!important}
+  .sidebar{z-index:10040!important;width:82px!important;padding:10px 8px!important;background:#fff!important;border-right:1px solid #e5e7eb;box-shadow:4px 0 18px rgba(31,41,55,.06);pointer-events:auto!important}
   .sidebar:not(.menuExpanded) .brand{display:flex;flex-direction:column;padding:0 0 8px;gap:0}
   .sidebar:not(.menuExpanded) .brand>div:last-child{display:none}
   .sidebar:not(.menuExpanded) .appBrandLogo,.sidebar:not(.menuExpanded) .brandMark{width:52px;height:52px;border:0;border-radius:0;background:transparent;box-shadow:none;padding:0}
@@ -2328,7 +2328,11 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
   .pageHead .toolbar{flex:1;justify-content:flex-end;padding:0;overflow:visible}
   .pageHead .toolbar .ghost,.pageHead .toolbar .primary{font-size:13px;padding:9px 12px}
   .bookingMoveHint[role="status"]{display:none}
+  .calendarSummary{display:none!important}
 }
+
+/* On small landscape tablets/phones, the summary cards only consume calendar space. */
+@media (max-width:1200px) and (orientation:landscape){.calendarSummary{display:none!important}.sidebar{z-index:10040!important}}
 
 .bookingDragGhost{position:fixed;z-index:10000;pointer-events:none;background:#fff0faee;border:2px solid #a93670;border-radius:12px;padding:7px;box-shadow:0 12px 30px #33293640;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;user-select:none}.bookingDragGhost strong{font-size:12px}.bookingDragGhost span,.bookingDragGhost small{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bookingDropPreview{position:absolute;inset-block:5px;background:#a9367026;border:2px dashed #a93670;border-radius:10px;pointer-events:none;z-index:8;font-size:11px;padding:5px;box-sizing:border-box}.timelineBooking.movingBooking{opacity:.25}.staffDatePicker{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}.staffDateButton{min-height:54px;border:1px solid #ddd0df;border-radius:10px;background:white;display:grid;place-items:center;padding:5px}.staffDateButton[aria-pressed="true"]{background:#f5def1;border:2px solid #a93670}.scheduleDateControls{display:flex;flex-wrap:wrap;align-items:end;gap:12px}.scheduleDateControls label{display:grid;gap:6px}.scheduleSelectionList{display:flex;gap:5px;flex-wrap:wrap;max-height:120px;overflow:auto;margin:12px 0}.settingsGrid[hidden]{display:none}.printerHelp{font-size:14px;line-height:1.6;padding:12px;background:#f8f1fa;border-radius:12px}@media(max-width:600px){.staffDatePicker{gap:4px}.staffDateButton{font-size:11px;min-height:50px}}
 
