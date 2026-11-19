@@ -33,7 +33,8 @@ export default function GroupedBooking({
   const [staffOpen, setStaffOpen] = useState(false);
   const lang = ["ja", "vi", "zh", "ko"].includes(language) ? language : "en";
   const copy = (ja, vi, en) => (lang === "ja" ? ja : lang === "vi" ? vi : en);
-  const groups = [...bookingGroups, fallbackBookingGroup];
+  const customGroups = [...new Map(services.filter((service) => service.category && ![...bookingGroups, fallbackBookingGroup].some((group) => group.id === service.category)).map((service) => [service.category, { id: service.category, vi: service.categoryName || service.category, en: service.categoryName || service.category, ja: service.categoryName || service.category, zh: service.categoryName || service.category, ko: service.categoryName || service.category }])).values()];
+  const groups = [...bookingGroups, fallbackBookingGroup, ...customGroups];
   const eligibleStaff = staff.filter(
     (member) =>
       member.bookingVisible !== false &&

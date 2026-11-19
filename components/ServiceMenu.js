@@ -36,8 +36,10 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
   const [draft, setDraft] = useState({ ...emptyService });
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("");
+  const [customGroups, setCustomGroups] = useState(() => { try { return JSON.parse(window.localStorage.getItem("nail-japan-service-groups") || "[]"); } catch { return []; } });
+  const [groupName, setGroupName] = useState("");
   const [translatingExisting, setTranslatingExisting] = useState(false);
-  const groups = [...bookingGroups, fallbackBookingGroup];
+  const groups = [...bookingGroups, fallbackBookingGroup, ...customGroups];
   const languageKey = language === "ja" ? "ja" : language === "en" ? "en" : "vi";
   const categoryLabel = language === "ja" ? "サービス分類" : language === "en" ? "Service group" : "Nhóm dịch vụ";
   const searchLabel = language === "ja" ? "サービスを検索…" : language === "en" ? "Search services…" : "Tìm dịch vụ…";
@@ -96,17 +98,27 @@ export default function ServiceMenu({ label = "Menu dịch vụ", language = "vi
     const nameChanged = draft.translationSourceName !== draft.name;
     const descriptionChanged = draft.translationSourceDescription !== draft.description;
     const [names, descriptions] = await Promise.all([nameChanged || !hasNameTranslations ? translateText(draft.name) : Promise.resolve({}), descriptionChanged || !hasDescriptionTranslations ? translateText(draft.description) : Promise.resolve({})]);
-    let record = { ...draft, id: draft.id || `svc-${Date.now()}`, nameVi: names.VI || draft.nameVi || draft.name, nameJa: names.JA || draft.nameJa || draft.name, nameEn: names.EN || draft.nameEn || draft.name, nameZh: names.ZH || draft.nameZh || draft.name, nameKo: names.KO || draft.nameKo || draft.name, descriptionVi: descriptions.VI ?? draft.descriptionVi ?? draft.description, descriptionJa: descriptions.JA ?? draft.descriptionJa ?? draft.description, descriptionEn: descriptions.EN ?? draft.descriptionEn ?? draft.description, descriptionZh: descriptions.ZH ?? draft.descriptionZh ?? draft.description, descriptionKo: descriptions.KO ?? draft.descriptionKo ?? draft.description, translationSourceName: draft.name, translationSourceDescription: draft.description };
+    let record = { ...draft, id: draft.id || `svc-${Date.now()}`, categoryName: groups.find((group) => group.id === draft.category)?.vi || draft.categoryName || "", nameVi: names.VI || draft.nameVi || draft.name, nameJa: names.JA || draft.nameJa || draft.name, nameEn: names.EN || draft.nameEn || draft.name, nameZh: names.ZH || draft.nameZh || draft.name, nameKo: names.KO || draft.nameKo || draft.name, descriptionVi: descriptions.VI ?? draft.descriptionVi ?? draft.description, descriptionJa: descriptions.JA ?? draft.descriptionJa ?? draft.description, descriptionEn: descriptions.EN ?? draft.descriptionEn ?? draft.description, descriptionZh: descriptions.ZH ?? draft.descriptionZh ?? draft.description, descriptionKo: descriptions.KO ?? draft.descriptionKo ?? draft.description, translationSourceName: draft.name, translationSourceDescription: draft.description };
     record = preserveManualTranslations(record, draft);
     setServices((current) => current.some((item) => item.id === record.id) ? current.map((item) => item.id === record.id ? record : item) : [...current, record]);
     setDraft({ ...emptyService });
+  }
+
+  function saveGroup() {
+    const name = groupName.trim();
+    if (!name) return;
+    const next = [...customGroups, { id: `custom-${Date.now()}`, vi: name, en: name, ja: name, zh: name, ko: name, mark: "＋" }];
+    setCustomGroups(next);
+    window.localStorage.setItem("nail-japan-service-groups", JSON.stringify(next));
+    setGroupName("");
   }
 
   return (
     <>
       <div className="pageHead">
         <div><p className="eyebrow">SERVICE MENU</p><h1>{label}</h1><p>{c.desc}</p></div>
-        <div className="buttonRow"><button className="ghost" type="button" onClick={translateExistingServices} disabled={translatingExisting}>{translatingExisting ? "Đang dịch menu…" : "Dịch toàn bộ menu cũ"}</button><button className="primary" type="button" onClick={() => { setDraft({ ...emptyService }); setEditorOpen(true); }}>＋ Thêm menu</button></div>
+        <div className="buttonRow"><button className="ghost" type="button" onClick={translateExistingServices} disabled={translatingExisting}>{translatingExisting ? "Đang dịch menu…" : "Dịch toàn bộ menu cũ"}</button><input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Tên nhóm mới" /><button className="ghost" type="button" onClick={saveGroup}>＋ Thêm nhóm</button><button className="primary" type="button" onClick={() => { setDraft({ ...emptyService }); setEditorOpen(true); }}>＋ Thêm menu</button></div>
+        {customGroups.length > 0 && <div className="serviceGroupManager">{customGroups.map((group) => <label key={group.id}>Nhóm <input value={group.vi} onChange={(event) => { const next = customGroups.map((item) => item.id === group.id ? { ...item, vi: event.target.value, en: event.target.value, ja: event.target.value, zh: event.target.value, ko: event.target.value } : item); setCustomGroups(next); window.localStorage.setItem("nail-japan-service-groups", JSON.stringify(next)); }} /><button className="ghost dangerButton" type="button" onClick={() => { const next = customGroups.filter((item) => item.id !== group.id); setCustomGroups(next); window.localStorage.setItem("nail-japan-service-groups", JSON.stringify(next)); }}>Xóa nhóm</button></label>)}</div>}
       </div>
 
       <section ref={editorRef} className="card staffEditor serviceEditorPanel serviceEditorModal" style={{ display: editorOpen ? "block" : "none" }}>
