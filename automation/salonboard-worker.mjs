@@ -519,6 +519,7 @@ async function updateNativeReservation(page, task) {
   let destinationIndex = -1;
   for (let i = 0; i < await destinationHeads.count(); i += 1) if (compactName(staffHeaderName(await destinationHeads.nth(i).innerText())) === compactName(destinationName)) { destinationIndex = i; break; }
   if (destinationIndex < 0) throw new Error("HOT destination staff missing during ID verification");
+  const destinationHeader = staffHeaderName(await destinationHeads.nth(destinationIndex).textContent());
   const destinationCandidates = destinationRows.nth(destinationIndex).locator(".scheduleReservation");
   const destinationMatches = await destinationCandidates.evaluateAll((items, slot) => items.flatMap((item, index) => {
     try { const range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); return range[0] === slot.start && range[1] === slot.end ? [index] : []; } catch { return []; }
@@ -529,7 +530,6 @@ async function updateNativeReservation(page, task) {
   await page.waitForURL(/\/KLP\/reserve\/ext\/extReserveChange\//, { timeout: 20_000 });
   const savedReserveId = new URL(page.url()).searchParams.get("reserveId");
   if (savedReserveId !== reserveId) throw new Error(`HOT reservation ID changed after save: ${reserveId} -> ${savedReserveId}`);
-  const destinationHeader = staffHeaderName(await destinationHeads.nth(destinationIndex).innerText());
   const externalBookingId = createHash("sha256").update([next.date, destinationHeader, next.start, next.end, exact[0].customer].join("|")).digest("hex").slice(0, 32);
   log("HOT native reservation updated", JSON.stringify({ bookingId: task.booking.id, reserveId, destinationName, start: next.start, end: next.end }));
   return { externalBookingId };
