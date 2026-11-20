@@ -459,17 +459,18 @@ async function run() {
   let scanOffset = 0;
   for (;;) {
     try {
-      if (isQuietHours()) {
-        log("Nailie quiet hours; browser and worker kept alive");
-        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
-        continue;
-      }
       if (await isLoginPage(page)) {
         const recovered = await tryAutoLogin(page);
         if (!recovered) {
           log("LOGIN_REQUIRED: sign in to Nailie in the visible browser");
           if (autoLoginAttempts >= maxAutoLoginAttempts) await alertAdmin("Nailie không tự đăng nhập được sau 2 lần thử; hãy kiểm tra Chrome của bot");
         }
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 60_000)));
+        continue;
+      }
+      if (isQuietHours()) {
+        log("Nailie quiet hours; browser and worker kept alive");
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
       } else {
         loginAlertSent = false;
         autoLoginAttempts = 0;
