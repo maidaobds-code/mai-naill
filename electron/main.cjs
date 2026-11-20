@@ -8,6 +8,8 @@ const DEFAULT_CONFIG = {
   bookingSyncSecret: "",
   salonboardUsername: "",
   salonboardPasswordEncrypted: "",
+  nailieUsername: "",
+  nailiePasswordEncrypted: "",
   pollMinSeconds: 45,
   pollMaxSeconds: 90,
   nailieDryRun: true,
@@ -65,9 +67,16 @@ function saveConfig(value) {
     if (!safeStorage.isEncryptionAvailable()) throw new Error("Windows chưa sẵn sàng mã hóa mật khẩu.");
     requested.salonboardPasswordEncrypted = safeStorage.encryptString(requested.salonboardPassword).toString("base64");
   }
+  if (typeof requested.nailiePassword === "string" && requested.nailiePassword.length) {
+    if (!safeStorage.isEncryptionAvailable()) throw new Error("Windows chưa sẵn sàng mã hóa mật khẩu.");
+    requested.nailiePasswordEncrypted = safeStorage.encryptString(requested.nailiePassword).toString("base64");
+  }
   delete requested.salonboardPassword;
+  delete requested.nailiePassword;
   if (requested.clearSalonboardPassword) requested.salonboardPasswordEncrypted = "";
+  if (requested.clearNailiePassword) requested.nailiePasswordEncrypted = "";
   delete requested.clearSalonboardPassword;
+  delete requested.clearNailiePassword;
   const autoStartBot = Object.hasOwn(requested, "autoStartBot") ? Boolean(requested.autoStartBot) : Object.hasOwn(existing, "autoStartBot") ? Boolean(existing.autoStartBot) : true;
   const config = { ...DEFAULT_CONFIG, ...existing, ...requested, autoStartBot, startWorkersOnLaunch: autoStartBot, startWithWindows: autoStartBot };
   fs.writeFileSync(configPath(), JSON.stringify(config, null, 2), "utf8");
@@ -102,6 +111,8 @@ function workerEnvironment(name, config) {
   if (name === "nailie") return {
     ...common,
     NAILIE_PROFILE_DIR: path.join(dataRoot(), "profiles", "nailie"),
+    NAILIE_USERNAME: config.nailieUsername || process.env.NAILIE_USERNAME || "",
+    NAILIE_PASSWORD: config.nailiePasswordEncrypted ? safeStorage.decryptString(Buffer.from(config.nailiePasswordEncrypted, "base64")) : process.env.NAILIE_PASSWORD || "",
     NAILIE_LOG: path.join(dataRoot(), "logs", "nailie-worker.log"),
     NAILIE_STATE_FILE: path.join(dataRoot(), "nailie-managed-slots.json"),
     NAILIE_OBSERVATION_FILE: path.join(dataRoot(), "nailie-observed-bookings.json"),
@@ -182,8 +193,8 @@ function createWindow() {
 }
 
 function publicConfig(config) {
-  const { salonboardPasswordEncrypted, salonboardPassword, ...visible } = config;
-  return { ...visible, hasSalonboardPassword: Boolean(salonboardPasswordEncrypted) };
+  const { salonboardPasswordEncrypted, salonboardPassword, nailiePasswordEncrypted, nailiePassword, ...visible } = config;
+  return { ...visible, hasSalonboardPassword: Boolean(salonboardPasswordEncrypted), hasNailiePassword: Boolean(nailiePasswordEncrypted) };
 }
 ipcMain.handle("config:get", () => publicConfig(readConfig()));
 ipcMain.handle("app:version", () => app.getVersion());
