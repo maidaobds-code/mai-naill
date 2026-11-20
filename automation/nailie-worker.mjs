@@ -50,15 +50,15 @@ async function alertAdmin(reason) {
 }
 
 function isLoginPage(page) {
-  return /login|sign-in|signin/i.test(page.url()) || page.locator('input[type="password"]').count().then((count) => count > 0).catch(() => false);
+  return page.locator('input[type="password"]:visible').count().then((count) => count > 0).catch(() => false) || (/login|sign-in|signin/i.test(page.url()) && !/staff-schedule|mysalon/i.test(page.url()));
 }
 
 async function tryAutoLogin(page) {
   if (autoLoginAttempts >= maxAutoLoginAttempts) return false;
-  const password = page.locator('input[type="password"], input[name*="password" i]').first();
-  if (!await password.count()) return false;
-  const user = page.locator('input[type="email"], input[name*="email" i], input[name*="login" i], input[name*="username" i], input[type="text"]').first();
-  if (!await user.count()) return false;
+  const password = page.locator('input[type="password"]:visible, input[name*="password" i]:visible').first();
+  if (!await password.count()) { log("Nailie auto-login: password field not found"); return false; }
+  const user = page.locator('input[type="email"]:visible, input[autocomplete="username"]:visible, input[name*="email" i]:visible, input[name*="login" i]:visible, input[name*="username" i]:visible, input[type="text"]:visible').first();
+  if (!await user.count()) { log("Nailie auto-login: username field not found"); return false; }
   const currentUser = String(await user.inputValue().catch(() => "")).trim();
   const currentPassword = String(await password.inputValue().catch(() => ""));
   if (loginUsername && loginPassword) {
@@ -71,7 +71,7 @@ async function tryAutoLogin(page) {
     return false;
   }
   const submit = page.locator('button[type="submit"], input[type="submit"], button:has-text("ログイン"), button:has-text("Login"), button:has-text("Sign in")').first();
-  if (!await submit.count()) return false;
+  if (!await submit.count()) { log("Nailie auto-login: submit button not found"); return false; }
   autoLoginAttempts += 1;
   await waitBeforeOperation();
   await submit.click();
