@@ -25,6 +25,16 @@ export default function SidebarEnhanced({ active, setActive, language, setLangua
     const compactViewport = window.matchMedia("(max-width:760px)").matches || window.matchMedia("(orientation: landscape) and (max-width:1100px)").matches;
     return !compactViewport;
   });
+  useEffect(() => {
+    const syncCompactMenu = () => {
+      const compactLandscape = window.matchMedia("(orientation: landscape) and (max-width:1100px)").matches;
+      if (compactLandscape) setMenuOpen(false);
+    };
+    syncCompactMenu();
+    window.addEventListener("resize", syncCompactMenu);
+    window.addEventListener("orientationchange", syncCompactMenu);
+    return () => { window.removeEventListener("resize", syncCompactMenu); window.removeEventListener("orientationchange", syncCompactMenu); };
+  }, []);
   const [logoUrl, setLogoUrl] = useState("");
   const { orders } = useStoreOrders();
   useEffect(() => {
