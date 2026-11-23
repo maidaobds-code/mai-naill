@@ -202,6 +202,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const paintRef = useRef(null);
   const touchTapRef = useRef({ key: "", at: 0 });
   const activeTouchPointers = useRef(new Set());
+  const touchGestureRef = useRef(null);
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
   const pendingDayBookings = selectedDayBookings.filter((booking) => booking.assignmentStatus === "PENDING_ASSIGNMENT");
   const mappedStaffKeys = new Set(staff.flatMap((member) => [String(member.id || ""), comparableStaffName(member.name)]).filter(Boolean));
@@ -298,6 +299,19 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
   function beginPaint(event, hour, member) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.pointerType === "touch") {
+      if (activeTouchPointers.current.size > 1) return;
+      const key = `${member.id}:${hour}`;
+      const now = Date.now();
+      if (touchTapRef.current.key === key && now - touchTapRef.current.at < 420) {
+        touchTapRef.current = { key: "", at: 0 };
+        setSelected(blankBooking(selectedDate, hour, member));
+        setModalOpen(true);
+        return;
+      }
+      touchTapRef.current = { key, at: now };
+      touchGestureRef.current = { x: event.clientX, y: event.clientY };
+    }
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     paintRef.current = { pointerId: event.pointerId, member, startHour: hour, endHour: hour, pointerType: event.pointerType, moved: false };
@@ -307,10 +321,12 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   function movePaint(event) {
     const painting = paintRef.current;
     if (!painting || painting.pointerId !== event.pointerId) return;
+    if (painting.pointerType === "touch" && activeTouchPointers.current.size > 1) return;
     event.preventDefault();
     const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".slotHit");
     const hour = target?.dataset?.hour;
     const memberId = target?.dataset?.member;
+    if (painting.pointerType === "touch" && touchGestureRef.current && Math.hypot(event.clientX - touchGestureRef.current.x, event.clientY - touchGestureRef.current.y) > 12) painting.moved = true;
     if (!hour || memberId !== painting.member.id || hour === painting.endHour) return;
     painting.endHour = hour;
     painting.moved = true;
@@ -321,16 +337,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const painting = paintRef.current;
     if (!painting || painting.pointerId !== event.pointerId) return;
     event.preventDefault();
-    const touchTap = painting.pointerType === "touch" && !painting.moved && painting.startHour === painting.endHour;
-    if (touchTap) {
-      const key = `${painting.member.id}:${painting.startHour}`;
-      const now = Date.now();
-      const isDoubleTap = touchTapRef.current.key === key && now - touchTapRef.current.at < 420;
-      touchTapRef.current = isDoubleTap ? { key: "", at: 0 } : { key, at: now };
-      paintRef.current = null;
-      setPaintRange(null);
-      if (!isDoubleTap) return;
-    }
+    if (painting.pointerType === "touch" && (!painting.moved || activeTouchPointers.current.size > 1)) { paintRef.current = null; setPaintRange(null); return; }
     const startIndex = visibleIntervalSlots.indexOf(painting.startHour);
     const endIndex = visibleIntervalSlots.indexOf(painting.endHour);
     const firstIndex = Math.min(startIndex, endIndex);
@@ -393,6 +400,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     if (event.pointerType !== "touch") return;
     activeTouchPointers.current.add(event.pointerId);
     if (activeTouchPointers.current.size >= 2) {
+      touchTapRef.current = { key: "", at: 0 };
+      touchGestureRef.current = null;
       clearTimeout(pressRef.current);
       paintRef.current = null;
       moveRef.current = null;
@@ -403,6 +412,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   }
   function handleTimelinePointerUpCapture(event) {
     if (event.pointerType === "touch") activeTouchPointers.current.delete(event.pointerId);
+    if (event.pointerType === "touch" && activeTouchPointers.current.size === 0) touchGestureRef.current = null;
   }
 
   async function notifyAssignedStaff(booking, previousBooking) {
