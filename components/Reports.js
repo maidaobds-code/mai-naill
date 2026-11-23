@@ -3,6 +3,7 @@
 import { orders } from "../lib/ecommerce/data";
 import { useBookingStore } from "../lib/bookingStore";
 import { getStoredPosSales } from "./Checkout";
+import { useEffect, useMemo, useState } from "react";
 
 const currentWeek = [68000, 74000, 82500, 79000, 91000, 126000, 118000];
 const previousWeek = [61000, 70000, 76000, 72000, 84000, 111000, 103000];
@@ -45,7 +46,38 @@ function LineChart({ current, previous, labels }) {
 export default function Reports({ language = "vi" }) {
   const c = copy[language] || copy.vi;
   const { bookings } = useBookingStore();
-  const posSales = getStoredPosSales();
+  const [reportDate, setReportDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [period, setPeriod] = useState("day");
+  const [cashCounted, setCashCounted] = useState("");
+  const [reconciliation, setReconciliation] = useState(null);
+  const [posSales, setPosSales] = useState(() => getStoredPosSales());
+  useEffect(() => {
+    const refresh = () => setPosSales(getStoredPosSales());
+    window.addEventListener("nail-japan-pos-sales-updated", refresh);
+    return () => window.removeEventListener("nail-japan-pos-sales-updated", refresh);
+  }, []);
+  const range = useMemo(() => {
+    const date = new Date(`${reportDate}T12:00:00Z`);
+    if (period === "day") return { start: reportDate, end: reportDate };
+    if (period === "month") {
+      const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+      return { start: `${reportDate.slice(0, 7)}-01`, end };
+    }
+    const monday = new Date(date);
+    monday.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    const sunday = new Date(monday); sunday.setUTCDate(monday.getUTCDate() + 6);
+    return { start: monday.toISOString().slice(0, 10), end: sunday.toISOString().slice(0, 10) };
+  }, [period, reportDate]);
+  const periodSales = useMemo(() => posSales.filter((sale) => {
+    if (sale.paymentStatus !== "Paid") return false;
+    const date = String(sale.issuedAt || "").slice(0, 10);
+    return date >= range.start && date <= range.end;
+  }), [posSales, range]);
+  useEffect(() => {
+    const saved = JSON.parse(window.localStorage.getItem(`nail-japan-cash-reconciliation:${range.start}:${range.end}`) || "null");
+    setReconciliation(saved);
+    setCashCounted(saved?.counted == null ? "" : String(saved.counted));
+  }, [range.start, range.end]);
   const serviceRevenue = bookings.reduce((sum, booking) => sum + Number(booking.price || 0), 0);
   const productRevenue = orders.reduce((sum, order) => sum + order.total, 0);
   const paidSales = posSales.filter((sale) => sale.paymentStatus === "Paid");
@@ -56,6 +88,16 @@ export default function Reports({ language = "vi" }) {
   const taxes = posSales.reduce((sum, sale) => sum + Number(sale.tax || 0), 0);
   const weekDelta = ((total(currentWeek) - total(previousWeek)) / total(previousWeek)) * 100;
   const monthDelta = ((total(currentMonth) - total(previousMonth)) / total(previousMonth)) * 100;
+  const periodTotal = periodSales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+  const periodCash = periodSales.flatMap((sale) => sale.payments || []).filter((payment) => payment.method === "cash" && payment.confirmed !== false).reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const periodOther = periodTotal - periodCash;
+  const counted = Number(cashCounted || 0);
+  const cashMatches = cashCounted !== "" && Math.round(counted) === Math.round(periodCash);
+  function confirmCash() {
+    const record = { counted, expected: periodCash, matches: cashMatches, confirmedAt: new Date().toISOString(), confirmedBy: "Nhân viên" };
+    setReconciliation(record);
+    window.localStorage.setItem(`nail-japan-cash-reconciliation:${range.start}:${range.end}`, JSON.stringify(record));
+  }
 
   return (
     <>
@@ -63,6 +105,16 @@ export default function Reports({ language = "vi" }) {
         <div><p className="eyebrow">BUSINESS REPORT</p><h1>{c.title}</h1><p>{c.desc}</p></div>
         <button className="primary">{c.export}</button>
       </div>
+      <section className="card reportPanel reportPeriodToolbar">
+        <div className="reportPeriodButtons"><button className={period === "day" ? "primary" : "ghost"} onClick={() => setPeriod("day")}>Ngày</button><button className={period === "week" ? "primary" : "ghost"} onClick={() => setPeriod("week")}>Tuần</button><button className={period === "month" ? "primary" : "ghost"} onClick={() => setPeriod("month")}>Tháng</button></div>
+        <label>Ngày đối soát<input type="date" value={reportDate} onChange={(event) => setReportDate(event.target.value)} /></label>
+        <small>{range.start} – {range.end}</small>
+      </section>
+      <section className="card reportPanel">
+        <div className="sectionTitle"><div><h2>Tổng kết kỳ báo cáo</h2><p>Doanh thu đã thanh toán và đối soát tiền cuối kỳ.</p></div><span className="pill">{period === "day" ? "Theo ngày" : period === "week" ? "Theo tuần" : "Theo tháng"}</span></div>
+        <div className="reportCashSummary"><div><span>Tổng doanh thu</span><strong>{yen(periodTotal)}</strong></div><div><span>Tổng tiền mặt</span><strong>{yen(periodCash)}</strong></div><div><span>Thanh toán khác</span><strong>{yen(periodOther)}</strong></div></div>
+        <div className="cashReconciliation"><label>Tiền mặt thực tế trong máy tính tiền<input type="number" min="0" value={cashCounted} onChange={(event) => setCashCounted(event.target.value)} placeholder="Nhập số tiền đã đếm" /></label><button className="primary" onClick={confirmCash}>Nhân viên xác nhận khớp</button>{reconciliation && <p className={reconciliation.matches ? "successNote" : "errorNote"}>{reconciliation.matches ? `Đã xác nhận khớp · ${yen(reconciliation.counted)}` : `Không khớp · Lệch ${yen(reconciliation.counted - reconciliation.expected)} (dự kiến ${yen(reconciliation.expected)})`}</p>}</div>
+      </section>
       <div className="stats">
         <div className="stat card"><span>{c.serviceRevenue}</span><strong>{yen(serviceRevenue)}</strong><small>{String(c.bookings || "Bookings {count}").replace("{count}", bookings.length)}</small></div>
         <div className="stat card"><span>{c.productRevenue}</span><strong>{yen(productRevenue)}</strong><small>{String(c.onlineOrders || "Online orders {count}").replace("{count}", orders.length)}</small></div>
