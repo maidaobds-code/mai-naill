@@ -2344,6 +2344,7 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 /* High contrast main navigation */
 .sidebar{background:#fff;color:#1f1f1f;border-right:1px solid #e5e7eb}.sidebar .brand strong,.sidebarMenuToggle,.navItem{color:#111;font-weight:800}.sidebar .brand span,.sidebarFoot span{color:#4b5563}.sidebarMenuToggle{background:#fff;border-color:#d1d5db}.navItem:hover,.navItem.active{background:#f3f4f6;color:#111}.navItem.active{box-shadow:inset 3px 0 #7c3aed}.sidebar.menuExpanded .navItem{color:#111;text-shadow:none}.sidebar.menuExpanded .navItem:hover,.sidebar.menuExpanded .navItem.active{color:#111;background:#f3f4f6}.sidebar.menuExpanded .sidebarMenuToggle{color:#111;background:#fff!important;border-color:#d1d5db!important}@media(max-width:760px){.sidebar.menuExpanded{background:#fff;color:#111}.sidebar.menuExpanded .sidebarMenuToggle{background:#fff!important;color:#111!important}.sidebar.menuExpanded .navItem{color:#111;background:#fff}.sidebar.menuExpanded .navItem:hover,.sidebar.menuExpanded .navItem.active{background:#f3f4f6;color:#111}}
 .serviceGroupManager{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.serviceGroupManager label{display:flex;align-items:center;gap:6px;font-weight:700}.serviceGroupManager input{max-width:180px}
+.resourceTimelineShell{touch-action:pan-x pan-y}.resourceTimeline{touch-action:pan-x pan-y}
 
 /* Landscape phones/tablets: edit dialogs stay centered and always sit above the
    collapsed navigation. The portrait mobile rule intentionally makes dialogs

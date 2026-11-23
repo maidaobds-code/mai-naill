@@ -201,6 +201,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const pressRef = useRef(null);
   const paintRef = useRef(null);
   const touchTapRef = useRef({ key: "", at: 0 });
+  const activeTouchPointers = useRef(new Set());
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
   const pendingDayBookings = selectedDayBookings.filter((booking) => booking.assignmentStatus === "PENDING_ASSIGNMENT");
   const mappedStaffKeys = new Set(staff.flatMap((member) => [String(member.id || ""), comparableStaffName(member.name)]).filter(Boolean));
@@ -388,6 +389,21 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     try{await saveBookingRecord(next);setMoveStatus("Đã chuyển lịch. Bot đang chờ đồng bộ khung cũ và khung mới trên HOT.");}catch(error){setMoveStatus(error.message);}
   }
   function cancelHold(){clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);setDragPreview(null);}
+  function handleTimelinePointerDownCapture(event) {
+    if (event.pointerType !== "touch") return;
+    activeTouchPointers.current.add(event.pointerId);
+    if (activeTouchPointers.current.size >= 2) {
+      clearTimeout(pressRef.current);
+      paintRef.current = null;
+      moveRef.current = null;
+      setPaintRange(null);
+      setMovingId(null);
+      setDragPreview(null);
+    }
+  }
+  function handleTimelinePointerUpCapture(event) {
+    if (event.pointerType === "touch") activeTouchPointers.current.delete(event.pointerId);
+  }
 
   async function notifyAssignedStaff(booking, previousBooking) {
     const actorEmail = String(currentAccount?.email || "").trim().toLowerCase();
@@ -569,7 +585,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
               <strong>{dateLabel(selectedDate)} · {c.dayView}</strong>
           </div>
           {pendingDayBookings.length > 0 && <div className="syncNotice warning"><strong>Lịch Nailie chờ phân công ({pendingDayBookings.length})</strong>{pendingDayBookings.map((booking) => <button type="button" className="ghost" key={booking.id} onClick={() => { setSelected(booking); setModalOpen(true); }}><span>{booking.start}–{booking.end} · {booking.requestedNailieAccount || "Nailie"} · {booking.service || "Nailie booking"}</span><small>Chờ chủ salon chọn nhân viên</small></button>)}</div>}
-          <div className="resourceTimeline" style={{ gridTemplateColumns: `var(--timeline-staff-width) calc(${Math.max(1, visibleIntervalSlots.length)} * var(--timeline-slot-width))` }}>
+          <div className="resourceTimeline" onPointerDownCapture={handleTimelinePointerDownCapture} onPointerUpCapture={handleTimelinePointerUpCapture} onPointerCancelCapture={handleTimelinePointerUpCapture} style={{ gridTemplateColumns: `var(--timeline-staff-width) calc(${Math.max(1, visibleIntervalSlots.length)} * var(--timeline-slot-width))` }}>
             {showCurrentTime && <div className="currentTimeRail"><div className="currentTimeIndicator" style={{ left: currentTimeLeft }} aria-label={`Giờ hiện tại ${String(Math.floor(currentTimelineSeconds / 3600)).padStart(2, "0")}:${String(Math.floor(currentTimelineSeconds / 60) % 60).padStart(2, "0")}`}><span>{String(Math.floor(currentTimelineSeconds / 3600)).padStart(2, "0")}:{String(Math.floor(currentTimelineSeconds / 60) % 60).padStart(2, "0")}</span></div></div>}
             <div className="resourceHeader">{c.staff}</div>
             <div className="timeAxis" style={{ gridTemplateColumns: `repeat(${visibleIntervalSlots.length}, var(--timeline-slot-width))` }}>{visibleIntervalSlots.map((hour) => <span key={hour}>{hour}</span>)}</div>
