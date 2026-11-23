@@ -20,7 +20,11 @@ const items = [
 ];
 
 export default function SidebarEnhanced({ active, setActive, language, setLanguage, allowedItems = items.map((item) => item[2]) }) {
-  const [menuOpen, setMenuOpen] = useState(() => typeof window === "undefined" ? true : !window.matchMedia("(max-width:760px)").matches);
+  const [menuOpen, setMenuOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const compactViewport = window.matchMedia("(max-width:760px)").matches || window.matchMedia("(orientation: landscape) and (max-width:1100px)").matches;
+    return !compactViewport;
+  });
   const [logoUrl, setLogoUrl] = useState("");
   const { orders } = useStoreOrders();
   useEffect(() => {
