@@ -200,6 +200,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const selectedStaffIsClosed = selectedStaffClosedPeriods.length > 0;
   const pressRef = useRef(null);
   const paintRef = useRef(null);
+  const touchTapRef = useRef({ key: "", at: 0 });
+  const touchPointersRef = useRef(new Set());
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
   const pendingDayBookings = selectedDayBookings.filter((booking) => booking.assignmentStatus === "PENDING_ASSIGNMENT");
   const mappedStaffKeys = new Set(staff.flatMap((member) => [String(member.id || ""), comparableStaffName(member.name)]).filter(Boolean));
@@ -294,9 +296,27 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
   function beginPaint(event, hour, member) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.pointerType === "touch") {
+      touchPointersRef.current.add(event.pointerId);
+      if (touchPointersRef.current.size > 1) {
+        paintRef.current = null;
+        setPaintRange(null);
+        return;
+      }
+      const tapKey = `${member.id}:${hour}`;
+      const now = Date.now();
+      const isDoubleTap = touchTapRef.current.key === tapKey && now - touchTapRef.current.at <= 420;
+      touchTapRef.current = isDoubleTap ? { key: "", at: 0 } : { key: tapKey, at: now };
+      if (isDoubleTap) {
+        touchPointersRef.current.delete(event.pointerId);
+        setSelected(blankBooking(selectedDate, hour, member));
+        setModalOpen(true);
+        return;
+      }
+    }
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    paintRef.current = { pointerId: event.pointerId, member, startHour: hour, endHour: hour };
+    paintRef.current = { pointerId: event.pointerId, member, startHour: hour, endHour: hour, pointerType: event.pointerType, moved: false };
     setPaintRange({ memberId: member.id, startHour: hour, endHour: hour });
   }
 
@@ -309,13 +329,16 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const memberId = target?.dataset?.member;
     if (!hour || memberId !== painting.member.id || hour === painting.endHour) return;
     painting.endHour = hour;
+    painting.moved = true;
     setPaintRange({ memberId, startHour: painting.startHour, endHour: hour });
   }
 
   function finishPaint(event) {
+    if (event.pointerType === "touch") touchPointersRef.current.delete(event.pointerId);
     const painting = paintRef.current;
     if (!painting || painting.pointerId !== event.pointerId) return;
     event.preventDefault();
+    if (painting.pointerType === "touch" && !painting.moved) { paintRef.current = null; setPaintRange(null); return; }
     const startIndex = visibleIntervalSlots.indexOf(painting.startHour);
     const endIndex = visibleIntervalSlots.indexOf(painting.endHour);
     const firstIndex = Math.min(startIndex, endIndex);
@@ -587,8 +610,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
                           onPointerDown={(event) => beginPaint(event, hour, member)}
                           onPointerMove={movePaint}
                           onPointerUp={finishPaint}
-                          onPointerCancel={() => { paintRef.current = null; setPaintRange(null); }}
-                          onDoubleClick={() => { setSelected(blankBooking(selectedDate, hour, member)); setModalOpen(true); }}
+                          onPointerCancel={(event) => { if (event.pointerType === "touch") touchPointersRef.current.delete(event.pointerId); paintRef.current = null; setPaintRange(null); }}
+                          onDoubleClick={(event) => { if (event.pointerType !== "touch") { setSelected(blankBooking(selectedDate, hour, member)); setModalOpen(true); } }}
                         />
                       ))}
                     </div>

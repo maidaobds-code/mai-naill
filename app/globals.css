@@ -2009,7 +2009,7 @@ select[data-language] option { background: #fff; color: #302537; text-shadow: no
 }
 
 .slotHit {
-  touch-action: none;
+  touch-action: pan-x pan-y;
   transition: background-color 80ms ease, box-shadow 80ms ease;
 }
 
