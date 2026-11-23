@@ -504,29 +504,15 @@ async function updateNativeReservation(page, task) {
   const [endHour, endMinute] = next.end.split(":");
   const duration = (Number(endHour) * 60 + Number(endMinute)) - (Number(startHour) * 60 + Number(startMinute));
   if (duration <= 0 || duration % 5) throw new Error("HOT destination duration invalid");
-  const selectHotOption = async (selector, wanted, label) => {
-    const select = page.locator(selector);
-    await select.waitFor({ state: "visible", timeout: 20_000 });
-    const match = await select.locator("option").evaluateAll((options, target) => {
-      const normalize = (value) => String(value ?? "").trim();
-      const numeric = (value) => /^\d+$/.test(normalize(value)) ? Number(normalize(value)) : null;
-      const exact = options.find((option) => normalize(option.value) === normalize(target) || normalize(option.textContent) === normalize(target));
-      if (exact) return exact.value;
-      const targetNumber = numeric(target);
-      return targetNumber === null ? "" : options.find((option) => numeric(option.value) === targetNumber || numeric(option.textContent) === targetNumber)?.value || "";
-    }, wanted);
-    if (!match) throw new Error(`HOT option not found: ${selector}=${label || wanted}`);
-    await hotAction(() => select.selectOption(match));
-  };
-  await selectHotOption('[name="rsvHour"]', startHour, startHour);
-  await selectHotOption('[name="rsvMinute"]', startMinute, startMinute);
-  await selectHotOption('[name="rsvTermHour"]', String(Math.floor(duration / 60) * 60), String(Math.floor(duration / 60) * 60));
-  await selectHotOption('[name="rsvTermMinute"]', String(duration % 60), String(duration % 60));
+  await hotAction(() => page.locator('[name="rsvHour"]').selectOption(startHour));
+  await hotAction(() => page.locator('[name="rsvMinute"]').selectOption(startMinute));
+  await hotAction(() => page.locator('[name="rsvTermHour"]').selectOption(String(Math.floor(duration / 60) * 60)));
+  await hotAction(() => page.locator('[name="rsvTermMinute"]').selectOption(String(duration % 60)));
   await hotAction(() => page.locator('[name="staffIdList"]').selectOption(staffOption));
-  await selectHotOption('[name="staffStartHourList"]', startHour, startHour);
-  await selectHotOption('[name="staffStartMinuteList"]', startMinute, startMinute);
-  await selectHotOption('[name="staffEndHourList"]', endHour, endHour);
-  await selectHotOption('[name="staffEndMinuteList"]', endMinute, endMinute);
+  await hotAction(() => page.locator('[name="staffStartHourList"]').selectOption(startHour));
+  await hotAction(() => page.locator('[name="staffStartMinuteList"]').selectOption(startMinute));
+  await hotAction(() => page.locator('[name="staffEndHourList"]').selectOption(endHour));
+  await hotAction(() => page.locator('[name="staffEndMinuteList"]').selectOption(endMinute));
   const prepared = await page.evaluate(() => ({ start: `${document.querySelector('[name="rsvHour"]')?.value}:${document.querySelector('[name="rsvMinute"]')?.value}`, staff: document.querySelector('[name="staffIdList"]')?.value, end: `${document.querySelector('[name="staffEndHourList"]')?.value}:${document.querySelector('[name="staffEndMinuteList"]')?.value}` }));
   if (prepared.start !== next.start || prepared.end !== next.end || prepared.staff !== staffOption) throw new Error(`HOT native reservation form mismatch: ${JSON.stringify(prepared)}`);
   if (dryRun) { log("DRY_RUN HOT native reservation prepared", JSON.stringify({ id: task.booking.id, reserveId, destinationName, ...prepared })); return; }

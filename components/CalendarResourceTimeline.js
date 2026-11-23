@@ -528,6 +528,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
         <div>
           <p className="eyebrow">BOOKING CALENDAR</p>
           <h1>{label}</h1>
+          <p>{c.desc}</p>
         </div>
         <div className="toolbar">
           <button className="ghost" onClick={() => navigatePeriod(-1)}>← <span>{c.previous}</span></button>
@@ -542,6 +543,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
       {dragPreview && createPortal(<div className="bookingDragGhost" style={{left:dragPreview.left,top:dragPreview.top,width:dragPreview.width,minHeight:dragPreview.height}}><strong>{dragPreview.target?.start||dragPreview.booking.start}–{dragPreview.end||dragPreview.booking.end}</strong><span>{dragPreview.booking.customer}</span><small>{staff.find(member=>String(member.id)===String(dragPreview.target?.staffId))?.name||"Kéo đến ô lịch mới"}</small></div>,document.body)}
       {offStaffBookings.length>0 && <div className="bookingMoveHint"><strong>Lịch hẹn của nhân viên đang nghỉ — cần sắp xếp lại:</strong>{offStaffBookings.map(booking=><button className="ghost" key={booking.id} onClick={()=>{setSelected(booking);setModalOpen(true);}}>{booking.staff} · {booking.start}–{booking.end} · {booking.customer}</button>)}</div>}
+      <p className="bookingMoveHint" role="status">{moveStatus || "Ấn giữ lịch hẹn để kéo sang nhân viên hoặc giờ khác. Nhấn đúp để chỉnh chi tiết."}</p>
       <div className="calendarSummary">
         <div className="card summaryPill"><span>{c.selectedDay}</span><strong>{dateLabel(selectedDate)}</strong></div>
         <div className="card summaryPill"><span>{c.dayBookings}</span><strong>{selectedDayBookings.length}</strong></div>
