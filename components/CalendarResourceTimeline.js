@@ -485,7 +485,20 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     }
   }
 
+  function isPastScheduleRange(date, start, end) {
+    const today = japanToday();
+    if (date < today) return true;
+    if (date > today) return false;
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+    const nowMinutes = Number(parts.find((part) => part.type === "hour")?.value || 0) * 60 + Number(parts.find((part) => part.type === "minute")?.value || 0);
+    return toMinutes(end || start) <= nowMinutes;
+  }
+
   async function closeSchedule(scope) {
+    if (isPastScheduleRange(selectedDate, selected.start, selected.end)) {
+      setBookingError("Khung giờ đã qua, không thể tạo tác vụ đóng lịch.");
+      return;
+    }
     const period = `${selectedDate} ${selected.start}-${selected.end}`;
     const selectedMember = staff.find((member) => member.name === selected.staff || String(member.id) === String(selected.staffId));
     const staffKey = selectedMember?.id || selected.staffId || selected.staff;
@@ -513,6 +526,10 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   }
 
   async function reopenSchedule(scope, keepModalOpen = false) {
+    if (isPastScheduleRange(selectedDate, selected.start, selected.end)) {
+      setBookingError("Khung giờ đã qua, không thể tạo tác vụ mở lịch.");
+      return;
+    }
     const next = { ...settings, closedPeriods: [...(settings.closedPeriods || [])], staffClosedPeriods: [...(settings.staffClosedPeriods || [])] };
     if (scope === "salon") next.closedPeriods = next.closedPeriods.filter((value) => value !== periodKey);
     else next.staffClosedPeriods = next.staffClosedPeriods.filter((value) => selectedStaffClosedPeriods.length ? !selectedStaffClosedPeriods.includes(value) : value !== staffPeriodKey);
@@ -710,8 +727,8 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
             </div>
             {bookingError && <p className="bookingConflictNotice" role="alert">{bookingError}</p>}
             <div className="modalActions">
-              <button className="ghost" type="button" onClick={() => (selected.closedScope === "staff" || isStaffClosed || selectedStaffIsClosed) ? reopenSchedule("staff") : closeSchedule("staff")}>{(selected.closedScope === "staff" || isStaffClosed || selectedStaffIsClosed) ? "Bỏ khóa" : "Đóng lịch nhân viên"}</button>
-              <button className="ghost" type="button" onClick={() => (selected.closedScope === "salon" || isSalonClosed) ? reopenSchedule("salon") : closeSchedule("salon")}>{(selected.closedScope === "salon" || isSalonClosed) ? "Bỏ khóa" : "Đóng lịch cả quán"}</button>
+              <button className="ghost" type="button" disabled={isPastScheduleRange(selectedDate, selected.start, selected.end)} title={isPastScheduleRange(selectedDate, selected.start, selected.end) ? "Khung giờ đã qua" : ""} onClick={() => (selected.closedScope === "staff" || isStaffClosed || selectedStaffIsClosed) ? reopenSchedule("staff") : closeSchedule("staff")}>{(selected.closedScope === "staff" || isStaffClosed || selectedStaffIsClosed) ? "Bỏ khóa" : "Đóng lịch nhân viên"}</button>
+              <button className="ghost" type="button" disabled={isPastScheduleRange(selectedDate, selected.start, selected.end)} title={isPastScheduleRange(selectedDate, selected.start, selected.end) ? "Khung giờ đã qua" : ""} onClick={() => (selected.closedScope === "salon" || isSalonClosed) ? reopenSchedule("salon") : closeSchedule("salon")}>{(selected.closedScope === "salon" || isSalonClosed) ? "Bỏ khóa" : "Đóng lịch cả quán"}</button>
               <button className="ghost dangerButton" disabled={selected.draft} onClick={deleteBooking}>{c.deleteBooking}</button>
               <button className="ghost" onClick={() => setModalOpen(false)}>{tc("cancel")}</button>
               <button className="ghost" disabled={selected?.draft} onClick={checkoutSelected}>{c.checkout}</button>

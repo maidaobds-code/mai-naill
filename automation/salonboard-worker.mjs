@@ -65,6 +65,15 @@ async function hotAction(action) {
   await waitBeforeOperation();
   return action();
 }
+function pastScheduleSlot(date, end) {
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(new Date());
+  if (String(date || "") < today) return true;
+  if (String(date || "") > today) return false;
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date());
+  const now = Number(parts.find((part) => part.type === "hour")?.value || 0) * 60 + Number(parts.find((part) => part.type === "minute")?.value || 0);
+  const match = String(end || "").match(/^(\d{1,2}):(\d{2})$/);
+  return Boolean(match && Number(match[1]) * 60 + Number(match[2]) <= now);
+}
 async function isHumanVerificationPage(page) {
   const body = await page.locator("body").innerText().catch(() => "");
   return /画像認証|イラストを完成させて|バーをドラッグして/.test(body);
@@ -406,6 +415,10 @@ async function openScheduleForm(page, task) {
 }
 
 async function applySyncTask(page, task) {
+  if (["block", "unblock", "cancel"].includes(String(task.action)) && pastScheduleSlot(task.booking?.date || task.match?.date, task.booking?.end || task.match?.end)) {
+    log("SALON BOARD past close/open task skipped", JSON.stringify({ action: task.action, date: task.booking?.date || task.match?.date, start: task.booking?.start || task.match?.start, end: task.booking?.end || task.match?.end }));
+    return;
+  }
   if (task.booking?.source === "hotpepper" && task.action === "update" && task.previousMatch) return updateNativeReservation(page, task);
   if (["cancel", "unblock"].includes(task.action)) return reopenManagedSlot(page, { ...task, booking: { ...task.booking, ...task.match } });
   if (!["block", "update"].includes(task.action)) throw new Error(`Unsupported SALON BOARD action: ${task.action}`);
