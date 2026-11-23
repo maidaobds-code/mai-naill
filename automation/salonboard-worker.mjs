@@ -243,16 +243,20 @@ async function scanExternalClosedPeriods(page, date) {
     return heads.flatMap((head, index) => {
       const row = rows[index];
       const externalStaff = String(head.textContent || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
-      const allDayClosed = [...(row?.querySelectorAll(".scheduleToDoInner") || [])].some((item) => /休日|休み|定休日|closed|holiday/i.test(String(item.textContent || "")));
-      const fullDay = allDayClosed && externalStaff ? [{ externalStaff, start: "00:00", end: "23:59" }] : [];
-      return [...fullDay, ...(row?.querySelectorAll(".scheduleToDoInner") || [])].flatMap((item) => {
-        if (item instanceof Object && item.externalStaff) return [item];
-      const text = String(item.textContent || "");
-      if (/Mainaill booking\s+/i.test(text)) return [];
-      let range = [];
-      try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
-      return externalStaff && range[0] && range[1] ? [{ externalStaff, start: range[0], end: range[1] }] : [];
+      const items = [...(row?.querySelectorAll(".scheduleToDoInner") || [])];
+      const hasReservation = Boolean(row?.querySelector(".scheduleReservation"));
+      const periods = items.flatMap((item) => {
+        const text = String(item.textContent || "");
+        if (/Mainaill booking\s+/i.test(text)) return [];
+        let range = [];
+        try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
+        return externalStaff && range[0] && range[1] ? [{ externalStaff, start: range[0], end: range[1] }] : [];
       });
+      // HOT uses both 休日 and 予定あり for a full-day grey/blocked row. Never
+      // infer a day off when the same row contains an actual reservation.
+      const allDayLabel = items.some((item) => /休日|休み|定休日|予定あり|closed|holiday/i.test(String(item.textContent || "")));
+      if (!hasReservation && allDayLabel && externalStaff) periods.push({ externalStaff, start: "00:00", end: "23:59" });
+      return periods;
     });
   });
   const periods = records.map((record) => ({ staff: internalStaffName(record.externalStaff), start: record.start, end: record.end }));

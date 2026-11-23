@@ -207,9 +207,11 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const name = calendarStaffName(booking.staff);
     return [comparableStaffName(name), { id: `external-${comparableStaffName(name)}`, name, color: "#f59e0b", status: "HOT · chưa mapping", external: true }];
   })).values()];
-  const workingStaff = staff.filter(member=>!staffIsOffAllDay(member,selectedDate,settings));
   const offStaffBookings=selectedDayBookings.filter(booking=>staff.some(member=>staffIsOffAllDay(member,selectedDate,settings)&&(String(booking.staffId)===String(member.id)||booking.staff===member.name)));
-  const calendarStaff = [...workingStaff, ...externalStaff];
+  // Keep every configured employee visible. Closed/holiday periods are rendered
+  // as grey blocks in the lane so a full-day closure cannot be mistaken for a
+  // missing employee or silently cause re-assignment.
+  const calendarStaff = [...staff, ...externalStaff];
   const weekStart = mondayFor(selectedDate);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const visibleMonthDates = monthDates(selectedDate);
