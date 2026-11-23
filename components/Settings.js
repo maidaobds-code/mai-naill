@@ -171,7 +171,7 @@ export default function Settings({ language = "vi", initialPanel }) {
         title: "Kết nối máy in",
         desc: "Cấu hình tại đây được dùng chung cho trang Tính tiền và Lịch sử thanh toán.",
         support:
-          "Hỗ trợ mPOP POP10, POP10CI, POP10CBI qua USB, Star webPRNT hoặc máy in hệ thống.",
+          "iPhone/iPad: mPOP Bluetooth qua Star webPRNT Browser (POP10/POP10CBI). USB qua webPRNT Browser chỉ hỗ trợ Android; máy tính có thể dùng Chrome/Edge với USB.",
       },
       ja: {
         panel: "レシートプリンター",
@@ -179,7 +179,7 @@ export default function Settings({ language = "vi", initialPanel }) {
         title: "プリンター接続",
         desc: "この設定は会計画面と支払い履歴で共通して使用されます。",
         support:
-          "mPOP POP10、POP10CI、POP10CBIのUSB、Star webPRNT、システム印刷に対応します。",
+          "iPhone/iPadではPOP10/POP10CBIをBluetoothでStar webPRNT Browserに接続します。webPRNT BrowserのUSB接続はAndroidのみ対応します。",
       },
       en: {
         panel: "Receipt printer",
@@ -187,7 +187,7 @@ export default function Settings({ language = "vi", initialPanel }) {
         title: "Printer connection",
         desc: "This configuration is shared by Checkout and Payment history.",
         support:
-          "Supports mPOP POP10, POP10CI and POP10CBI through USB, Star webPRNT, or system printing.",
+          "On iPhone/iPad, POP10/POP10CBI use Bluetooth with Star webPRNT Browser. USB in webPRNT Browser is supported on Android only.",
       },
     }[language] || {};
   const allPanels = [

@@ -321,9 +321,10 @@ export default function Checkout({ label = "POS / Checkout", appointmentId = "",
 
   async function printDocument(type, sale = order, openDrawer = false) {
     setPrintMode(type);
-    if (getPrinterSettings().mode === "passprnt" || (type === "receipt" && getPrinterSettings().mode === "star-usb")) {
-      try { const result = await printStarReceipt(sale, settings, { openDrawer, documentType:type }); setDrawerNotice(result?.handedOff ? "Đã chuyển lệnh sang Star PassPRNT; chờ kết quả từ ứng dụng in." : "Star mPOP: OK"); return; }
-      catch (printError) { setError(`Star mPOP: ${printError?.message || "Print failed"}`); }
+    const printerMode = getPrinterSettings().mode;
+    if (printerMode === "passprnt" || printerMode === "webprnt" || (type === "receipt" && printerMode === "star-usb")) {
+      try { const result = await printStarReceipt(sale, settings, { openDrawer, documentType:type }); setDrawerNotice(result?.handedOff ? "Đã chuyển lệnh sang Star PassPRNT; chờ kết quả từ ứng dụng in." : "Star mPOP: đã in."); return; }
+      catch (printError) { setError(`Star mPOP: ${printError?.message || "Print failed"}`); return; }
     }
     window.setTimeout(() => window.print(), 120);
   }
