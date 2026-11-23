@@ -240,14 +240,20 @@ async function scanExternalClosedPeriods(page, date) {
   const records = await page.evaluate(() => {
     const heads = [...document.querySelectorAll('[id^="STAFF_"]')];
     const rows = [...document.querySelectorAll("li.jscScheduleMainTableLine")];
-    return heads.flatMap((head, index) => [...(rows[index]?.querySelectorAll(".scheduleToDoInner") || [])].flatMap((item) => {
+    return heads.flatMap((head, index) => {
+      const row = rows[index];
+      const externalStaff = String(head.textContent || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+      const allDayClosed = [...(row?.querySelectorAll(".scheduleToDoInner") || [])].some((item) => /休日|休み|定休日|closed|holiday/i.test(String(item.textContent || "")));
+      const fullDay = allDayClosed && externalStaff ? [{ externalStaff, start: "00:00", end: "23:59" }] : [];
+      return [...fullDay, ...(row?.querySelectorAll(".scheduleToDoInner") || [])].flatMap((item) => {
+        if (item instanceof Object && item.externalStaff) return [item];
       const text = String(item.textContent || "");
       if (/Mainaill booking\s+/i.test(text)) return [];
       let range = [];
       try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
-      const externalStaff = String(head.textContent || "").split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
       return externalStaff && range[0] && range[1] ? [{ externalStaff, start: range[0], end: range[1] }] : [];
-    }));
+      });
+    });
   });
   const periods = records.map((record) => ({ staff: internalStaffName(record.externalStaff), start: record.start, end: record.end }));
   const response = await fetch(`${mainaillUrl}/api/external-closed-periods`, {
