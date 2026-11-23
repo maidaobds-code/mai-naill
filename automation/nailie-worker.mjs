@@ -25,11 +25,15 @@ const observationFile = process.env.NAILIE_OBSERVATION_FILE || path.resolve("run
 const debugPort = Number(process.env.NAILIE_DEBUG_PORT || 9230);
 const mainaillUrl = String(process.env.MAINAILL_URL || "https://mainaill.com").replace(/\/$/, "");
 const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
+const loginUsername = String(process.env.NAILIE_USERNAME || process.env.NAILIE_LOGIN_ID || "").trim();
+const loginPassword = String(process.env.NAILIE_PASSWORD || "");
+const maxAutoLoginAttempts = Math.max(1, Number(process.env.NAILIE_MAX_AUTO_LOGIN_ATTEMPTS || 2));
 const quietStartHour = 2;
 const quietEndHour = 8;
 const taskTimeoutMs = Math.max(30_000, Number(process.env.NAILIE_TASK_TIMEOUT_MS || 90_000));
 const observedFingerprints = new Map();
 let loginAlertSent = false;
+let autoLoginAttempts = 0;
 
 function japanHour() {
   return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
@@ -43,6 +47,40 @@ async function alertAdmin(reason) {
   if (loginAlertSent) return;
   loginAlertSent = true;
   await fetch(`${mainaillUrl}/api/bot-alert`, { method: "POST", headers: { authorization: `Bearer ${syncSecret}`, "content-type": "application/json" }, body: JSON.stringify({ bot: "Nailie", reason }) }).catch((error) => log("admin alert failed", error.message));
+}
+
+function isLoginPage(page) {
+  return page.locator('input[type="password"]:visible').count().then((count) => count > 0).catch(() => false) || (/login|sign-in|signin/i.test(page.url()) && !/staff-schedule|mysalon/i.test(page.url()));
+}
+
+async function tryAutoLogin(page) {
+  if (autoLoginAttempts >= maxAutoLoginAttempts) return false;
+  const password = page.locator('input[type="password"]:visible, input[name*="password" i]:visible').first();
+  if (!await password.count()) { log("Nailie auto-login: password field not found"); return false; }
+  const user = page.locator('input[type="email"]:visible, input[autocomplete="username"]:visible, input[name*="email" i]:visible, input[name*="login" i]:visible, input[name*="username" i]:visible, input[type="text"]:visible').first();
+  if (!await user.count()) { log("Nailie auto-login: username field not found"); return false; }
+  const currentUser = String(await user.inputValue().catch(() => "")).trim();
+  const currentPassword = String(await password.inputValue().catch(() => ""));
+  if (loginUsername && loginPassword) {
+    await waitBeforeOperation();
+    await user.fill(loginUsername);
+    await waitBeforeOperation();
+    await password.fill(loginPassword);
+  } else if (!currentUser || !currentPassword) {
+    log("Nailie auto-login skipped: configure NAILIE_USERNAME and NAILIE_PASSWORD or fill the visible form");
+    return false;
+  }
+  const submit = page.locator('button[type="submit"], input[type="submit"], button:has-text("ログイン"), button:has-text("Login"), button:has-text("Sign in")').first();
+  if (!await submit.count()) { log("Nailie auto-login: submit button not found"); return false; }
+  autoLoginAttempts += 1;
+  await waitBeforeOperation();
+  await submit.click();
+  await page.waitForLoadState("domcontentloaded", { timeout: 20_000 }).catch(() => {});
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  const loggedIn = !await isLoginPage(page);
+  log(loggedIn ? "Nailie auto-login succeeded" : "Nailie auto-login needs visible verification");
+  if (loggedIn) { autoLoginAttempts = 0; loginAlertSent = false; }
+  return loggedIn;
 }
 
 function log(message, details = "") {
@@ -398,7 +436,11 @@ async function launchChrome() {
 async function navigateWithRetry(page) {
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    try { await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 }); if (!/login|sign-in/i.test(page.url())) return true; } catch (error) { lastError = error; log("Nailie navigation failed", `${attempt}/2 ${error.message}`); }
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+      if (!await isLoginPage(page)) return true;
+      if (await tryAutoLogin(page)) return true;
+    } catch (error) { lastError = error; log("Nailie navigation failed", `${attempt}/2 ${error.message}`); }
     await new Promise((resolve) => setTimeout(resolve, 1500 * attempt));
   }
   await alertAdmin(lastError?.message || "Trang đăng nhập vẫn hiển thị sau 2 lần thử");
@@ -417,16 +459,21 @@ async function run() {
   let scanOffset = 0;
   for (;;) {
     try {
+      if (await isLoginPage(page)) {
+        const recovered = await tryAutoLogin(page);
+        if (!recovered) {
+          log("LOGIN_REQUIRED: sign in to Nailie in the visible browser");
+          if (autoLoginAttempts >= maxAutoLoginAttempts) await alertAdmin("Nailie không tự đăng nhập được sau 2 lần thử; hãy kiểm tra Chrome của bot");
+        }
+        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 60_000)));
+        continue;
+      }
       if (isQuietHours()) {
         log("Nailie quiet hours; browser and worker kept alive");
         await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
-        continue;
-      }
-      if (/login|sign-in/i.test(page.url())) {
-        log("LOGIN_REQUIRED: sign in to Nailie in the visible browser");
-        await alertAdmin("Profile không tự đăng nhập được; trang login vẫn hiển thị sau 2 lần truy cập");
       } else {
         loginAlertSent = false;
+        autoLoginAttempts = 0;
         await processPriorityTasks(page);
         const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
         await scanExternalBookings(page, scanDate);
