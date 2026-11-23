@@ -8,6 +8,7 @@ import { isAdminRequest, isOwnerRequest, isStaffRequest } from "../../../lib/ser
 import { salonSettings, serviceCatalog, staffCatalog } from "../../../lib/serverEmail.js";
 import { nailieCapacityTask } from "../../../lib/salonCapacity.js";
 import { escapeHtml, publicOrigin } from "../../../lib/webText.js";
+import { sameDailyCustomer } from "../../../lib/bookingDailyLimit.js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -128,6 +129,19 @@ export async function POST(request) {
     const current = compactBookings(currentRows?.[0]?.value);
     const [staff, settings, services] = await Promise.all([staffCatalog(), salonSettings(), serviceCatalog()]);
     const submittedRaw = compactBookings(body.bookings);
+    // Customer bookings are limited by account, email or phone for the whole
+    // day. Cancelled and deleted rows still count, so cancellation cannot be
+    // used to immediately place a second online reservation.
+    if (!isAdminRequest(request) && !isOwnerRequest(request) && !isStaffRequest(request)) {
+      const newDirect = submittedRaw.filter((item) => !current.some((saved) => saved.id === item.id) && String(item.source || "direct").toLowerCase() === "direct" && !item.deletedAt);
+      const seen = [...current];
+      for (const item of newDirect) {
+        if (seen.some((saved) => sameDailyCustomer(saved, item))) {
+          return Response.json({ ok: false, message: "Mỗi tài khoản, số điện thoại hoặc email chỉ được đặt một lịch trong ngày, kể cả khi lịch trước đã hủy. Vui lòng liên hệ chủ quán để thay đổi lịch." }, { status: 409 });
+        }
+        seen.push(item);
+      }
+    }
     const assignmentPool = [...current.filter(item=>!submittedRaw.some(value=>value.id===item.id)), ...submittedRaw];
     const rawSubmitted = submittedRaw.map(booking=>{
       const previous=current.find(item=>item.id===booking.id);

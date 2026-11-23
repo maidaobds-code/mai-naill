@@ -661,13 +661,13 @@ export default function OnlineStore({
           Number(assignedStaff?.designationFee || 0),
         commissionRule: localCopy.websiteBooking,
       });
-    } catch {
-      setMessage(
+    } catch (error) {
+      setMessage(error.message || (
         language === "ja"
           ? "予約を保存できませんでした。もう一度お試しください。"
           : language === "vi"
             ? "Chưa lưu được lịch hẹn. Vui lòng thử lại."
-            : "Could not save your appointment. Please try again.",
+            : "Could not save your appointment. Please try again."),
       );
       return false;
     }

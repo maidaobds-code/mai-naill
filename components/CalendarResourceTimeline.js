@@ -203,6 +203,46 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const touchTapRef = useRef({ key: "", at: 0 });
   const activeTouchPointers = useRef(new Set());
   const touchGestureRef = useRef(null);
+  const timelineShellRef = useRef(null);
+  const twoFingerPanRef = useRef(null);
+  const suppressTouchActionRef = useRef(false);
+  useEffect(() => {
+    const shell = timelineShellRef.current;
+    if (!shell) return;
+    const center = (touches) => ({ x: (touches[0].clientX + touches[1].clientX) / 2, y: (touches[0].clientY + touches[1].clientY) / 2 });
+    const start = (event) => {
+      if (event.touches.length < 2) return;
+      twoFingerPanRef.current = center(event.touches);
+      suppressTouchActionRef.current = true;
+      paintRef.current = null;
+      moveRef.current = null;
+      clearTimeout(pressRef.current);
+      setPaintRange(null);
+      setMovingId(null);
+      setDragPreview(null);
+    };
+    const move = (event) => {
+      if (event.touches.length < 2) return;
+      event.preventDefault();
+      const next = center(event.touches);
+      const last = twoFingerPanRef.current || next;
+      shell.scrollLeft -= next.x - last.x;
+      if (shell.scrollHeight > shell.clientHeight) shell.scrollTop -= next.y - last.y;
+      else window.scrollBy(0, last.y - next.y);
+      twoFingerPanRef.current = next;
+    };
+    const end = (event) => { if (event.touches.length < 2) twoFingerPanRef.current = null; };
+    shell.addEventListener("touchstart", start, { passive: true });
+    shell.addEventListener("touchmove", move, { passive: false });
+    shell.addEventListener("touchend", end);
+    shell.addEventListener("touchcancel", end);
+    return () => {
+      shell.removeEventListener("touchstart", start);
+      shell.removeEventListener("touchmove", move);
+      shell.removeEventListener("touchend", end);
+      shell.removeEventListener("touchcancel", end);
+    };
+  }, [view]);
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
   const pendingDayBookings = selectedDayBookings.filter((booking) => booking.assignmentStatus === "PENDING_ASSIGNMENT");
   const mappedStaffKeys = new Set(staff.flatMap((member) => [String(member.id || ""), comparableStaffName(member.name)]).filter(Boolean));
@@ -300,6 +340,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   function beginPaint(event, hour, member) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (event.pointerType === "touch") {
+      if (suppressTouchActionRef.current) return;
       if (activeTouchPointers.current.size > 1) return;
       const key = `${member.id}:${hour}`;
       const now = Date.now();
@@ -337,7 +378,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const painting = paintRef.current;
     if (!painting || painting.pointerId !== event.pointerId) return;
     event.preventDefault();
-    if (painting.pointerType === "touch" && (!painting.moved || activeTouchPointers.current.size > 1)) { paintRef.current = null; setPaintRange(null); return; }
+    if (painting.pointerType === "touch" && (!painting.moved || activeTouchPointers.current.size > 1 || suppressTouchActionRef.current)) { paintRef.current = null; setPaintRange(null); return; }
     const startIndex = visibleIntervalSlots.indexOf(painting.startHour);
     const endIndex = visibleIntervalSlots.indexOf(painting.endHour);
     const firstIndex = Math.min(startIndex, endIndex);
@@ -358,6 +399,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
 
   useEffect(()=>()=>{ clearTimeout(pressRef.current); moveRef.current=null; },[]);
   function beginBookingMove(event, booking) {
+    if (event.pointerType === "touch" && suppressTouchActionRef.current) return;
     if(event.button !== undefined && event.button !== 0) return;
     event.stopPropagation();
     clearTimeout(pressRef.current);
@@ -385,7 +427,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   }
   async function finishBookingMove(event) {
     const move=moveRef.current;clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);setDragPreview(null);
-    if(!move||move.pointerId!==event.pointerId)return;
+    if(!move||move.pointerId!==event.pointerId||event.pointerType === "touch" && suppressTouchActionRef.current)return;
     if(!move.active)return;
     if(!move.target){setMoveStatus("Chưa chọn được ô đích; lịch giữ nguyên.");return;}
     const member=staff.find(item=>String(item.id)===String(move.target.staffId));
@@ -398,8 +440,10 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   function cancelHold(){clearTimeout(pressRef.current);moveRef.current=null;setMovingId(null);setDragPreview(null);}
   function handleTimelinePointerDownCapture(event) {
     if (event.pointerType !== "touch") return;
+    if (activeTouchPointers.current.size === 0) suppressTouchActionRef.current = false;
     activeTouchPointers.current.add(event.pointerId);
     if (activeTouchPointers.current.size >= 2) {
+      suppressTouchActionRef.current = true;
       touchTapRef.current = { key: "", at: 0 };
       touchGestureRef.current = null;
       clearTimeout(pressRef.current);
@@ -607,7 +651,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
       </div>
 
       {view === "day" && (
-        <section className="card resourceTimelineShell">
+        <section className="card resourceTimelineShell" ref={timelineShellRef}>
           <div className="calendarHeader">
               <strong>{dateLabel(selectedDate)} · {c.dayView}</strong>
           </div>
