@@ -200,6 +200,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
   const selectedStaffIsClosed = selectedStaffClosedPeriods.length > 0;
   const pressRef = useRef(null);
   const paintRef = useRef(null);
+  const touchTapRef = useRef({ key: "", at: 0 });
   const selectedDayBookings = bookings.filter((booking) => sameBookingDate(booking, selectedDate));
   const pendingDayBookings = selectedDayBookings.filter((booking) => booking.assignmentStatus === "PENDING_ASSIGNMENT");
   const mappedStaffKeys = new Set(staff.flatMap((member) => [String(member.id || ""), comparableStaffName(member.name)]).filter(Boolean));
@@ -298,7 +299,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     if (event.pointerType === "mouse" && event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    paintRef.current = { pointerId: event.pointerId, member, startHour: hour, endHour: hour };
+    paintRef.current = { pointerId: event.pointerId, member, startHour: hour, endHour: hour, pointerType: event.pointerType, moved: false };
     setPaintRange({ memberId: member.id, startHour: hour, endHour: hour });
   }
 
@@ -311,6 +312,7 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const memberId = target?.dataset?.member;
     if (!hour || memberId !== painting.member.id || hour === painting.endHour) return;
     painting.endHour = hour;
+    painting.moved = true;
     setPaintRange({ memberId, startHour: painting.startHour, endHour: hour });
   }
 
@@ -318,6 +320,16 @@ export default function CalendarResourceTimeline({ label = "Calendar", language 
     const painting = paintRef.current;
     if (!painting || painting.pointerId !== event.pointerId) return;
     event.preventDefault();
+    const touchTap = painting.pointerType === "touch" && !painting.moved && painting.startHour === painting.endHour;
+    if (touchTap) {
+      const key = `${painting.member.id}:${painting.startHour}`;
+      const now = Date.now();
+      const isDoubleTap = touchTapRef.current.key === key && now - touchTapRef.current.at < 420;
+      touchTapRef.current = isDoubleTap ? { key: "", at: 0 } : { key, at: now };
+      paintRef.current = null;
+      setPaintRange(null);
+      if (!isDoubleTap) return;
+    }
     const startIndex = visibleIntervalSlots.indexOf(painting.startHour);
     const endIndex = visibleIntervalSlots.indexOf(painting.endHour);
     const firstIndex = Math.min(startIndex, endIndex);
