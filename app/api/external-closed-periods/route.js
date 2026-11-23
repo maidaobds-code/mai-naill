@@ -56,8 +56,17 @@ export async function POST(request) {
     const previousForDate = new Set(previousManaged.filter((value) => value.includes(` ${date} `)));
     const retainedClosed = (Array.isArray(settings.staffClosedPeriods) ? settings.staffClosedPeriods.map(String) : []).filter((value) => !previousForDate.has(value));
     const retainedManaged = previousManaged.filter((value) => !previousForDate.has(value));
-    const nextManaged = [...new Set([...retainedManaged, ...canonical])];
-    const nextClosed = [...new Set([...retainedClosed, ...canonical])];
+    const normalizedCanonical = [...new Set(canonical)].filter((value) => {
+      const match = value.match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+      if (!match) return true;
+      const hasPartial = canonical.some((other) => {
+        const candidate = other.match(/^(.+?)\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2})-(\d{2}:\d{2})$/);
+        return candidate && candidate[1] === match[1] && candidate[2] === match[2] && candidate[3] !== "00:00" && candidate[4] !== "23:59";
+      });
+      return !(hasPartial && match[3] === "00:00" && match[4] === "23:59");
+    });
+    const nextManaged = [...new Set([...retainedManaged, ...normalizedCanonical])];
+    const nextClosed = [...new Set([...retainedClosed, ...normalizedCanonical])];
     const saved = await saveSettings({ ...settings, staffClosedPeriods: nextClosed, hotpepperClosedPeriods: nextManaged });
     return Response.json({ ok: true, date, imported: canonical.length, staffClosedPeriods: saved.staffClosedPeriods || nextClosed });
   } catch (error) {

@@ -255,8 +255,9 @@ async function scanExternalClosedPeriods(page, date) {
       // 予定あり can describe a bounded grey interval (for example 11:00–13:00).
       // Only treat it as all-day when HOT gives no usable interval at all.
       const explicitHoliday = items.some((item) => /休日|休み|定休日|closed|holiday/i.test(String(item.textContent || "")));
-      const scheduleBlockedWithoutRange = items.some((item) => /予定あり/i.test(String(item.textContent || ""))) && periods.length === 0;
-      if (!hasReservation && (explicitHoliday || scheduleBlockedWithoutRange) && externalStaff) periods.push({ externalStaff, start: "00:00", end: "23:59" });
+      const rowWidth = row?.getBoundingClientRect?.().width || 0;
+      const visualFullDay = items.some((item) => /予定あり/i.test(String(item.textContent || "")) && rowWidth > 0 && item.getBoundingClientRect().width / rowWidth >= 0.85);
+      if (!hasReservation && (explicitHoliday || (visualFullDay && periods.length === 0)) && externalStaff) periods.push({ externalStaff, start: "00:00", end: "23:59" });
       return periods;
     });
   });
