@@ -252,10 +252,11 @@ async function scanExternalClosedPeriods(page, date) {
         try { range = JSON.parse(item.querySelector(".jscScheduleTimeZoneSetting")?.textContent || "[]"); } catch {}
         return externalStaff && range[0] && range[1] ? [{ externalStaff, start: range[0], end: range[1] }] : [];
       });
-      // HOT uses both 休日 and 予定あり for a full-day grey/blocked row. Never
-      // infer a day off when the same row contains an actual reservation.
-      const allDayLabel = items.some((item) => /休日|休み|定休日|予定あり|closed|holiday/i.test(String(item.textContent || "")));
-      if (!hasReservation && allDayLabel && externalStaff) periods.push({ externalStaff, start: "00:00", end: "23:59" });
+      // 予定あり can describe a bounded grey interval (for example 11:00–13:00).
+      // Only treat it as all-day when HOT gives no usable interval at all.
+      const explicitHoliday = items.some((item) => /休日|休み|定休日|closed|holiday/i.test(String(item.textContent || "")));
+      const scheduleBlockedWithoutRange = items.some((item) => /予定あり/i.test(String(item.textContent || ""))) && periods.length === 0;
+      if (!hasReservation && (explicitHoliday || scheduleBlockedWithoutRange) && externalStaff) periods.push({ externalStaff, start: "00:00", end: "23:59" });
       return periods;
     });
   });
