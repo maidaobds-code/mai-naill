@@ -18,7 +18,7 @@ try {
     body: route.request().url().includes('expired-login') ? '<p>一定時間操作されなかったため、ログインの有効期限が\n切れました。再度ログインしなおしてください。</p><a href="/login/">ログインへ</a>' : `<form id="idPasswordInputForm"><input type="text" name="userId"><input type="password" name="password" id="jsiPwInput"><a href="javascript:void(0);" class="common-CNCcommon__primaryBtn loginBtnSize" onclick="dologin(event); return false;">ログイン</a></form><script>window.submissions=0; function dologin(event){ event.preventDefault(); window.submissions++; ${navigateOnClick ? "location.href='/KLP/schedule/salonSchedule/';" : ''} }</script>`,
   }));
   function context(username = 'test-id', password = 'test-password') {
-    const result = vm.createContext({ page, loginUsername: username, loginPassword: password, log: () => {}, isLoginPage: p => /login/.test(p.url()), isSessionExpired: async () => false });
+    const result = vm.createContext({ page, loginUsername: username, loginPassword: password, log: () => {}, isLoginPage: p => /login/.test(p.url()), isSessionExpired: async () => false, manualVerificationRequired: false, isHumanVerificationPage: async () => false, requireManualVerification: async () => {}, hotAction: async action => action() });
     vm.runInContext(`let autoLoginAttempts=0; ${loginSource}`, result);
     return result;
   }
@@ -51,6 +51,7 @@ try {
   const recovery = vm.createContext({
     page, loginUsername: 'test-id', loginPassword: 'test-password',
     isLoginPage: p => /login/.test(p.url()), log: () => {}, alertAdmin: async () => {},
+    manualVerificationRequired: false, isHumanVerificationPage: async () => false, requireManualVerification: async () => {}, hotAction: async action => action(),
     loginUrl: 'https://salonboard.test/login/', pollMs: 10,
     setTimeout: resolve => resolve(),
   });

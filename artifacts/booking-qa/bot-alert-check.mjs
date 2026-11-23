@@ -57,6 +57,7 @@ let scans = 0;
 const expired = vm.createContext({
   autoLoginAttempts: 0,
   isSessionExpired: async () => true,
+  hotAction: async action => action(),
   alertAdmin: async () => { expiredAlerts++; }, tryAutoLogin: async () => { expired.autoLoginAttempts++; return false; }, log: () => {},
   page: { goto: async () => { navigations++; } },
   loginUrl: 'https://example.test/login', pollMs: 60_000,

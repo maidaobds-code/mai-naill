@@ -7,6 +7,7 @@ let clicks = 0, fills = 0, captcha = false, loggedIn = false;
 const field = { count: async () => 1, fill: async () => { fills++; }, boundingBox: async () => ({ x: 0, y: 0, width: 10, height: 10 }) };
 const login = vm.createContext({
   loginUsername: 'test-id', loginPassword: 'test-password',
+  manualVerificationRequired: false, isHumanVerificationPage: async () => false, requireManualVerification: async () => {}, hotAction: async action => action(),
   isLoginPage: () => !loggedIn, isSessionExpired: async () => false, log: () => {},
   page: { locator: () => ({ first: () => field, count: async () => captcha ? 1 : 0 }), mouse: { click: async () => { clicks++; } }, waitForURL: async () => {} },
 });
