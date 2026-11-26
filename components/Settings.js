@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import LocalizedContentEditor from "./LocalizedContentEditor";
+import { normalizeThankYouSettings, THANK_YOU_SUBJECT, THANK_YOU_BODY, THANK_YOU_DEFAULTS } from "../lib/thankYouEmail";
+import { translateWithMemory } from "../lib/translationMemory";
 import { preserveManualTranslations } from "../lib/manualTranslations";
 import { useEffect, useState } from "react";
 import { tx } from "../lib/i18nClean";
@@ -26,8 +28,8 @@ export const defaultSettings = {
   emailReminder: true,
   thankYouEmailEnabled: false,
   thankYouDelayHours: 24,
-  thankYouSubject: "Cảm ơn bạn đã ghé thăm {salon}",
-  thankYouBody: "Chào {customer},\nCảm ơn bạn đã ghé thăm {salon} và sử dụng dịch vụ {service} vào {date}. Hẹn gặp lại bạn!",
+  thankYouSubject: THANK_YOU_SUBJECT,
+  thankYouBody: THANK_YOU_BODY,
   lineReminder: false,
   depositRequired: false,
   taxRate: 10,
@@ -62,7 +64,7 @@ export function getAppSettings() {
   const raw = window.localStorage.getItem("nail-japan-settings");
   if (!raw) return defaultSettings;
   try {
-    return { ...defaultSettings, ...JSON.parse(raw) };
+    return normalizeThankYouSettings({ ...defaultSettings, ...JSON.parse(raw) });
   } catch {
     return defaultSettings;
   }
@@ -73,6 +75,8 @@ export default function Settings({ language = "vi", initialPanel }) {
   const [saved, setSaved] = useState(false);
   const [qrUploadError, setQrUploadError] = useState("");
   const [noticeTranslating, setNoticeTranslating] = useState(false);
+  const [thankYouTranslating, setThankYouTranslating] = useState(false);
+  const [thankYouTranslationError, setThankYouTranslationError] = useState("");
   const [currentAccount] = useState(getCurrentAccount);
   const { staff, saveStaff } = useStaffStore();
   const [linkedStaffId, setLinkedStaffId] = useState("");
@@ -223,7 +227,7 @@ export default function Settings({ language = "vi", initialPanel }) {
         const result = await response.json();
         const remote = result.value;
         if (mounted && remote) {
-          const next = { ...defaultSettings, ...remote };
+          const next = normalizeThankYouSettings({ ...defaultSettings, ...remote });
           setSettings(next);
           window.localStorage.setItem(
             "nail-japan-settings",
@@ -388,16 +392,42 @@ export default function Settings({ language = "vi", initialPanel }) {
     }));
   }
 
+  async function translateThankYou(value) {
+    const next = normalizeThankYouSettings(value);
+    const fields = [{ name: "thankYouSubject", kind: "subject", source: THANK_YOU_SUBJECT }, { name: "thankYouBody", kind: "body", source: THANK_YOU_BODY }];
+    for (const { name, kind, source } of fields) {
+      const original = next[name];
+      if (original === source) {
+        for (const suffix of ["Vi", "Ja", "En", "Zh", "Ko"]) {
+          const key = `${name}${suffix}`;
+          if (!next.manualTranslations?.[key]) next[key] = THANK_YOU_DEFAULTS[suffix][kind];
+        }
+      } else {
+        const masked = original.replace(/\{(customer|service|date|time|salon)\}/g, (_, key) => `[[${key.toUpperCase()}]]`);
+        const translated = await translateWithMemory(masked);
+        for (const [code, suffix] of [["VI", "Vi"], ["JA", "Ja"], ["EN", "En"], ["ZH", "Zh"], ["KO", "Ko"]]) {
+          const key = `${name}${suffix}`;
+          if (next.manualTranslations?.[key]) continue;
+          const text = String(translated[code] || "").replace(/\[\[\s*(CUSTOMER|SERVICE|DATE|TIME|SALON)\s*\]\]/gi, (_, token) => `{${token.toLowerCase()}}`);
+          const placeholders = [...original.matchAll(/\{(customer|service|date|time|salon)\}/g)].map((item) => item[0]);
+          if (!text || placeholders.some((token) => !text.includes(token)) || (code !== "VI" && text === original)) throw new Error(`Bản dịch ${suffix} chưa hợp lệ trong ${name}. Hãy thử lại hoặc sửa bản dịch thủ công.`);
+          next[key] = text;
+        }
+      }
+      next[`${name}TranslationSource`] = original;
+    }
+    return next;
+  }
+
   async function saveSettings(event) {
     event.preventDefault();
     setQrUploadError("");
-    window.localStorage.setItem(
-      "nail-japan-settings",
-      JSON.stringify(settings),
-    );
-    window.dispatchEvent(new CustomEvent("nail-japan-settings-updated"));
     try {
-      await saveServerSettings(settings);
+      const next = settings.thankYouEmailEnabled && (settings.thankYouSubjectTranslationSource !== settings.thankYouSubject || settings.thankYouBodyTranslationSource !== settings.thankYouBody) ? await translateThankYou(settings) : normalizeThankYouSettings(settings);
+      setSettings(next);
+      await saveServerSettings(next);
+      window.localStorage.setItem("nail-japan-settings", JSON.stringify(next));
+      window.dispatchEvent(new CustomEvent("nail-japan-settings-updated"));
       setSaved(true);
     } catch (error) {
       setSaved(false);
@@ -640,7 +670,9 @@ export default function Settings({ language = "vi", initialPanel }) {
               <h3>Email cảm ơn sau khi thanh toán</h3>
               <label className="toggleLine"><input type="checkbox" checked={Boolean(settings.thankYouEmailEnabled)} onChange={(event) => update("thankYouEmailEnabled", event.target.checked)} /> Tự động gửi email cảm ơn</label>
               <label>Gửi sau khi khách thanh toán và kết thúc lịch (giờ)<input type="number" min="1" max="720" value={settings.thankYouDelayHours || 24} onChange={(event) => update("thankYouDelayHours", Math.min(720, Math.max(1, Number(event.target.value) || 1)))} /></label>
-              <p className="mutedText">Chỉ gửi cho lịch đã kết thúc và có hóa đơn POS thanh toán đủ, gắn với đúng lịch hẹn. Cron kiểm tra mỗi ngày. Các biến có thể dùng: {"{customer}"}, {"{service}"}, {"{date}"}, {"{time}"}, {"{salon}"}. Lịch đã hủy sẽ không nhận email.</p>
+              <p className="mutedText">Chỉ gửi cho lịch đã kết thúc và có hóa đơn POS thanh toán đủ, gắn với đúng lịch hẹn. Cron kiểm tra mỗi ngày. Các biến có thể dùng: {"{customer}"}, {"{service}"}, {"{date}"}, {"{time}"}, {"{salon}"}. Lịch đã hủy sẽ không nhận email. Nội dung gốc được tự động dịch khi lưu; có thể sửa riêng từng ngôn ngữ.</p>
+              <button type="button" className="ghost" disabled={thankYouTranslating} onClick={async () => { setThankYouTranslating(true); setThankYouTranslationError(""); try { const next = await translateThankYou(settings); setSettings(next); setSaved(false); } catch (error) { setThankYouTranslationError(error.message); } finally { setThankYouTranslating(false); } }}>{thankYouTranslating ? "Đang dịch…" : "Tự động dịch 5 ngôn ngữ"}</button>
+              {thankYouTranslationError && <p role="alert">{thankYouTranslationError}</p>}
               <LocalizedContentEditor value={settings} onChange={(value) => { setSettings(value); setSaved(false); }} field="thankYouSubject" label="Tiêu đề email cảm ơn" multiline={false} />
               <LocalizedContentEditor value={settings} onChange={(value) => { setSettings(value); setSaved(false); }} field="thankYouBody" label="Nội dung email cảm ơn" />
             </div>

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isThankYouDue, thankYouMessage } from "../../lib/thankYouEmail.js";
+import { isThankYouDue, thankYouMessage, normalizeThankYouSettings, THANK_YOU_DEFAULTS } from "../../lib/thankYouEmail.js";
 import { currentLoginCredentials } from "../../automation/worker-utils.mjs";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
@@ -41,4 +41,15 @@ assert.equal(isThankYouDue(booking, settings, sale, due), true);
 assert.equal(isThankYouDue({ ...booking, status: "cancelled" }, settings, sale, due), false);
 assert.equal(isThankYouDue({ ...booking, thankYouSentAt: "2026-11-27T04:00:00Z" }, settings, sale, due), false);
 assert.equal(thankYouMessage(booking, settings).subject, "ありがとう Yuki");
+const legacy = normalizeThankYouSettings({ thankYouSubject: "Cảm ơn bạn đã đặt lịch tại {salon}", thankYouBody: "Chào {customer},\nCảm ơn bạn đã đặt lịch {service} vào {date} lúc {time}. Hẹn gặp bạn tại {salon}!" });
+assert.match(legacy.thankYouBody, /đã đến/);
+assert.match(thankYouMessage(booking, legacy).subject, /ありがとうございます/);
+assert.equal(thankYouMessage(booking, { ...legacy, manualTranslations: { thankYouSubjectJa: true, thankYouBodyJa: true }, thankYouSubjectJa: "Cảm ơn bạn đã đặt lịch tại {salon}", thankYouBodyJa: "Cảm ơn bạn đã đặt lịch tại {salon}" }).subject, "Cảm ơn bạn đã đặt lịch tại Mai Beauty Salon");
+assert.match(THANK_YOU_DEFAULTS.En.body, /Thank you for visiting/);
+for (const language of ["vi", "ja", "en", "zh", "ko"]) {
+  const message = thankYouMessage({ ...booking, language }, legacy);
+  assert.ok(message.subject.includes("Mai Beauty Salon"));
+  assert.ok(message.text.includes("Yuki"));
+  assert.ok(message.text.includes("Nail"));
+}
 console.log("PASS encrypted bot credentials and payment-gated, localized one-time thank-you email");
