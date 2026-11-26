@@ -577,7 +577,7 @@ export default function OnlineStore({
     notifyByEmail({
       to: [checkout.email].filter(Boolean),
       subject: `Đơn hàng ${order.orderNumber} - Mai Beauty Salon`,
-      html: `<h2>Đơn hàng ${order.orderNumber}</h2><p>Khách hàng: ${checkout.customer}</p><p>Sản phẩm: ${selectedProduct.name}</p><p>Tổng tiền: ${money(order.total)}</p>`,
+      html: `<p>Khách hàng: ${escapeHtml(checkout.customer)}</p><p>Sản phẩm: ${escapeHtml(selectedProduct.name)}</p><p>Tổng tiền: ${escapeHtml(money(order.total))}</p>`,
     });
     setMessage(tr("orderCreated", { order: order.orderNumber }));
     setSelectedProduct(null);

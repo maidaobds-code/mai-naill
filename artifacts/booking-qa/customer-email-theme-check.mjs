@@ -1,0 +1,16 @@
+import assert from "node:assert/strict";
+import { japanEmailTheme, customerEmailLayout } from "../../lib/customerEmailTheme.js";
+import { appointmentConfirmationEmail } from "../../lib/appointmentEmail.js";
+import { thankYouMessage } from "../../lib/thankYouEmail.js";
+const settings = { salonName: "Mai Beauty Salon", address: "Tokyo, Shibuya 1-2-3", phone: "+81 3 1234 5678", email: "hello@example.com" };
+assert.match(japanEmailTheme(new Date("2026-01-02T03:00:00Z")).name, /New Year/);
+assert.match(japanEmailTheme(new Date("2026-05-03T03:00:00Z")).name, /Golden Week/);
+assert.match(japanEmailTheme(new Date("2026-07-07T03:00:00Z")).name, /Tanabata/);
+const html = customerEmailLayout({ title: "Lịch hẹn", content: "<p>Xin chào</p>", settings, date: new Date("2026-11-23T03:00:00Z") });
+for (const value of ["Autumn", settings.salonName, settings.address, settings.phone, settings.email]) assert.ok(html.includes(value));
+const booking = { id: "b1", customer: "Yuki", date: "2026-11-27", start: "11:00", end: "12:00", service: "Nail", language: "ja" };
+const confirmation = appointmentConfirmationEmail({ booking, settings, language: "ja" });
+for (const value of ["Autumn", settings.salonName, settings.address, settings.phone, settings.email]) assert.ok(confirmation.html.includes(value));
+const thanks = thankYouMessage(booking, settings);
+for (const value of [settings.salonName, settings.address, settings.phone, settings.email]) assert.ok(thanks.html.includes(value));
+console.log("PASS seasonal customer email layouts and salon contact details");

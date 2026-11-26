@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { escapeHtml } from "../../../../lib/webText.js";
 import { salonSettings, sendEmail } from "../../../../lib/serverEmail.js";
+import { customerEmailLayout } from "../../../../lib/customerEmailTheme.js";
 import { isThankYouDue, thankYouMessage } from "../../../../lib/thankYouEmail.js";
 
 function authorized(request) {
@@ -40,7 +41,7 @@ export async function GET(request) {
   const results = await Promise.all(due.map(async (booking) => {
     const language = booking.language || "vi";
     const text = language === "ja" ? `明日の予約のお知らせ：${booking.service || "予約"}、${booking.start || ""}〜${booking.end || ""}` : language === "en" ? `Reminder: your appointment is tomorrow at ${booking.start || ""}.` : `Nhắc lịch: bạn có lịch hẹn vào ngày mai lúc ${booking.start || ""}.`;
-    const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [booking.email], subject: text, html: `<p>${escapeHtml(text)}</p><p>${escapeHtml(booking.service)} · ${escapeHtml(booking.start)}–${escapeHtml(booking.end)}</p>` }) });
+    const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [booking.email], subject: text, html: customerEmailLayout({ title: text, content: `<p>${escapeHtml(booking.service)} · ${escapeHtml(booking.date)} · ${escapeHtml(booking.start)}–${escapeHtml(booking.end)}</p>`, settings, language }) }) });
     return { id: booking.id, ok: response.ok, reminderSentAt: response.ok ? new Date().toISOString() : "" };
   }));
   const sentIds = new Map(results.filter((item) => item.ok).map((item) => [String(item.id), item.reminderSentAt]));

@@ -1,3 +1,5 @@
+import { customerEmailLayout } from "../../../lib/customerEmailTheme.js";
+import { salonSettings } from "../../../lib/serverEmail.js";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
@@ -7,7 +9,9 @@ export async function POST(request) {
   if (!apiKey) return NextResponse.json({ ok: false, skipped: true, reason: "RESEND_API_KEY is not configured" }, { status: 503 });
   if (!to || !subject || !html) return NextResponse.json({ ok: false, error: "Missing email fields" }, { status: 400 });
   const recipients = [...(Array.isArray(to) ? to : [to]), ...(includeOwner ? [process.env.OWNER_EMAIL] : [])].filter(Boolean);
-  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [...new Set(recipients)], subject, html, ...(text ? { text } : {}) }) });
+  const settings = await salonSettings();
+  const emailHtml = customerEmailLayout({ title: subject, content: html, settings });
+  const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ from, to: [...new Set(recipients)], subject, html: emailHtml, ...(text ? { text } : {}) }) });
   const data = await response.json().catch(() => ({}));
   return NextResponse.json({ ok: response.ok, ...data }, { status: response.ok ? 200 : response.status });
 }

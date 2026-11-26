@@ -60,7 +60,7 @@ function campaignEmailHtml(
   const action = siteUrl
     ? `<p style="margin:24px 0;text-align:center"><a href="${escapeHtml(siteUrl)}" style="display:inline-block;padding:12px 22px;border-radius:999px;background:#9333ea;color:#fff;text-decoration:none;font-weight:700">${copy.button}</a></p>`
     : "";
-  return `<div style="margin:0;background:#fff7fb;padding:32px 16px;font-family:Arial,sans-serif;color:#332936"><div style="max-width:600px;margin:auto;background:#fff;border:1px solid #f0dce8;border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(100,50,90,.08)"><div style="padding:22px 28px;background:linear-gradient(135deg,#f6d8ec,#eadcff);font-size:12px;letter-spacing:2px;color:#7c3f62">MAI BEAUTY SALON</div><div style="padding:28px"><h1 style="margin:0 0 16px;font-size:24px;line-height:1.3">${escapeHtml(title)}</h1><p style="white-space:pre-line;font-size:15px;line-height:1.7;margin:0">${escapeHtml(message)}</p>${coupon}${action}${image}<p style="margin:24px 0 0;color:#7b6b78;font-size:13px">${copy.closing},<br/><strong>Mai Beauty Salon</strong></p></div></div></div>`;
+  return `<p style="white-space:pre-line;font-size:15px;line-height:1.7;margin:0">${escapeHtml(message)}</p>${coupon}${action}${image}`;
 }
 
 function uniqueCustomers(seed, bookings, orders, accounts = []) {
