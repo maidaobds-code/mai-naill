@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { escapeHtml } from "../../../../lib/webText.js";
+import { salonSettings, sendEmail } from "../../../../lib/serverEmail.js";
+import { isThankYouDue, thankYouMessage } from "../../../../lib/thankYouEmail.js";
 
 function authorized(request) {
   const secret = process.env.CRON_SECRET;
-  return !secret || request.headers.get("authorization") === `Bearer ${secret}`;
+  return Boolean(secret && request.headers.get("authorization") === `Bearer ${secret}`);
 }
 
 export async function GET(request) {
@@ -14,9 +16,10 @@ export async function GET(request) {
   const bookingsResponse = await fetch(`${baseUrl}/api/bookings`, { cache: "no-store" });
   const bookingsResult = await bookingsResponse.json().catch(() => ({}));
   const bookings = Array.isArray(bookingsResult.value) ? bookingsResult.value : [];
+  const settings = await salonSettings();
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const tomorrowKey = tomorrow.toISOString().slice(0, 10);
-  const due = bookings.filter((booking) => booking.email && (booking.date === tomorrowKey || booking.date === tomorrowKey.replaceAll("-", "/")) && !booking.reminderSentAt && !["cancelled", "canceled", "completed"].includes(String(booking.status || "").toLowerCase()) && !booking.deletedAt);
+  const due = settings.emailReminder === false ? [] : bookings.filter((booking) => booking.email && (booking.date === tomorrowKey || booking.date === tomorrowKey.replaceAll("-", "/")) && !booking.reminderSentAt && !["cancelled", "canceled", "completed"].includes(String(booking.status || "").toLowerCase()) && !booking.deletedAt);
   const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || "Mai Beauty Salon <onboarding@resend.dev>";
   const results = await Promise.all(due.map(async (booking) => {
     const language = booking.language || "vi";
@@ -25,9 +28,16 @@ export async function GET(request) {
     return { id: booking.id, ok: response.ok, reminderSentAt: response.ok ? new Date().toISOString() : "" };
   }));
   const sentIds = new Map(results.filter((item) => item.ok).map((item) => [String(item.id), item.reminderSentAt]));
-  if (sentIds.size) {
-    const nextBookings = bookings.map((booking) => sentIds.has(String(booking.id)) ? { ...booking, reminderSentAt: sentIds.get(String(booking.id)) } : booking);
-    await fetch(`${baseUrl}/api/bookings`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ bookings: nextBookings }) }).catch(() => {});
+  const thankYouDue = bookings.filter((booking) => isThankYouDue(booking, settings));
+  const thankYouResults = await Promise.all(thankYouDue.map(async (booking) => {
+    const sent = await sendEmail({ to: booking.email, ...thankYouMessage(booking, settings) }).catch(() => ({ ok: false }));
+    return { id: String(booking.id), ok: Boolean(sent.ok), sentAt: sent.ok ? new Date().toISOString() : "" };
+  }));
+  const thankYouSent = new Map(thankYouResults.filter((item) => item.ok).map((item) => [item.id, item.sentAt]));
+  if (sentIds.size || thankYouSent.size) {
+    const emailMarkers = [...new Set([...sentIds.keys(), ...thankYouSent.keys()])].map((id) => ({ id, reminderSentAt: sentIds.get(id), thankYouSentAt: thankYouSent.get(id) }));
+    const saved = await fetch(`${baseUrl}/api/bookings`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.CRON_SECRET || ""}` }, body: JSON.stringify({ emailMarkers }) }).catch(() => null);
+    if (!saved?.ok) return NextResponse.json({ ok: false, message: "Đã gửi email nhưng không lưu được dấu đã gửi; cần kiểm tra trước lần chạy tiếp." }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, sent: results.filter((item) => item.ok).length, total: due.length, results });
+  return NextResponse.json({ ok: true, sent: results.filter((item) => item.ok).length, total: due.length, thankYouSent: thankYouSent.size, thankYouDue: thankYouDue.length, results });
 }

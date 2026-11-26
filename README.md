@@ -63,6 +63,12 @@ npm run package:windows
 File đầu ra nằm tại `dist/Mainaill-Bot-Setup-<version>.exe`. Sau khi cài, cấu
 hình, log và profile trình duyệt được lưu trong thư mục dữ liệu ứng dụng của
 Windows, tách khỏi thư mục cài đặt. DRY RUN được bật mặc định cho cả hai worker.
+
+### Đăng nhập bot và email cảm ơn
+
+- Cài đặt → Ứng dụng lưu tài khoản HOT/SALON BOARD và Nailie. Mật khẩu được mã hóa AES-GCM trong Supabase bằng `AUTOMATION_CREDENTIALS_KEY` (ít nhất 24 ký tự); nếu không đặt thì dùng `BOOKING_SYNC_SECRET`. Không đưa khóa này vào biến `NEXT_PUBLIC_*`.
+- Bot cần `MAINAILL_URL` và `BOOKING_SYNC_SECRET` để đọc thông tin mới mỗi lần cần đăng nhập. Bản bot đang chạy phải được cập nhật với mã worker mới.
+- Cài đặt → Tự động hóa bật email cảm ơn, đặt số giờ chờ và sửa tiêu đề/nội dung theo từng ngôn ngữ. Cron `/api/cron/booking-reminders` chạy hằng ngày và cần `CRON_SECRET`, `RESEND_API_KEY`, `RESEND_FROM` trên máy chủ. Chỉ lịch web tạo sau khi triển khai mới có mốc `bookedAt` để gửi tự động.
 Ứng dụng mặc định đăng ký khởi động cùng Windows và tự chạy cả Nailie lẫn
 SALON BOARD sau khi máy bật hoặc khởi động lại. Có thể tắt chế độ này trong
 Bot Manager bằng tùy chọn **Tự mở ứng dụng và chạy cả hai bot**.

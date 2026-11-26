@@ -11,6 +11,19 @@ export async function waitBeforeOperation(log = () => {}) {
   await new Promise((resolve) => setTimeout(resolve, delay));
 }
 
+export async function currentLoginCredentials(platform, fallback = {}) {
+  const base = String(process.env.MAINAILL_URL || "").replace(/\/$/, "");
+  const secret = process.env.BOOKING_SYNC_SECRET;
+  if (!base || !secret) return fallback;
+  try {
+    const response = await fetch(`${base}/api/automation-config`, { headers: { authorization: `Bearer ${secret}` }, cache: "no-store", signal: AbortSignal.timeout(10_000) });
+    if (!response.ok) return fallback;
+    const result = await response.json();
+    const saved = result.credentials?.[platform];
+    return saved?.username && saved?.password ? saved : fallback;
+  } catch { return fallback; }
+}
+
 
 // Interleave nearby dates with one distant date every interval; never catch up
 // missed intervals in a burst after sleep or a long-running sync task.

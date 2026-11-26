@@ -13,7 +13,7 @@ import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { awaitTaskCompletion } from "./task-guard.mjs";
 import { isExpiredCapacityTask } from "../lib/syncTaskExpiry.js";
-import { dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
+import { currentLoginCredentials, dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
 
 const url = process.env.NAILIE_SCHEDULE_URL || `https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${dateKey()}&showBooking=true`;
 const profileDir = process.env.NAILIE_PROFILE_DIR || path.resolve(".nailie-profile");
@@ -61,11 +61,12 @@ async function tryAutoLogin(page) {
   if (!await user.count()) { log("Nailie auto-login: username field not found"); return false; }
   const currentUser = String(await user.inputValue().catch(() => "")).trim();
   const currentPassword = String(await password.inputValue().catch(() => ""));
-  if (loginUsername && loginPassword) {
+  const credentials = await currentLoginCredentials("nailie", { username: loginUsername, password: loginPassword });
+  if (credentials.username && credentials.password) {
     await waitBeforeOperation();
-    await user.fill(loginUsername);
+    await user.fill(credentials.username);
     await waitBeforeOperation();
-    await password.fill(loginPassword);
+    await password.fill(credentials.password);
   } else if (!currentUser || !currentPassword) {
     log("Nailie auto-login skipped: configure NAILIE_USERNAME and NAILIE_PASSWORD or fill the visible form");
     return false;

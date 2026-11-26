@@ -123,6 +123,21 @@ export async function GET() {
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
+  if (Array.isArray(body.emailMarkers)) {
+    const secret = process.env.CRON_SECRET;
+    if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return Response.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+    try {
+      const rows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
+      const markers = new Map(body.emailMarkers.filter((item) => item?.id).map((item) => [String(item.id), item]));
+      const value = compactBookings(rows?.[0]?.value).map((booking) => {
+        const marker = markers.get(String(booking.id));
+        if (!marker) return booking;
+        return { ...booking, ...(marker.reminderSentAt && !booking.reminderSentAt ? { reminderSentAt: marker.reminderSentAt } : {}), ...(marker.thankYouSentAt && !booking.thankYouSentAt ? { thankYouSentAt: marker.thankYouSentAt } : {}) };
+      });
+      await supabaseRest("app_kv?on_conflict=owner_id,key", { method: "POST", headers: { prefer: "resolution=merge-duplicates" }, body: JSON.stringify([{ owner_id: OWNER_ID, key: BOOKINGS_KEY, value, updated_at: new Date().toISOString() }]) });
+      return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+    } catch { return Response.json({ ok: false, message: "Không lưu được trạng thái email." }, { status: 500 }); }
+  }
   if (!Array.isArray(body.bookings)) return Response.json({ ok: false, message: "Invalid bookings" }, { status: 400 });
   try {
     const currentRows = await supabaseRest(`app_kv?owner_id=eq.${OWNER_ID}&key=eq.${BOOKINGS_KEY}&select=value&limit=1`);
@@ -148,7 +163,11 @@ export async function POST(request) {
       const next=(!previous && isPendingAssignment(booking)) ? autoAssignBooking(booking,assignmentPool,staff,settings,services) : booking;
       const position=assignmentPool.findIndex(item=>item.id===next.id); if(position>=0)assignmentPool[position]=next;else assignmentPool.push(next); return !previous && next.assignmentStatus === "ASSIGNED" ? {...next,approvalStatus:"AUTO_ASSIGNED"} : next;
     });
-    const submitted = rawSubmitted.map((booking) => mainaillSyncMetadata(booking, current.find((item) => item.id === booking.id)));
+    const submitted = rawSubmitted.map((booking) => {
+      const previous = current.find((item) => item.id === booking.id);
+      const withBookedAt = !previous && String(booking.source || "direct").toLowerCase() === "direct" ? { ...booking, bookedAt: new Date().toISOString() } : booking;
+      return mainaillSyncMetadata(withBookedAt, previous);
+    });
     const currentIds = new Set(current.map((item) => item.id));
     const incomingIds = new Set(submitted.map((item) => item.id));
     const protectedBookings = submitted.map((item) => {

@@ -1,5 +1,6 @@
 import { salonSettings, staffCatalog } from "../../../lib/serverEmail.js";
 import { isAutomationRequest } from "../../../lib/automationAuth.js";
+import { botCredentialsForWorker, readBotCredentials } from "../../../lib/serverBotCredentials.js";
 
 function firstMapping(member, platform) {
   const raw = member?.external?.[platform];
@@ -10,7 +11,8 @@ function firstMapping(member, platform) {
 export async function GET(request) {
   if (!isAutomationRequest(request)) return Response.json({ ok: false, message: "Unauthorized automation client" }, { status: 401 });
   try {
-    const [staff, settings] = await Promise.all([staffCatalog(), salonSettings()]);
+    const [staff, settings, savedCredentials] = await Promise.all([staffCatalog(), salonSettings(), readBotCredentials()]);
+    const credentials = botCredentialsForWorker(savedCredentials);
     const mappings = staff.map((member) => {
       const hotpepper = firstMapping(member, "hotpepper");
       const nailie = firstMapping(member, "nailie");
@@ -20,6 +22,7 @@ export async function GET(request) {
       ok: true,
       fetchedAt: new Date().toISOString(),
       salonAccounts: { salonboard: settings.salonboardLoginId || "", nailie: settings.nailieLoginId || "" },
+      credentials,
       mappings,
       workerMapping: {
         nailie: Object.fromEntries(mappings.filter((item) => item.nailie).map((item) => [item.name, [item.nailie]])),

@@ -24,6 +24,10 @@ export const defaultSettings = {
   staffClosedPeriods: [],
   autoConfirm: true,
   emailReminder: true,
+  thankYouEmailEnabled: false,
+  thankYouDelayHours: 24,
+  thankYouSubject: "Cảm ơn bạn đã đặt lịch tại {salon}",
+  thankYouBody: "Chào {customer},\nCảm ơn bạn đã đặt lịch {service} vào {date} lúc {time}. Hẹn gặp bạn tại {salon}!",
   lineReminder: false,
   depositRequired: false,
   taxRate: 10,
@@ -83,6 +87,9 @@ export default function Settings({ language = "vi", initialPanel }) {
     confirm: "",
   });
   const [passwordMessage, setPasswordMessage] = useState("");
+  const [botPasswords, setBotPasswords] = useState({ salonboard: "", nailie: "" });
+  const [botCredentialStatus, setBotCredentialStatus] = useState({ salonboard: false, nailie: false });
+  const [botCredentialMessage, setBotCredentialMessage] = useState("");
   const tr = (key) => tx(language, "settingsPage", key);
   const tc = (key) => tx(language, "common", key);
 
@@ -230,6 +237,28 @@ export default function Settings({ language = "vi", initialPanel }) {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (isStaff) return;
+    fetch("/api/bot-credentials", { cache: "no-store" }).then((response) => response.json()).then((result) => {
+      if (result.ok) setBotCredentialStatus({ salonboard: Boolean(result.value?.salonboard?.hasPassword), nailie: Boolean(result.value?.nailie?.hasPassword) });
+    }).catch(() => {});
+  }, [isStaff]);
+
+  async function saveBotLogin(platform) {
+    setBotCredentialMessage("");
+    const username = String(settings[platform === "salonboard" ? "salonboardLoginId" : "nailieLoginId"] || "").trim();
+    if (!username) { setBotCredentialMessage("Hãy nhập tên đăng nhập trước khi lưu."); return; }
+    try {
+      const response = await fetch("/api/bot-credentials", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ platform, username, password: botPasswords[platform] }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || "Không thể lưu tài khoản bot.");
+      await saveServerSettings(settings);
+      setBotCredentialStatus({ salonboard: Boolean(result.value?.salonboard?.hasPassword), nailie: Boolean(result.value?.nailie?.hasPassword) });
+      setBotPasswords((current) => ({ ...current, [platform]: "" }));
+      setBotCredentialMessage("Đã lưu. Bot sẽ lấy mật khẩu mới khi cần đăng nhập.");
+    } catch (error) { setBotCredentialMessage(error.message || "Không thể lưu tài khoản bot."); }
+  }
 
   async function saveServerSettings(value) {
     const response = await fetch("/api/settings", {
@@ -607,6 +636,14 @@ export default function Settings({ language = "vi", initialPanel }) {
               />{" "}
               {tr("deposit")}
             </label>
+            <div className="staffScheduleDay">
+              <h3>Email cảm ơn khách đặt lịch</h3>
+              <label className="toggleLine"><input type="checkbox" checked={Boolean(settings.thankYouEmailEnabled)} onChange={(event) => update("thankYouEmailEnabled", event.target.checked)} /> Tự động gửi email cảm ơn</label>
+              <label>Gửi sau khi khách đặt lịch (giờ)<input type="number" min="1" max="720" value={settings.thankYouDelayHours || 24} onChange={(event) => update("thankYouDelayHours", Math.min(720, Math.max(1, Number(event.target.value) || 1)))} /></label>
+              <p className="mutedText">Cron kiểm tra mỗi ngày. Các biến có thể dùng: {"{customer}"}, {"{service}"}, {"{date}"}, {"{time}"}, {"{salon}"}. Lịch đã hủy sẽ không nhận email.</p>
+              <LocalizedContentEditor value={settings} onChange={(value) => { setSettings(value); setSaved(false); }} field="thankYouSubject" label="Tiêu đề email cảm ơn" multiline={false} />
+              <LocalizedContentEditor value={settings} onChange={(value) => { setSettings(value); setSaved(false); }} field="thankYouBody" label="Nội dung email cảm ơn" />
+            </div>
             {saved && <p className="successNote">{tr("saved")}</p>}
           </section>
         )}
@@ -800,16 +837,21 @@ export default function Settings({ language = "vi", initialPanel }) {
               <article className="connectorSetupCard hotpepperCard">
                 <header><span className="appLogo hotpepperLogo">SB</span><div><h3>SALON BOARD</h3><p>Một tài khoản salon, mapping riêng từng nhân viên.</p></div></header>
                 <label>Tài khoản salon<input value={settings.salonboardLoginId || ""} onChange={(event) => update("salonboardLoginId", event.target.value)} placeholder="Tên đăng nhập hoặc account ID" /></label>
+                <label>Mật khẩu HOT / SALON BOARD<input type="password" autoComplete="new-password" value={botPasswords.salonboard} onChange={(event) => setBotPasswords((current) => ({ ...current, salonboard: event.target.value }))} placeholder={botCredentialStatus.salonboard ? "Đã lưu · để trống nếu giữ mật khẩu" : "Nhập mật khẩu"} /></label>
+                <button type="button" className="ghost" onClick={() => saveBotLogin("salonboard")}>Lưu đăng nhập HOT</button>
                 <label>Tên hoặc mã của nhân viên trên SALON BOARD<div className="externalAccountRow"><input value={linkedAccounts.hotpepper?.[0] || ""} onChange={(event) => updateLinkedAccount("hotpepper", 0, event.target.value)} placeholder="Ví dụ: Mai Mai" /><button type="button" className="iconClearButton" aria-label="Xóa mapping SALON BOARD" onClick={() => updateLinkedAccount("hotpepper", 0, "")} disabled={!linkedAccounts.hotpepper?.[0]}>×</button></div></label>
               </article>
 
               <article className="connectorSetupCard nailieCard">
                 <header><span className="appLogo nailieLogo">N</span><div><h3>Nailie</h3><p>Một tài khoản salon, mapping riêng từng nhân viên.</p></div></header>
                 <label>Tài khoản salon<input value={settings.nailieLoginId || ""} onChange={(event) => update("nailieLoginId", event.target.value)} placeholder="Tên đăng nhập hoặc account ID" /></label>
+                <label>Mật khẩu Nailie<input type="password" autoComplete="new-password" value={botPasswords.nailie} onChange={(event) => setBotPasswords((current) => ({ ...current, nailie: event.target.value }))} placeholder={botCredentialStatus.nailie ? "Đã lưu · để trống nếu giữ mật khẩu" : "Nhập mật khẩu"} /></label>
+                <button type="button" className="ghost" onClick={() => saveBotLogin("nailie")}>Lưu đăng nhập Nailie</button>
                 <label>Tên hoặc mã của nhân viên trên Nailie<div className="externalAccountRow"><input value={linkedAccounts.nailie?.[0] || ""} onChange={(event) => updateLinkedAccount("nailie", 0, event.target.value)} placeholder="Ví dụ: マイマイ hoặc mã nhân viên" /><button type="button" className="iconClearButton" aria-label="Xóa mapping Nailie" onClick={() => updateLinkedAccount("nailie", 0, "")} disabled={!linkedAccounts.nailie?.[0]}>×</button></div></label>
               </article>
             </div><aside className="linkedStaffDirectory"><header><div><h3>Nhân viên đã liên kết</h3><p>{linkedMappings.length} liên kết trên {staff.length} nhân viên</p></div><span>{linkedMappings.length}</span></header><div className="linkedStaffList">{linkedMappings.length ? linkedMappings.map((item) => <article key={`${item.staffId}-${item.platform}`}><div className={`linkedPlatformIcon ${item.platform}`}>{item.platform === "hotpepper" ? "SB" : "N"}</div><div className="linkedStaffInfo"><strong>{item.staffName}</strong><span>{item.platformLabel}</span><small>Tài khoản salon: {item.salonAccount}</small><small>Nhân viên ngoài: {item.externalStaff}</small></div><div className="linkedStaffActions"><button type="button" onClick={() => editLinkedMapping(item.staffId)}>Sửa</button><button type="button" className="danger" onClick={() => removeLinkedMapping(item.staffId, item.platform, item.staffName)}>Xóa</button></div></article>) : <div className="emptyLinkedStaff"><span>↗</span><strong>Chưa có nhân viên liên kết</strong><p>Chọn nhân viên và lưu mapping ở bên trái.</p></div>}</div></aside></div>
 
+            {botCredentialMessage && <p role="status" className="successNote">{botCredentialMessage}</p>}
             <div className="appSyncNotice"><span>✓</span><p><strong>Đối chiếu an toàn</strong> Nếu hai nền tảng nhận lịch trùng nhân viên, Mainaill giữ nguyên cả hai và gửi Gmail để chủ quán phân công lại.</p></div>
             <div className="appSyncActions"><div>{saved && <p className="successNote">Đã lưu cấu hình đồng bộ.</p>}{qrUploadError && <p className="errorNote">{qrUploadError}</p>}</div><button className="primary" type="button" onClick={saveLinkedAccounts}>Lưu cấu hình đồng bộ</button></div>
           </section>

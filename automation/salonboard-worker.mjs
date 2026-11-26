@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { chromium } from "playwright";
 import { compactSalonboardName as compactName, salonboardStaffHeaderName as staffHeaderName } from "../lib/salonboardNames.mjs";
 import { awaitTaskCompletion } from "./task-guard.mjs";
-import { createScheduleScanPlanner, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
+import { createScheduleScanPlanner, currentLoginCredentials, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
 
 const url = process.env.SALONBOARD_SCHEDULE_URL || "https://salonboard.com/login/";
 const loginUrl = "https://salonboard.com/login/";
@@ -158,9 +158,10 @@ async function tryAutoLogin(page) {
     log("SALON BOARD auto-login skipped: login fields not found");
     return false;
   }
-  if (loginUsername && loginPassword) {
-    await hotAction(() => user.fill(loginUsername));
-    await hotAction(() => password.fill(loginPassword));
+  const credentials = await currentLoginCredentials("salonboard", { username: loginUsername, password: loginPassword });
+  if (credentials.username && credentials.password) {
+    await hotAction(() => user.fill(credentials.username));
+    await hotAction(() => password.fill(credentials.password));
   } else if (!await user.evaluate((input) => Boolean(input.value.trim())) || !await password.evaluate((input) => Boolean(input.value))) {
     log("SALON BOARD auto-login skipped: configure credentials in Bot Manager or fill both browser fields");
     return false;
