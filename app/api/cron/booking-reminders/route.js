@@ -17,6 +17,22 @@ export async function GET(request) {
   const bookingsResult = await bookingsResponse.json().catch(() => ({}));
   const bookings = Array.isArray(bookingsResult.value) ? bookingsResult.value : [];
   const settings = await salonSettings();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+  const ownerId = String(process.env.CATALOG_OWNER_ID || "00000000-0000-0000-0000-000000000001").trim().replace(/^[\'\"]|[\'\"]$/g, "");
+  let sales = [];
+  if (supabaseUrl && serviceKey) {
+    const response = await fetch(`${supabaseUrl}/rest/v1/app_kv?owner_id=eq.${ownerId}&key=eq.nail-japan-pos-sales&select=value&limit=1`, { cache: "no-store", headers: { apikey: serviceKey, authorization: `Bearer ${serviceKey}` } });
+    if (!response.ok) return NextResponse.json({ ok: false, message: "Không đọc được dữ liệu thanh toán; chưa gửi email cảm ơn." }, { status: 503 });
+    const rows = await response.json();
+    sales = Array.isArray(rows?.[0]?.value) ? rows[0].value : [];
+  }
+  const paidSales = new Map();
+  for (const sale of sales) {
+    if (!sale?.appointmentId || sale.voided || String(sale.paymentStatus || "").toLowerCase() !== "paid") continue;
+    const id = String(sale.appointmentId);
+    if (!paidSales.has(id) || Date.parse(sale.issuedAt || "") < Date.parse(paidSales.get(id).issuedAt || "")) paidSales.set(id, sale);
+  }
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const tomorrowKey = tomorrow.toISOString().slice(0, 10);
   const due = settings.emailReminder === false ? [] : bookings.filter((booking) => booking.email && (booking.date === tomorrowKey || booking.date === tomorrowKey.replaceAll("-", "/")) && !booking.reminderSentAt && !["cancelled", "canceled", "completed"].includes(String(booking.status || "").toLowerCase()) && !booking.deletedAt);
@@ -28,7 +44,7 @@ export async function GET(request) {
     return { id: booking.id, ok: response.ok, reminderSentAt: response.ok ? new Date().toISOString() : "" };
   }));
   const sentIds = new Map(results.filter((item) => item.ok).map((item) => [String(item.id), item.reminderSentAt]));
-  const thankYouDue = bookings.filter((booking) => isThankYouDue(booking, settings));
+  const thankYouDue = bookings.filter((booking) => isThankYouDue(booking, settings, paidSales.get(String(booking.id))));
   const thankYouResults = await Promise.all(thankYouDue.map(async (booking) => {
     const sent = await sendEmail({ to: booking.email, ...thankYouMessage(booking, settings) }).catch(() => ({ ok: false }));
     return { id: String(booking.id), ok: Boolean(sent.ok), sentAt: sent.ok ? new Date().toISOString() : "" };

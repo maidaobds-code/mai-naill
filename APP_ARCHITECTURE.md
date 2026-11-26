@@ -80,7 +80,7 @@ LocalStorage chỉ là cache/khởi tạo UI. Dữ liệu thay đổi phải đ�
 
 Server `/api/orders` phát hiện ID mới rồi gọi `managementEmails()` + `sendEmail()` trong `lib/serverEmail.js` để gửi owner/manager/admin. Email cần `RESEND_API_KEY` và `RESEND_FROM`/`EMAIL_FROM`.
 
-Cron `/api/cron/booking-reminders` dùng `CRON_SECRET` để gửi nhắc lịch và email cảm ơn. Email cảm ơn chỉ xét booking web có `bookedAt`, sau khoảng giờ được chọn trong Cài đặt → Tự động hóa; đánh dấu `thankYouSentAt` qua API trước lần chạy tiếp theo.
+Cron `/api/cron/booking-reminders` dùng `CRON_SECRET` để gửi nhắc lịch và email cảm ơn. Email cảm ơn chỉ xét lịch đã kết thúc, có hóa đơn POS `Paid` không bị hủy và liên kết qua `appointmentId`, sau khoảng giờ được chọn tính từ lúc thanh toán hoặc kết thúc lịch (mốc nào muộn hơn) trong Cài đặt → Tự động hóa; đánh dấu `thankYouSentAt` qua API trước lần chạy tiếp theo.
 
 Email quản lý lấy từ:
 

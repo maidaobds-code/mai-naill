@@ -28,10 +28,17 @@ try { assert.deepEqual(await currentLoginCredentials("nailie", { username: "old"
 finally { globalThis.fetch = originalFetch; }
 
 const settings = { thankYouEmailEnabled: true, thankYouDelayHours: 24, salonName: "Mai Beauty Salon", thankYouSubjectJa: "ありがとう {customer}", thankYouBodyJa: "{service} {date} {time}" };
-const booking = { email: "guest@example.com", customer: "Yuki", service: "Nail", date: "2026-11-27", start: "11:00", language: "ja", bookedAt: "2026-11-26T00:00:00.000Z" };
-assert.equal(isThankYouDue(booking, settings, Date.parse("2026-11-26T23:59:59Z")), false);
-assert.equal(isThankYouDue(booking, settings, Date.parse("2026-11-27T00:00:00Z")), true);
-assert.equal(isThankYouDue({ ...booking, status: "cancelled" }, settings, Date.parse("2026-11-27T00:00:00Z")), false);
-assert.equal(isThankYouDue({ ...booking, thankYouSentAt: "2026-11-27T01:00:00Z" }, settings, Date.parse("2026-11-28T00:00:00Z")), false);
+const booking = { id: "booking-1", email: "guest@example.com", customer: "Yuki", service: "Nail", date: "2026-11-27", start: "11:00", end: "12:00", language: "ja", bookedAt: "2026-11-26T00:00:00.000Z" };
+const sale = { appointmentId: "booking-1", paymentStatus: "Paid", issuedAt: "2026-11-27T03:00:00.000Z" };
+const due = Date.parse("2026-11-28T03:00:00.000Z");
+assert.equal(isThankYouDue(booking, settings, null, due), false);
+assert.equal(isThankYouDue(booking, settings, { ...sale, paymentStatus: "Partial" }, due), false);
+assert.equal(isThankYouDue(booking, settings, { ...sale, voided: true }, due), false);
+assert.equal(isThankYouDue(booking, settings, { ...sale, appointmentId: "other" }, due), false);
+assert.equal(isThankYouDue(booking, settings, { ...sale, issuedAt: "2026-11-26T00:00:00.000Z" }, due), false);
+assert.equal(isThankYouDue(booking, settings, sale, due - 1), false);
+assert.equal(isThankYouDue(booking, settings, sale, due), true);
+assert.equal(isThankYouDue({ ...booking, status: "cancelled" }, settings, sale, due), false);
+assert.equal(isThankYouDue({ ...booking, thankYouSentAt: "2026-11-27T04:00:00Z" }, settings, sale, due), false);
 assert.equal(thankYouMessage(booking, settings).subject, "ありがとう Yuki");
-console.log("PASS encrypted bot credentials and delayed, localized one-time thank-you email");
+console.log("PASS encrypted bot credentials and payment-gated, localized one-time thank-you email");
