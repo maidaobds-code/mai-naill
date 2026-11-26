@@ -48,6 +48,7 @@ supabase/
 | Dữ liệu | Client cache | Server/Supabase key hoặc Storage | API chính |
 |---|---|---|---|
 | Settings/logo/QR | `nail-japan-settings` | `app_kv` key `nail-japan-settings`; ảnh bucket `mai-beauty-assets` | `/api/settings`, `/api/image-upload`, `/api/qr-upload` |
+| Bot login credentials | Không lưu mật khẩu ở browser cache | `app_kv` key `nail-japan-bot-credentials`, AES-GCM | `/api/bot-credentials`, `/api/automation-config` |
 | Accounts/role | `nail-japan-accounts-v1` | `app_kv` key `nail-japan-accounts-v1` | `/api/accounts` |
 | Staff | `nail-japan-staff` | `app_kv` key `nail-japan-staff` | `/api/staff` |
 | Bookings | browser cache | `app_kv` key `nail-japan-bookings` | `/api/bookings` |
@@ -78,6 +79,8 @@ LocalStorage chỉ là cache/khởi tạo UI. Dữ liệu thay đổi phải đ�
 `OnlineStore.addOrder` → `orderStore.saveStoreOrders` → `/api/orders` → Supabase.
 
 Server `/api/orders` phát hiện ID mới rồi gọi `managementEmails()` + `sendEmail()` trong `lib/serverEmail.js` để gửi owner/manager/admin. Email cần `RESEND_API_KEY` và `RESEND_FROM`/`EMAIL_FROM`.
+
+Cron `/api/cron/booking-reminders` dùng `CRON_SECRET` để gửi nhắc lịch và email cảm ơn. Email cảm ơn chỉ xét booking web có `bookedAt`, sau khoảng giờ được chọn trong Cài đặt → Tự động hóa; đánh dấu `thankYouSentAt` qua API trước lần chạy tiếp theo.
 
 Email quản lý lấy từ:
 
@@ -118,3 +121,4 @@ Build có thể gặp lỗi môi trường Windows `EPERM` khi Next tạo `.next
 ## Nhật ký thay đổi kiến trúc
 
 - 2026-10-27: Tạo bản đồ kiến trúc và quy tắc đồng bộ để dùng làm tài liệu tham chiếu sau mỗi lần sửa.
+- 2026-11-26: Đồng bộ các tính năng đến `c1a3c0e` vào `C:\Mainaill\nail-japan-mvp`; kiểm tra booking sync, staff sync, timeline, bot credentials/email, webPRNT và build đều đạt. Bộ cài bot mới là 0.1.30.
