@@ -10,6 +10,9 @@ assert.match(main, /setLoginItemSettings\(\{ openAtLogin: Boolean\(config\.autoS
 assert.match(main, /applyStartupSettings\(config\);[\s\S]*if \(config\.autoStartBot\)/);
 assert.match(main, /startWorker\("salonboard"\)/);
 assert.match(main, /startWorker\("nailie"\)/);
+assert.match(main, /Worker will restart in 30 seconds after an unexpected exit/);
+assert.match(main, /quitting \|\| intentionallyStopped\.has\(name\)/);
+assert.match(main, /if \(workers\.get\(name\) === child\) workers\.delete\(name\)/);
 assert.match(main, /Object\.hasOwn\(stored, "autoStartBot"\) \? Boolean\(stored\.autoStartBot\) : true/);
 assert.match(setup, /"autoStartBot"/);
 assert.doesNotMatch(setup, /"startWorkersOnLaunch"|"startWithWindows"/);

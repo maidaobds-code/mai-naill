@@ -406,12 +406,13 @@ async function launchChrome() {
   } catch {}
   const bundledRoot = process.env.PLAYWRIGHT_BROWSERS_PATH || "";
   const candidates = [
-    bundledRoot && path.join(bundledRoot, "chromium-1248", "chrome-win64", "chrome.exe"),
     process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, "Google", "Chrome", "Application", "chrome.exe"),
     process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"),
+    bundledRoot && path.join(bundledRoot, "chromium-1248", "chrome-win64", "chrome.exe"),
   ].filter(Boolean);
   const executable = candidates.find((item) => fsSync.existsSync(item));
   if (!executable) throw new Error("Không tìm thấy Chrome cho Nailie");
+  log("Nailie launching Chrome", executable);
   const child = spawn(executable, [
     `--remote-debugging-port=${debugPort}`,
     `--user-data-dir=${profileDir}`,

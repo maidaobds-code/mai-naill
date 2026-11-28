@@ -24,6 +24,9 @@ const DEFAULT_CONFIG = {
 let mainWindow;
 const workers = new Map();
 const startingWorkers = new Set();
+const restartTimers = new Map();
+const intentionallyStopped = new Set();
+let quitting = false;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 app.on("second-instance", () => {
@@ -139,6 +142,7 @@ function sendWorkerState() {
 
 async function startWorker(name) {
   if (workers.has(name) || startingWorkers.has(name)) return;
+  intentionallyStopped.delete(name);
   startingWorkers.add(name);
   try {
   await fetchAutomationConfig();
@@ -148,21 +152,31 @@ async function startWorker(name) {
     ensureDataFolders();
     fs.appendFileSync(launcherLog, `${new Date().toISOString()} ${String(value || "").trim()}\n`, "utf8");
   };
+  const scheduleRestart = () => {
+    if (quitting || intentionallyStopped.has(name) || restartTimers.has(name)) return;
+    appendLauncherLog("Worker will restart in 30 seconds after an unexpected exit");
+    restartTimers.set(name, setTimeout(() => {
+      restartTimers.delete(name);
+      startWorker(name).catch((error) => { appendLauncherLog(error?.message || error); scheduleRestart(); });
+    }, 30_000));
+  };
   const child = spawn(process.execPath, [scriptPath(name)], { env: workerEnvironment(name, config), stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
   workers.set(name, child);
   child.stderr?.on("data", (value) => appendLauncherLog(value));
   child.once("exit", (code, signal) => {
-    workers.delete(name);
+    if (workers.get(name) === child) workers.delete(name);
     if (code && code !== 0) {
       appendLauncherLog(`Worker exited with code ${code}${signal ? ` signal ${signal}` : ""}`);
       mainWindow?.webContents.send("mapping:error", `${name === "salonboard" ? "SALON BOARD / HOT PEPPER" : "Nailie"} dừng với mã lỗi ${code}. Hãy mở thư mục log để xem ${name}-launcher.log.`);
     }
+    scheduleRestart();
     sendWorkerState();
   });
   child.once("error", (error) => {
-    workers.delete(name);
+    if (workers.get(name) === child) workers.delete(name);
     appendLauncherLog(error?.stack || error?.message || error);
     mainWindow?.webContents.send("mapping:error", `Không thể mở ${name}: ${error.message}`);
+    scheduleRestart();
     sendWorkerState();
   });
   sendWorkerState();
@@ -172,6 +186,9 @@ async function startWorker(name) {
 }
 
 function stopWorker(name) {
+  intentionallyStopped.add(name);
+  if (restartTimers.has(name)) clearTimeout(restartTimers.get(name));
+  restartTimers.delete(name);
   const child = workers.get(name);
   if (!child) return;
   child.kill();
@@ -219,6 +236,6 @@ app.whenReady().then(() => {
   app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
-app.on("before-quit", () => { for (const name of [...workers.keys()]) stopWorker(name); });
+app.on("before-quit", () => { quitting = true; for (const name of [...workers.keys()]) stopWorker(name); });
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 
