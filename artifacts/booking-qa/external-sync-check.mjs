@@ -1,12 +1,21 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { acknowledgeProviderSync, bookingSlotKey, ingestExternalBooking } from "../../lib/bookingSync.js";
+import { autoAssignBooking } from "../../lib/autoAssignment.js";
 
 const nailie = ingestExternalBooking([], {
   provider: "nailie",
   externalBookingId: "NL-100",
   booking: { date: "2026-11-03", start: "10:00", end: "11:00", staffId: "staff-mai", staff: "Mai", customer: "Nailie customer" },
 }, "2026-11-03T01:00:00.000Z");
+const unassignedNailie = ingestExternalBooking([], { provider: "nailie", externalBookingId: "NL-NO-STAFF", booking: { date: "2026-11-30", start: "14:00", end: "15:00", customer: "Yuki", service: "Nail" } });
+assert.equal(unassignedNailie.bookings.length, 1);
+assert.equal(unassignedNailie.result.assignmentStatus, "PENDING_ASSIGNMENT");
+const orderedStaff = [{ id: "first", name: "Mai", active: true }, { id: "second", name: "Hana", active: true }];
+const assignedFirst = autoAssignBooking(unassignedNailie.result, unassignedNailie.bookings, orderedStaff);
+assert.equal(assignedFirst.staffId, "first");
+const assignedSecond = autoAssignBooking({ ...unassignedNailie.result, id: "another" }, [assignedFirst], orderedStaff);
+assert.equal(assignedSecond.staffId, "second");
 assert.equal(nailie.bookings.length, 1);
 assert.equal(nailie.result.source, "nailie");
 assert.equal(nailie.result.providerSync.nailie.status, "synced");
@@ -78,6 +87,7 @@ assert.deepEqual(retry4.result.pendingSyncActions, [{ target: "nailie", action: 
 
 const cancelled = ingestExternalBooking(acknowledged.bookings, { provider: "nailie", externalBookingId: "NL-100", action: "cancel" });
 assert.equal(cancelled.result.status, "CANCELLED");
+assert.ok(cancelled.result.deletedAt);
 assert.equal(cancelled.result.providerSync.hotpepper.status, "pending");
 assert.deepEqual(cancelled.tasks, []);
 const assignedNailie = acknowledged.bookings.map((booking) => ({ ...booking, assignmentStatus: "ASSIGNED", staff: "Mai", staffId: "staff-mai" }));
@@ -89,6 +99,9 @@ assert.equal(movedAssigned.result.assignmentStatus, "PENDING_ASSIGNMENT");
 assert.equal(movedAssigned.tasks[0].target, "hotpepper");
 assert.equal(movedAssigned.tasks[0].match.start, "10:00");
 const cancelledAssigned = ingestExternalBooking(assignedNailie, { provider: "nailie", externalBookingId: "NL-100", action: "cancel" });
+const cancelledHot = ingestExternalBooking(hotExisting.bookings, { provider: "hotpepper", externalBookingId: "HP-100", action: "cancel" });
+assert.equal(cancelledHot.result.status, "CANCELLED");
+assert.ok(cancelledHot.result.deletedAt);
 assert.equal(cancelledAssigned.tasks[0].target, "hotpepper");
 assert.equal(cancelledAssigned.tasks[0].action, "cancel");
 

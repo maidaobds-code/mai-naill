@@ -322,7 +322,6 @@ async function scanExternalBookings(page, date) {
     log("Nailie schedule unchanged; skipping sync", date);
     return;
   }
-  observedFingerprints.set(date, fingerprint);
   let observations = {};
   try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
   const activeIds = [];
@@ -332,7 +331,7 @@ async function scanExternalBookings(page, date) {
     const order = Array.isArray(record.orders) ? record.orders.find((item) => item?.staff) : null;
     const externalName = String(order?.staff?.name || "").trim();
     const externalId = String(order?.staff?.id || "").trim();
-    if (!record.id || !record.startTime || !record.endTime || !externalName) continue;
+    if (!record.id || !record.startTime || !record.endTime) continue;
     const start = tokyoParts(record.startTime);
     const end = tokyoParts(record.endTime);
     const services = [...new Set((record.orders || []).map((item) => String(item.serviceName || item.service?.name || "").trim()).filter(Boolean))];
@@ -354,6 +353,7 @@ async function scanExternalBookings(page, date) {
   observations[date] = activeIds;
   await fs.mkdir(path.dirname(observationFile), { recursive: true });
   await fs.writeFile(observationFile, JSON.stringify(observations, null, 2), "utf8");
+  observedFingerprints.set(date, fingerprint);
   log("Nailie external bookings scanned", JSON.stringify({ date, found: records.length, imported }));
 }
 

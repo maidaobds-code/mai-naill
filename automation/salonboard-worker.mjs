@@ -218,7 +218,6 @@ async function scanExternalBookings(page, date) {
     log("SALON BOARD schedule unchanged; skipping sync", date);
     return;
   }
-  observedFingerprints.set(`bookings:${date}`, fingerprint);
   let observations = {};
   try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
   const activeIds = [];
@@ -243,6 +242,7 @@ async function scanExternalBookings(page, date) {
   observations[date] = activeIds;
   await fs.mkdir(path.dirname(observationFile), { recursive: true });
   await fs.writeFile(observationFile, JSON.stringify(observations, null, 2), "utf8");
+  observedFingerprints.set(`bookings:${date}`, fingerprint);
   log("SALON BOARD external bookings scanned", JSON.stringify({ date, found: records.length, imported }));
 }
 
