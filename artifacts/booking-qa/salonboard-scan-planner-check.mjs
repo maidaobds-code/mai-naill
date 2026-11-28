@@ -1,46 +1,32 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createScheduleScanPlanner } from '../../automation/worker-utils.mjs';
+import { createTieredScanPlanner } from '../../automation/worker-utils.mjs';
+
 const start = Date.parse('2026-11-13T00:00:00+09:00');
-const planner = createScheduleScanPlanner({ now: start });
-const seen = new Set();
-let lastDistant = start;
-let distantCount = 0;
-for (let minute = 0; minute <= 12 * 60; minute++) {
-  const now = start + minute * 60_000;
+const planner = createTieredScanPlanner({ now: start });
+const times = new Map();
+for (let step = 0; step < 48 * 60 * 2; step++) {
+  const now = start + step * 30_000;
   const plan = planner.next(now);
-  assert.ok(plan.offset >= 0 && plan.offset < 93);
-  seen.add(plan.offset);
-  if (plan.kind === 'distant') {
-    assert.ok(now - lastDistant >= 600_000, 'distant dates must be spaced by at least 10 minutes');
-    lastDistant = now;
-    distantCount++;
-  }
+  if (!plan) continue;
+  if (!times.has(plan.offset)) times.set(plan.offset, []);
+  times.get(plan.offset).push(now);
   planner.complete(plan, now);
 }
-assert.equal(seen.size, 93, 'all dates must be covered by interleaving without an end-of-day burst');
-assert.equal(distantCount, 72);
-const retry = createScheduleScanPlanner({ now: start });
-const failed = retry.next(start);
-assert.deepEqual(retry.next(start + 60_000), failed, 'failed scans must not advance');
-retry.complete(failed, start);
-assert.equal(retry.next(start).offset, 1);
-const afterSleep = retry.next(start + 20 * 3_600_000);
-assert.equal(afterSleep.kind, 'distant');
-retry.complete(afterSleep, start + 20 * 3_600_000);
-assert.equal(retry.next(start + 20 * 3_600_000).kind, 'near', 'resume must not catch up missed intervals in a burst');
-const midnight = createScheduleScanPlanner({ now: Date.parse('2026-11-13T15:01:00Z') });
-assert.equal(midnight.next(Date.parse('2026-11-13T15:01:00Z')).date, '2026-11-14', 'dates must use Japan timezone');
-const short = createScheduleScanPlanner({ nearDays: 2, horizonDays: 2, now: start });
-for (let i = 0; i < 5; i++) {
-  const plan = short.next(start + i * 600_000);
-  assert.equal(plan.kind, 'near');
-  assert.equal(plan.offset, i % 2);
-  short.complete(plan, start + i * 600_000);
+assert.equal(times.size, 31, 'every date in the month must be scanned');
+for (let offset = 0; offset < 31; offset++) {
+  const observed = times.get(offset);
+  assert.ok(observed.length >= (offset === 0 ? 400 : offset <= 7 ? 130 : 1), `date offset ${offset} was scanned too rarely`);
+  const expected = offset === 0 ? 3 * 60_000 : offset <= 7 ? 10 * 60_000 : 24 * 60 * 60_000;
+  for (let index = 1; index < observed.length; index++) assert.ok(observed[index] - observed[index - 1] >= expected);
 }
-const source = fs.readFileSync('automation/salonboard-worker.mjs', 'utf8');
-assert.ok(source.indexOf('const tasks = await fetchSyncTasks()') < source.indexOf('const scanPlan = scanPlanner.next()'), 'booking sync tasks must run before background scans');
-assert.doesNotMatch(source, /fullSweepDue|lastFullSweepDate|END_OF_DAY/);
-assert.match(source, /SALON BOARD priority date scan/);
-assert.match(source, /SALONBOARD_SCAN_INTERVAL_MS \|\| 60_000/);
-console.log('PASS distributed coverage of all 93 dates, spacing, retries, no wake-up burst, Japan midnight, and sync-task priority');
+const retry = createTieredScanPlanner({ now: start });
+assert.deepEqual(retry.next(start), retry.next(start + 30_000), 'failed scans must remain due');
+const midnight = createTieredScanPlanner({ now: Date.parse('2026-11-13T15:01:00Z') });
+assert.equal(midnight.next(Date.parse('2026-11-13T15:01:00Z')).date, '2026-11-14');
+const hot = fs.readFileSync('automation/salonboard-worker.mjs', 'utf8');
+const nailie = fs.readFileSync('automation/nailie-worker.mjs', 'utf8');
+assert.match(hot, /createTieredScanPlanner/);
+assert.match(nailie, /createTieredScanPlanner/);
+assert.match(nailie, /await waitBeforeOperation\(\);\s+const observation = await scanExternalBookings/);
+console.log('PASS today every 3 minutes, week every 10 minutes, month distributed, Japan dates, spaced Nailie reads');

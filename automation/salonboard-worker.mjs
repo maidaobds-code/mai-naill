@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { chromium } from "playwright";
 import { compactSalonboardName as compactName, salonboardStaffHeaderName as staffHeaderName } from "../lib/salonboardNames.mjs";
 import { awaitTaskCompletion } from "./task-guard.mjs";
-import { createScheduleScanPlanner, currentLoginCredentials, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
+import { createTieredScanPlanner, currentLoginCredentials, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
 
 const url = process.env.SALONBOARD_SCHEDULE_URL || "https://salonboard.com/login/";
 const loginUrl = "https://salonboard.com/login/";
@@ -22,15 +22,10 @@ const scheduleUrl = "https://salonboard.com/KLP/schedule/salonSchedule/";
 const profileDir = process.env.SALONBOARD_PROFILE_DIR || path.resolve(".salonboard-profile");
 const debugPort = Number(process.env.SALONBOARD_DEBUG_PORT || 9229);
 const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000));
-const scanIntervalMs = Math.max(60_000, Number(process.env.SALONBOARD_SCAN_INTERVAL_MS || 60_000));
-const priorityScanIntervalMs = Math.max(2 * 60_000, Number(process.env.SALONBOARD_PRIORITY_SCAN_INTERVAL_MS || 5 * 60_000));
 // SALON BOARD can expire an otherwise valid browser session after a period of
 // inactivity. Keep the same visible session active, including during quiet
 // hours, without opening a second browser or attempting to bypass login/CAPTCHA.
 const keepAliveMs = Math.max(60_000, Number(process.env.SALONBOARD_KEEPALIVE_MS || 10 * 60_000));
-const daytimeScanDays = Math.max(1, Number(process.env.SALONBOARD_DAY_SCAN_DAYS || 31));
-const scanHorizonDays = Math.max(daytimeScanDays, Number(process.env.SALONBOARD_SCAN_HORIZON_DAYS || 93));
-const distantScanIntervalMs = Math.max(60_000, Number(process.env.SALONBOARD_DISTANT_SCAN_INTERVAL_MS || 10 * 60_000));
 const dryRun = String(process.env.SALONBOARD_DRY_RUN ?? "true").toLowerCase() !== "false";
 const logFile = process.env.SALONBOARD_LOG || path.resolve("logs", "salonboard-worker.log");
 const observationFile = process.env.SALONBOARD_OBSERVATION_FILE || path.resolve("runtime", "salonboard-observed-bookings.json");
@@ -696,11 +691,9 @@ async function run() {
   // on about:blank.
   const navigated = manualVerificationRequired && page.url() !== "about:blank" ? true : await navigate(page);
   if (!navigated) await alertAdmin("Không mở được SALON BOARD sau 3 lần thử");
-  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} daytimeScanDays=${daytimeScanDays} scanHorizonDays=${scanHorizonDays} distantScanIntervalMs=${distantScanIntervalMs} scanMode=interleaved continuous=true`);
+  log("SALON BOARD worker started", `dryRun=${dryRun} pollMs=${pollMs} scanDays=31 today=3min week=10min month=distributed`);
 
-  const scanPlanner = createScheduleScanPlanner({ nearDays: daytimeScanDays, horizonDays: scanHorizonDays, distantIntervalMs: distantScanIntervalMs });
-  let lastScanAt = 0;
-  let lastPriorityScanAt = 0;
+  const scanPlanner = createTieredScanPlanner();
   for (;;) {
     try {
       if (await isHumanVerificationPage(page)) await requireManualVerification();
@@ -758,29 +751,18 @@ async function run() {
       autoLoginAttempts = 0;
       await processPriorityTasks(page);
       if (Date.now() < hotErrorUntil) continue;
-      if (Date.now() - lastPriorityScanAt >= priorityScanIntervalMs) {
-        for (const offset of [0, 1]) {
-          const date = new Date(Date.now() + 9 * 3_600_000 + offset * 86_400_000).toISOString().slice(0, 10);
-          log("SALON BOARD priority date scan", date);
-          await scanExternalBookings(page, date);
-          if (await processPriorityTasks(page)) log("SALON BOARD priority scan paused for tasks", date);
-          await scanExternalClosedPeriods(page, date);
-        }
-        lastPriorityScanAt = Date.now();
-      }
-      if (Date.now() - lastScanAt < scanIntervalMs) {
+      const scanPlan = scanPlanner.next();
+      if (!scanPlan) {
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
       }
-      lastScanAt = Date.now();
-      const scanPlan = scanPlanner.next();
       if (scanPlan.date.endsWith("-12-31") || scanPlan.date.endsWith("-01-01")) {
         log("SALON BOARD holiday scan skipped", scanPlan.date);
         scanPlanner.complete(scanPlan);
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
       }
-      log("SALON BOARD incremental scan", JSON.stringify(scanPlan));
+      log("SALON BOARD tiered scan", JSON.stringify(scanPlan));
       await scanExternalBookings(page, scanPlan.date);
       // A scan can take long enough for a move/repair task to arrive. Pause the
       // scan between page operations, finish every queued repair, then resume.

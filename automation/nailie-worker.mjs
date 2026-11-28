@@ -13,7 +13,7 @@ import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { awaitTaskCompletion } from "./task-guard.mjs";
 import { isExpiredCapacityTask } from "../lib/syncTaskExpiry.js";
-import { cancelledAfterCompleteSweep, currentLoginCredentials, dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
+import { cancelledAfterCompleteSweep, createTieredScanPlanner, currentLoginCredentials, dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
 
 const url = process.env.NAILIE_SCHEDULE_URL || `https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${dateKey()}&showBooking=true`;
 const profileDir = process.env.NAILIE_PROFILE_DIR || path.resolve(".nailie-profile");
@@ -451,7 +451,8 @@ async function run() {
   if (!context) throw new Error("Nailie Chrome CDP không có browser context");
   let page = context.pages().find((item) => !item.isClosed() && item.url().includes("salon.nailie.jp")) || await context.newPage();
   await navigateWithRetry(page);
-  log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} scanDays=31 continuous=true`);
+  log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} today=3min week=10min month=distributed`);
+  const scanPlanner = createTieredScanPlanner();
 
   for (;;) {
     try {
@@ -472,39 +473,38 @@ async function run() {
       loginAlertSent = false;
       autoLoginAttempts = 0;
       await processPriorityTasks(page);
-      // Scan the entire booking horizon on every pass. The previous single-day
-      // rotation left a new booking or cancellation unseen for up to 31 minutes.
-      // Read-only observation also continues overnight; priority write tasks
-      // are checked between dates so a long sweep cannot hold them up.
-      const today = Date.now();
+      const scanPlan = scanPlanner.next();
+      if (!scanPlan) {
+        await new Promise((resolve) => setTimeout(resolve, pollMs));
+        continue;
+      }
       const scannedDates = new Map();
-      let scanFailed = false;
-      for (let offset = 0; offset < 31; offset += 1) {
-        if (await isLoginPage(page)) { scanFailed = true; break; }
-        const scanDate = dateKey(new Date(today + offset * 86_400_000));
-        try {
-          const observation = await scanExternalBookings(page, scanDate);
-          scannedDates.set(scanDate, observation);
-        } catch (error) {
-          scanFailed = true;
-          log("Nailie date scan failed", `${scanDate} ${error.message}`);
-          if (page.isClosed()) break;
-        }
-        if (offset % 5 === 4 || offset === 30) await processPriorityTasks(page);
-      }
-      // A move between days must be ingested at its destination before the
-      // source-day disappearance is considered a cancellation.
-      if (!scanFailed) {
-        for (const externalBookingId of cancelledAfterCompleteSweep(scannedDates)) await ingestExternalBooking({ provider: "nailie", externalBookingId, action: "cancel" });
-        let observations = {};
-        try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
-        for (const [date, observation] of scannedDates) observations[date] = observation.activeIds;
-        await fs.mkdir(path.dirname(observationFile), { recursive: true });
-        await fs.writeFile(observationFile, JSON.stringify(observations, null, 2), "utf8");
-        for (const [date, observation] of scannedDates) {
-          if (observation.fingerprint) observedFingerprints.set(date, observation.fingerprint);
+      await waitBeforeOperation();
+      const observation = await scanExternalBookings(page, scanPlan.date);
+      scannedDates.set(scanPlan.date, observation);
+      // A reservation missing from one date may have moved to another. Only
+      // this exceptional case triggers a full, spaced verification sweep.
+      if (observation.removedIds.length) {
+        log("Nailie booking disappeared; verifying destination before cancellation", scanPlan.date);
+        const today = Date.now();
+        for (let offset = 0; offset < 31; offset += 1) {
+          const date = dateKey(new Date(today + offset * 86_400_000));
+          if (scannedDates.has(date)) continue;
+          await waitBeforeOperation();
+          scannedDates.set(date, await scanExternalBookings(page, date));
+          if (offset % 5 === 4) await processPriorityTasks(page);
         }
       }
+      for (const externalBookingId of cancelledAfterCompleteSweep(scannedDates)) await ingestExternalBooking({ provider: "nailie", externalBookingId, action: "cancel" });
+      let observations = {};
+      try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
+      for (const [date, result] of scannedDates) observations[date] = result.activeIds;
+      await fs.mkdir(path.dirname(observationFile), { recursive: true });
+      await fs.writeFile(observationFile, JSON.stringify(observations, null, 2), "utf8");
+      for (const [date, result] of scannedDates) {
+        if (result.fingerprint) observedFingerprints.set(date, result.fingerprint);
+      }
+      scanPlanner.complete(scanPlan);
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));
     }

@@ -34,6 +34,25 @@ export function cancelledAfterCompleteSweep(scannedDates) {
   return [...removed].filter((id) => !active.has(id));
 }
 
+// One date per poll keeps navigation spaced out. The next seven dates are
+// staggered through each ten-minute window; later dates are spread over a day.
+export function createTieredScanPlanner({ now = Date.now(), horizonDays = 31 } = {}) {
+  const intervals = Array.from({ length: horizonDays }, (_, offset) => offset === 0 ? 3 * 60_000 : offset <= 7 ? 10 * 60_000 : 24 * 60 * 60_000);
+  const distantDays = Math.max(1, horizonDays - 8);
+  const due = intervals.map((_, offset) => now + (offset === 0 ? 0 : offset <= 7 ? (offset - 1) * 10 * 60_000 / 7 : (offset - 8) * 24 * 60 * 60_000 / distantDays));
+  return {
+    next(at = Date.now()) {
+      const offset = due.findIndex((time) => time <= at);
+      if (offset < 0) return null;
+      const date = new Date(at + 9 * 3_600_000 + offset * 86_400_000).toISOString().slice(0, 10);
+      return { date, offset };
+    },
+    complete(plan, at = Date.now()) {
+      due[plan.offset] = at + intervals[plan.offset];
+    },
+  };
+}
+
 
 // Interleave nearby dates with one distant date every interval; never catch up
 // missed intervals in a burst after sleep or a long-running sync task.
