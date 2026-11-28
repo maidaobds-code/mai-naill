@@ -455,7 +455,6 @@ async function run() {
   await navigateWithRetry(scanPage);
   log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} today=3min week=10min month=distributed`);
   const scanPlanner = createTieredScanPlanner();
-  let taskRun = null;
 
   for (;;) {
     try {
@@ -480,13 +479,9 @@ async function run() {
       }
       loginAlertSent = false;
       autoLoginAttempts = 0;
-      if (!taskRun) {
-        if (await isLoginPage(page) && !await navigateWithRetry(page)) throw new Error("Nailie task tab is not signed in");
-        const taskPage = page;
-        taskRun = processPriorityTasks(taskPage)
-          .catch((error) => log("Nailie priority tasks failed", error?.message || String(error)))
-          .finally(() => { taskRun = null; });
-      }
+      if (await isLoginPage(page) && !await navigateWithRetry(page)) throw new Error("Nailie task tab is not signed in");
+      const handledTasks = await processPriorityTasks(page);
+      if (handledTasks) log("Nailie scan resumed after priority tasks", String(handledTasks));
       const scanPlan = scanPlanner.next();
       if (!scanPlan) {
         await new Promise((resolve) => setTimeout(resolve, pollMs));
@@ -504,6 +499,8 @@ async function run() {
         for (let offset = 0; offset < 31; offset += 1) {
           const date = dateKey(new Date(today + offset * 86_400_000));
           if (scannedDates.has(date)) continue;
+          const interrupted = await processPriorityTasks(page);
+          if (interrupted) log("Nailie verification scan paused for priority tasks", date);
           await waitBeforeOperation();
           scannedDates.set(date, await scanExternalBookings(scanPage, date));
         }
