@@ -41,4 +41,6 @@ for (let i = 0; i < 5; i++) {
 const source = fs.readFileSync('automation/salonboard-worker.mjs', 'utf8');
 assert.ok(source.indexOf('const tasks = await fetchSyncTasks()') < source.indexOf('const scanPlan = scanPlanner.next()'), 'booking sync tasks must run before background scans');
 assert.doesNotMatch(source, /fullSweepDue|lastFullSweepDate|END_OF_DAY/);
+assert.match(source, /SALON BOARD priority date scan/);
+assert.match(source, /SALONBOARD_SCAN_INTERVAL_MS \|\| 60_000/);
 console.log('PASS distributed coverage of all 93 dates, spacing, retries, no wake-up burst, Japan midnight, and sync-task priority');

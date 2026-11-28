@@ -24,6 +24,16 @@ export async function currentLoginCredentials(platform, fallback = {}) {
   } catch { return fallback; }
 }
 
+export function cancelledAfterCompleteSweep(scannedDates) {
+  const active = new Set();
+  const removed = new Set();
+  for (const observation of scannedDates.values()) {
+    for (const id of observation.activeIds || []) active.add(String(id));
+    for (const id of observation.removedIds || []) removed.add(String(id));
+  }
+  return [...removed].filter((id) => !active.has(id));
+}
+
 
 // Interleave nearby dates with one distant date every interval; never catch up
 // missed intervals in a burst after sleep or a long-running sync task.

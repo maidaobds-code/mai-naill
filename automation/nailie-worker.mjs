@@ -13,7 +13,7 @@ import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { awaitTaskCompletion } from "./task-guard.mjs";
 import { isExpiredCapacityTask } from "../lib/syncTaskExpiry.js";
-import { currentLoginCredentials, dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
+import { cancelledAfterCompleteSweep, currentLoginCredentials, dateKey, waitBeforeOperation as waitWithOperationDelay } from "./worker-utils.mjs";
 
 const url = process.env.NAILIE_SCHEDULE_URL || `https://salon.nailie.jp/mysalon/staff-schedule?page=1&date=${dateKey()}&showBooking=true`;
 const profileDir = process.env.NAILIE_PROFILE_DIR || path.resolve(".nailie-profile");
@@ -28,21 +28,11 @@ const syncSecret = process.env.BOOKING_SYNC_SECRET || "";
 const loginUsername = String(process.env.NAILIE_USERNAME || process.env.NAILIE_LOGIN_ID || "").trim();
 const loginPassword = String(process.env.NAILIE_PASSWORD || "");
 const maxAutoLoginAttempts = Math.max(1, Number(process.env.NAILIE_MAX_AUTO_LOGIN_ATTEMPTS || 2));
-const quietStartHour = 2;
-const quietEndHour = 8;
 const taskTimeoutMs = Math.max(30_000, Number(process.env.NAILIE_TASK_TIMEOUT_MS || 90_000));
 const observedFingerprints = new Map();
 let loginAlertSent = false;
 let autoLoginAttempts = 0;
 
-function japanHour() {
-  return Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
-}
-
-function isQuietHours() {
-  const hour = japanHour();
-  return hour >= quietStartHour && hour < quietEndHour;
-}
 async function alertAdmin(reason) {
   if (loginAlertSent) return;
   loginAlertSent = true;
@@ -320,7 +310,12 @@ async function scanExternalBookings(page, date) {
   const fingerprint = JSON.stringify(records.map((record) => ({ id: record.id, status: record.status, start: record.startTime, end: record.endTime, updated: record.updatedAt, orders: record.orders?.map((item) => [item?.staff?.id, item?.serviceName]) })).sort((a, b) => String(a.id).localeCompare(String(b.id))));
   if (observedFingerprints.get(date) === fingerprint) {
     log("Nailie schedule unchanged; skipping sync", date);
-    return;
+    try {
+      const observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {};
+      return { activeIds: observations[date] || [], removedIds: [] };
+    } catch {
+      // Reconcile again if the persisted observation was lost.
+    }
   }
   let observations = {};
   try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
@@ -347,14 +342,9 @@ async function scanExternalBookings(page, date) {
     imported += 1;
   }
   const previousIds = Array.isArray(observations[date]) ? observations[date] : null;
-  if (previousIds) {
-    for (const externalBookingId of previousIds.filter((id) => !activeIds.includes(id))) await ingestExternalBooking({ provider: "nailie", externalBookingId, action: "cancel" });
-  }
-  observations[date] = activeIds;
-  await fs.mkdir(path.dirname(observationFile), { recursive: true });
-  await fs.writeFile(observationFile, JSON.stringify(observations, null, 2), "utf8");
-  observedFingerprints.set(date, fingerprint);
+  const removedIds = previousIds ? previousIds.filter((id) => !activeIds.includes(id)) : [];
   log("Nailie external bookings scanned", JSON.stringify({ date, found: records.length, imported }));
+  return { activeIds, removedIds, fingerprint };
 }
 
 async function applyExactSlotTask(page, task) {
@@ -455,9 +445,8 @@ async function run() {
   if (!context) throw new Error("Nailie Chrome CDP không có browser context");
   const page = context.pages().find((item) => item.url().includes("salon.nailie.jp")) || context.pages()[0] || await context.newPage();
   await navigateWithRetry(page);
-  log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} quietHours=02:00-08:00 Asia/Tokyo`);
+  log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} scanDays=31 continuous=true`);
 
-  let scanOffset = 0;
   for (;;) {
     try {
       if (await isLoginPage(page)) {
@@ -469,17 +458,40 @@ async function run() {
         await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 60_000)));
         continue;
       }
-      if (isQuietHours()) {
-        log("Nailie quiet hours; browser and worker kept alive");
-        await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, 5 * 60_000)));
-      } else {
-        loginAlertSent = false;
-        autoLoginAttempts = 0;
-        await processPriorityTasks(page);
-        const scanDate = dateKey(new Date(Date.now() + scanOffset * 86_400_000));
-        await scanExternalBookings(page, scanDate);
-        if (await processPriorityTasks(page)) log("Nailie scan paused for priority tasks; resuming same date", scanDate);
-        scanOffset = (scanOffset + 1) % 31;
+      loginAlertSent = false;
+      autoLoginAttempts = 0;
+      await processPriorityTasks(page);
+      // Scan the entire booking horizon on every pass. The previous single-day
+      // rotation left a new booking or cancellation unseen for up to 31 minutes.
+      // Read-only observation also continues overnight; priority write tasks
+      // are checked between dates so a long sweep cannot hold them up.
+      const today = Date.now();
+      const scannedDates = new Map();
+      let scanFailed = false;
+      for (let offset = 0; offset < 31; offset += 1) {
+        if (await isLoginPage(page)) { scanFailed = true; break; }
+        const scanDate = dateKey(new Date(today + offset * 86_400_000));
+        try {
+          const observation = await scanExternalBookings(page, scanDate);
+          scannedDates.set(scanDate, observation);
+        } catch (error) {
+          scanFailed = true;
+          log("Nailie date scan failed", `${scanDate} ${error.message}`);
+        }
+        if (offset % 5 === 4 || offset === 30) await processPriorityTasks(page);
+      }
+      // A move between days must be ingested at its destination before the
+      // source-day disappearance is considered a cancellation.
+      if (!scanFailed) {
+        for (const externalBookingId of cancelledAfterCompleteSweep(scannedDates)) await ingestExternalBooking({ provider: "nailie", externalBookingId, action: "cancel" });
+        let observations = {};
+        try { observations = JSON.parse(await fs.readFile(observationFile, "utf8")) || {}; } catch {}
+        for (const [date, observation] of scannedDates) observations[date] = observation.activeIds;
+        await fs.mkdir(path.dirname(observationFile), { recursive: true });
+        await fs.writeFile(observationFile, JSON.stringify(observations, null, 2), "utf8");
+        for (const [date, observation] of scannedDates) {
+          if (observation.fingerprint) observedFingerprints.set(date, observation.fingerprint);
+        }
       }
     } catch (error) {
       log("worker error", error?.stack || error?.message || String(error));

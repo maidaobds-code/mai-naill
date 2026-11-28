@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { acknowledgeProviderSync, bookingSlotKey, ingestExternalBooking } from "../../lib/bookingSync.js";
 import { autoAssignBooking } from "../../lib/autoAssignment.js";
+import { cancelledAfterCompleteSweep } from "../../automation/worker-utils.mjs";
+
+assert.deepEqual(cancelledAfterCompleteSweep(new Map([
+  ["2026-11-28", { activeIds: [], removedIds: ["moved", "cancelled"] }],
+  ["2026-11-29", { activeIds: ["moved", "unchanged"], removedIds: [] }],
+])), ["cancelled"]);
 
 const nailie = ingestExternalBooking([], {
   provider: "nailie",

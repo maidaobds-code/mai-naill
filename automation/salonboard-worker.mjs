@@ -22,7 +22,8 @@ const scheduleUrl = "https://salonboard.com/KLP/schedule/salonSchedule/";
 const profileDir = process.env.SALONBOARD_PROFILE_DIR || path.resolve(".salonboard-profile");
 const debugPort = Number(process.env.SALONBOARD_DEBUG_PORT || 9229);
 const pollMs = Math.max(30_000, Number(process.env.SALONBOARD_POLL_MS || 60_000));
-const scanIntervalMs = Math.max(5 * 60_000, Number(process.env.SALONBOARD_SCAN_INTERVAL_MS || 5 * 60_000));
+const scanIntervalMs = Math.max(60_000, Number(process.env.SALONBOARD_SCAN_INTERVAL_MS || 60_000));
+const priorityScanIntervalMs = Math.max(2 * 60_000, Number(process.env.SALONBOARD_PRIORITY_SCAN_INTERVAL_MS || 5 * 60_000));
 // SALON BOARD can expire an otherwise valid browser session after a period of
 // inactivity. Keep the same visible session active, including during quiet
 // hours, without opening a second browser or attempting to bypass login/CAPTCHA.
@@ -699,6 +700,7 @@ async function run() {
 
   const scanPlanner = createScheduleScanPlanner({ nearDays: daytimeScanDays, horizonDays: scanHorizonDays, distantIntervalMs: distantScanIntervalMs });
   let lastScanAt = 0;
+  let lastPriorityScanAt = 0;
   for (;;) {
     try {
       if (await isHumanVerificationPage(page)) await requireManualVerification();
@@ -756,6 +758,16 @@ async function run() {
       autoLoginAttempts = 0;
       await processPriorityTasks(page);
       if (Date.now() < hotErrorUntil) continue;
+      if (Date.now() - lastPriorityScanAt >= priorityScanIntervalMs) {
+        for (const offset of [0, 1]) {
+          const date = new Date(Date.now() + 9 * 3_600_000 + offset * 86_400_000).toISOString().slice(0, 10);
+          log("SALON BOARD priority date scan", date);
+          await scanExternalBookings(page, date);
+          if (await processPriorityTasks(page)) log("SALON BOARD priority scan paused for tasks", date);
+          await scanExternalClosedPeriods(page, date);
+        }
+        lastPriorityScanAt = Date.now();
+      }
       if (Date.now() - lastScanAt < scanIntervalMs) {
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         continue;
