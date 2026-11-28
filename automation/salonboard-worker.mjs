@@ -830,6 +830,12 @@ run().catch((error) => {
 });
 
 async function launchChrome() {
+  try {
+    if ((await fetch(`http://127.0.0.1:${debugPort}/json/version`, { signal: AbortSignal.timeout(2000) })).ok) {
+      log("SALON BOARD Chrome already running; reusing browser profile");
+      return null;
+    }
+  } catch {}
   const candidates = [
     process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, "Google", "Chrome", "Application", "chrome.exe"),
     process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"),

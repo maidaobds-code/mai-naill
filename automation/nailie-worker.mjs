@@ -398,6 +398,12 @@ async function applyExactSlotTask(page, task) {
 }
 
 async function launchChrome() {
+  try {
+    if ((await fetch(`http://127.0.0.1:${debugPort}/json/version`, { signal: AbortSignal.timeout(2000) })).ok) {
+      log("Nailie Chrome already running; reusing browser profile");
+      return null;
+    }
+  } catch {}
   const bundledRoot = process.env.PLAYWRIGHT_BROWSERS_PATH || "";
   const candidates = [
     bundledRoot && path.join(bundledRoot, "chromium-1248", "chrome-win64", "chrome.exe"),
@@ -443,12 +449,17 @@ async function run() {
   const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
   const context = browser.contexts()[0];
   if (!context) throw new Error("Nailie Chrome CDP không có browser context");
-  const page = context.pages().find((item) => item.url().includes("salon.nailie.jp")) || context.pages()[0] || await context.newPage();
+  let page = context.pages().find((item) => !item.isClosed() && item.url().includes("salon.nailie.jp")) || await context.newPage();
   await navigateWithRetry(page);
   log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} scanDays=31 continuous=true`);
 
   for (;;) {
     try {
+      if (page.isClosed()) {
+        page = context.pages().find((item) => !item.isClosed() && item.url().includes("salon.nailie.jp")) || await context.newPage();
+        if (!await navigateWithRetry(page)) throw new Error("Nailie browser tab could not be restored");
+        log("Nailie browser tab restored");
+      }
       if (await isLoginPage(page)) {
         const recovered = await tryAutoLogin(page);
         if (!recovered) {
@@ -477,6 +488,7 @@ async function run() {
         } catch (error) {
           scanFailed = true;
           log("Nailie date scan failed", `${scanDate} ${error.message}`);
+          if (page.isClosed()) break;
         }
         if (offset % 5 === 4 || offset === 30) await processPriorityTasks(page);
       }
