@@ -189,7 +189,7 @@ async function acknowledgeTask(task, status, error = "") {
 
 async function processPriorityTasks(page) {
   const tasks = await fetchSyncTasks();
-  for (const task of tasks) {
+  for (const task of tasks.slice(0, 2)) {
     try {
       if (isExpiredCapacityTask(task, task.booking)) {
         log("Nailie capacity task skipped; slot has already ended", JSON.stringify({ taskId: task.taskId, date: task.match?.date || task.booking?.date, end: task.match?.end || task.booking?.end }));
@@ -451,18 +451,26 @@ async function run() {
   if (!context) throw new Error("Nailie Chrome CDP không có browser context");
   let page = context.pages().find((item) => !item.isClosed() && item.url().includes("salon.nailie.jp")) || await context.newPage();
   await navigateWithRetry(page);
+  let scanPage = await context.newPage();
+  await navigateWithRetry(scanPage);
   log("Nailie worker started", `dryRun=${dryRun} pollMs=${pollMs} today=3min week=10min month=distributed`);
   const scanPlanner = createTieredScanPlanner();
+  let taskRun = null;
 
   for (;;) {
     try {
       if (page.isClosed()) {
-        page = context.pages().find((item) => !item.isClosed() && item.url().includes("salon.nailie.jp")) || await context.newPage();
+        page = await context.newPage();
         if (!await navigateWithRetry(page)) throw new Error("Nailie browser tab could not be restored");
         log("Nailie browser tab restored");
       }
-      if (await isLoginPage(page)) {
-        const recovered = await tryAutoLogin(page);
+      if (scanPage.isClosed()) {
+        scanPage = await context.newPage();
+        if (!await navigateWithRetry(scanPage)) throw new Error("Nailie scan tab could not be restored");
+        log("Nailie scan tab restored");
+      }
+      if (await isLoginPage(scanPage)) {
+        const recovered = await tryAutoLogin(scanPage);
         if (!recovered) {
           log("LOGIN_REQUIRED: sign in to Nailie in the visible browser");
           if (autoLoginAttempts >= maxAutoLoginAttempts) await alertAdmin("Nailie không tự đăng nhập được sau 2 lần thử; hãy kiểm tra Chrome của bot");
@@ -472,7 +480,13 @@ async function run() {
       }
       loginAlertSent = false;
       autoLoginAttempts = 0;
-      await processPriorityTasks(page);
+      if (!taskRun) {
+        if (await isLoginPage(page) && !await navigateWithRetry(page)) throw new Error("Nailie task tab is not signed in");
+        const taskPage = page;
+        taskRun = processPriorityTasks(taskPage)
+          .catch((error) => log("Nailie priority tasks failed", error?.message || String(error)))
+          .finally(() => { taskRun = null; });
+      }
       const scanPlan = scanPlanner.next();
       if (!scanPlan) {
         await new Promise((resolve) => setTimeout(resolve, pollMs));
@@ -480,7 +494,7 @@ async function run() {
       }
       const scannedDates = new Map();
       await waitBeforeOperation();
-      const observation = await scanExternalBookings(page, scanPlan.date);
+      const observation = await scanExternalBookings(scanPage, scanPlan.date);
       scannedDates.set(scanPlan.date, observation);
       // A reservation missing from one date may have moved to another. Only
       // this exceptional case triggers a full, spaced verification sweep.
@@ -491,8 +505,7 @@ async function run() {
           const date = dateKey(new Date(today + offset * 86_400_000));
           if (scannedDates.has(date)) continue;
           await waitBeforeOperation();
-          scannedDates.set(date, await scanExternalBookings(page, date));
-          if (offset % 5 === 4) await processPriorityTasks(page);
+          scannedDates.set(date, await scanExternalBookings(scanPage, date));
         }
       }
       for (const externalBookingId of cancelledAfterCompleteSweep(scannedDates)) await ingestExternalBooking({ provider: "nailie", externalBookingId, action: "cancel" });

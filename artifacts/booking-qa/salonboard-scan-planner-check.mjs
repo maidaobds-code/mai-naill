@@ -28,5 +28,8 @@ const hot = fs.readFileSync('automation/salonboard-worker.mjs', 'utf8');
 const nailie = fs.readFileSync('automation/nailie-worker.mjs', 'utf8');
 assert.match(hot, /createTieredScanPlanner/);
 assert.match(nailie, /createTieredScanPlanner/);
+assert.match(nailie, /scanPage = await context\.newPage\(\)/);
+assert.match(nailie, /taskRun = processPriorityTasks\(taskPage\)/);
+assert.match(nailie, /scanExternalBookings\(scanPage, scanPlan\.date\)/);
 assert.match(nailie, /await waitBeforeOperation\(\);\s+const observation = await scanExternalBookings/);
 console.log('PASS today every 3 minutes, week every 10 minutes, month distributed, Japan dates, spaced Nailie reads');

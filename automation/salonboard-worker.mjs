@@ -302,7 +302,7 @@ async function acknowledgeTask(task, status, error = "", externalBookingId = "")
 async function processPriorityTasks(page) {
   const tasks = await fetchSyncTasks();
   const blockedBookingIds = new Set();
-  for (const task of tasks) {
+  for (const task of tasks.slice(0, 2)) {
     if (blockedBookingIds.has(String(task.booking?.id))) continue;
     if (task.action === "block" && task.booking?.date && task.booking?.end) {
       const nowJapan = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Tokyo", hour12: false, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date()).replace(" ", "T");
